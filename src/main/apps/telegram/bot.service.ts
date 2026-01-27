@@ -4,6 +4,7 @@ import { telegramStorage } from './storage'
 import { loadProxyConfig, buildProxyUrl } from '../../config/proxy.config'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
+import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
 import type { StoredTelegramMessage, TelegramMessage } from './types'
@@ -21,6 +22,7 @@ export class TelegramBotService {
   private pollingActive = false
   private lastUpdateId = 0
   private pollingCount = 0
+  private currentChatId: number | null = null // Track current chat for tool calls
 
   /**
    * Connect to Telegram
@@ -159,15 +161,102 @@ export class TelegramBotService {
     console.log('[Telegram] ========== MESSAGE RECEIVED ==========')
     console.log('[Telegram] Message ID:', msg.message_id)
     console.log('[Telegram] From:', msg.from?.first_name, `(@${msg.from?.username})`)
+    console.log('[Telegram] User ID:', msg.from?.id)
     console.log('[Telegram] Text:', msg.text)
     console.log('[Telegram] ======================================')
 
     try {
+      // Check if this is a /bind command
+      if (msg.text?.startsWith('/bind')) {
+        await this.handleBindCommand(msg)
+        return
+      }
+
+      // Check if user is authorized
+      const userId = msg.from?.id
+      if (!userId) {
+        console.log('[Telegram] No user ID, ignoring message')
+        return
+      }
+
+      const isAuthorized = await securityService.isAuthorized(userId)
+      if (!isAuthorized) {
+        console.log(`[Telegram] Unauthorized user ${userId}, sending error message`)
+        await this.sendUnauthorizedMessage(msg.chat.id)
+        return
+      }
+
       await this.handleIncomingMessage(msg)
-      console.log('[Telegram] Message stored successfully')
+      console.log('[Telegram] Message processed successfully')
     } catch (error) {
       console.error('[Telegram] Error handling message:', error)
     }
+  }
+
+  /**
+   * Handle /bind command
+   */
+  private async handleBindCommand(msg: TelegramMessage): Promise<void> {
+    const userId = msg.from?.id
+    const username = msg.from?.username || 'unknown'
+    const firstName = msg.from?.first_name
+    const lastName = msg.from?.last_name
+    const chatId = msg.chat.id
+
+    if (!userId) {
+      await this.bot?.sendMessage(chatId, '❌ Unable to identify your account.')
+      return
+    }
+
+    // Check if already bound
+    const isAlreadyBound = await securityService.isAuthorized(userId)
+    if (isAlreadyBound) {
+      await this.bot?.sendMessage(chatId, '✅ Your account is already bound to this device.')
+      return
+    }
+
+    // Extract security code from command
+    const parts = msg.text?.split(' ')
+    if (!parts || parts.length < 2) {
+      await this.bot?.sendMessage(
+        chatId,
+        '🔐 Please provide a security code:\n\n' +
+          '`/bind <6-digit-code>`\n\n' +
+          'Get the code from the Local Memu app (Settings → Security).',
+        { parse_mode: 'Markdown' }
+      )
+      return
+    }
+
+    const code = parts[1].trim()
+
+    // Validate and bind
+    const result = await securityService.validateAndBind(code, userId, username, firstName, lastName)
+
+    if (result.success) {
+      console.log(`[Telegram] User ${username} (${userId}) successfully bound`)
+      await this.bot?.sendMessage(
+        chatId,
+        `✅ Success! Your account @${username} is now bound to this device.\n\n` +
+          'You can now send messages to interact with the AI assistant.'
+      )
+    } else {
+      console.log(`[Telegram] Bind failed for ${username}: ${result.error}`)
+      await this.bot?.sendMessage(chatId, `❌ ${result.error}`)
+    }
+  }
+
+  /**
+   * Send unauthorized message
+   */
+  private async sendUnauthorizedMessage(chatId: number): Promise<void> {
+    await this.bot?.sendMessage(
+      chatId,
+      '🔒 This bot is private.\n\n' +
+        'To use this bot, you need to bind your account first.\n' +
+        'Use `/bind <security-code>` with a code from the Local Memu app.',
+      { parse_mode: 'Markdown' }
+    )
   }
 
   /**
@@ -242,6 +331,9 @@ export class TelegramBotService {
   private async processWithAgentAndReply(chatId: number, userMessage: string): Promise<void> {
     console.log('[Telegram] Sending to Agent:', userMessage)
 
+    // Set current chat ID for tool calls
+    this.currentChatId = chatId
+
     try {
       // Get response from Agent
       const response = await agentService.processMessage(userMessage)
@@ -309,6 +401,263 @@ export class TelegramBotService {
       timestamp: new Date(msg.date * 1000),
       isFromBot: msg.isFromBot,
       replyToId: msg.replyToMessageId?.toString()
+    }
+  }
+
+  /**
+   * Get current active chat ID
+   */
+  getCurrentChatId(): number | null {
+    return this.currentChatId
+  }
+
+  /**
+   * Get bot instance for direct operations
+   */
+  getBot(): TelegramBot | null {
+    return this.bot
+  }
+
+  // ========== Public Media Sending Methods ==========
+
+  /**
+   * Send a text message
+   */
+  async sendText(
+    chatId: number,
+    text: string,
+    options?: { parse_mode?: 'Markdown' | 'HTML'; reply_to_message_id?: number }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const msg = await this.bot.sendMessage(chatId, text, options)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a photo
+   */
+  async sendPhoto(
+    chatId: number,
+    photo: string | Buffer,
+    options?: { caption?: string; parse_mode?: 'Markdown' | 'HTML'; filename?: string }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const sendOptions: TelegramBot.SendPhotoOptions = {}
+      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.parse_mode) sendOptions.parse_mode = options.parse_mode
+      const fileOptions: TelegramBot.FileOptions = {}
+      if (options?.filename) fileOptions.filename = options.filename
+      const msg = await this.bot.sendPhoto(chatId, photo, sendOptions, fileOptions)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a document/file
+   */
+  async sendDocument(
+    chatId: number,
+    document: string | Buffer,
+    options?: { caption?: string; filename?: string }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const sendOptions: TelegramBot.SendDocumentOptions = {}
+      if (options?.caption) sendOptions.caption = options.caption
+      const fileOptions: TelegramBot.FileOptions = {}
+      if (options?.filename) fileOptions.filename = options.filename
+      const msg = await this.bot.sendDocument(chatId, document, sendOptions, fileOptions)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a video
+   */
+  async sendVideo(
+    chatId: number,
+    video: string | Buffer,
+    options?: { caption?: string; duration?: number; width?: number; height?: number; filename?: string }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const sendOptions: TelegramBot.SendVideoOptions = {}
+      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.duration) sendOptions.duration = options.duration
+      if (options?.width) sendOptions.width = options.width
+      if (options?.height) sendOptions.height = options.height
+      const fileOptions: TelegramBot.FileOptions = {}
+      if (options?.filename) fileOptions.filename = options.filename
+      const msg = await this.bot.sendVideo(chatId, video, sendOptions, fileOptions)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send an audio file
+   */
+  async sendAudio(
+    chatId: number,
+    audio: string | Buffer,
+    options?: { caption?: string; duration?: number; performer?: string; title?: string; filename?: string }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const sendOptions: TelegramBot.SendAudioOptions = {}
+      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.duration) sendOptions.duration = options.duration
+      if (options?.performer) sendOptions.performer = options.performer
+      if (options?.title) sendOptions.title = options.title
+      const fileOptions: TelegramBot.FileOptions = {}
+      if (options?.filename) fileOptions.filename = options.filename
+      const msg = await this.bot.sendAudio(chatId, audio, sendOptions, fileOptions)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a voice message
+   */
+  async sendVoice(
+    chatId: number,
+    voice: string | Buffer,
+    options?: { caption?: string; duration?: number; filename?: string }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const sendOptions: TelegramBot.SendVoiceOptions = {}
+      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.duration) sendOptions.duration = options.duration
+      const fileOptions: TelegramBot.FileOptions = {}
+      if (options?.filename) fileOptions.filename = options.filename
+      const msg = await this.bot.sendVoice(chatId, voice, sendOptions, fileOptions)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a sticker
+   */
+  async sendSticker(
+    chatId: number,
+    sticker: string | Buffer,
+    options?: { filename?: string }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const sendOptions: TelegramBot.SendStickerOptions = {}
+      const fileOptions: TelegramBot.FileOptions = {}
+      if (options?.filename) fileOptions.filename = options.filename
+      const msg = await this.bot.sendSticker(chatId, sticker, sendOptions, fileOptions)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a location
+   */
+  async sendLocation(
+    chatId: number,
+    latitude: number,
+    longitude: number
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const msg = await this.bot.sendLocation(chatId, latitude, longitude)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a contact
+   */
+  async sendContact(
+    chatId: number,
+    phoneNumber: string,
+    firstName: string,
+    options?: { last_name?: string }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const msg = await this.bot.sendContact(chatId, phoneNumber, firstName, options)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a poll
+   */
+  async sendPoll(
+    chatId: number,
+    question: string,
+    pollOptions: string[],
+    options?: { is_anonymous?: boolean; allows_multiple_answers?: boolean }
+  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const msg = await this.bot.sendPoll(chatId, question, pollOptions, options)
+      return { success: true, messageId: msg.message_id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send chat action (typing, uploading, etc.)
+   */
+  async sendChatAction(
+    chatId: number,
+    action: 'typing' | 'upload_photo' | 'upload_video' | 'upload_voice' | 'upload_document' | 'find_location' | 'record_video' | 'record_voice' | 'record_video_note' | 'upload_video_note'
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.bot) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      await this.bot.sendChatAction(chatId, action)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
 }

@@ -47,6 +47,30 @@ const settingsApi = {
   save: (settings: unknown) => ipcRenderer.invoke('settings:save', settings)
 }
 
+// Tailscale API
+const tailscaleApi = {
+  getStatus: () => ipcRenderer.invoke('tailscale:get-status'),
+  connect: () => ipcRenderer.invoke('tailscale:connect'),
+  disconnect: () => ipcRenderer.invoke('tailscale:disconnect'),
+  login: () => ipcRenderer.invoke('tailscale:login'),
+  logout: () => ipcRenderer.invoke('tailscale:logout'),
+  ping: (target: string) => ipcRenderer.invoke('tailscale:ping', target),
+  // Event listener for status changes
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('tailscale:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('tailscale:status-changed')
+  }
+}
+
+// Security API
+const securityApi = {
+  generateCode: () => ipcRenderer.invoke('security:generate-code'),
+  getCodeInfo: () => ipcRenderer.invoke('security:get-code-info'),
+  getBoundUsers: () => ipcRenderer.invoke('security:get-bound-users'),
+  removeBoundUser: (userId: number) => ipcRenderer.invoke('security:remove-bound-user', userId),
+  clearBoundUsers: () => ipcRenderer.invoke('security:clear-bound-users')
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -56,6 +80,8 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('telegram', telegramApi)
     contextBridge.exposeInMainWorld('proxy', proxyApi)
     contextBridge.exposeInMainWorld('settings', settingsApi)
+    contextBridge.exposeInMainWorld('tailscale', tailscaleApi)
+    contextBridge.exposeInMainWorld('security', securityApi)
   } catch (error) {
     console.error(error)
   }
@@ -72,4 +98,8 @@ if (process.contextIsolated) {
   window.proxy = proxyApi
   // @ts-ignore (define in dts)
   window.settings = settingsApi
+  // @ts-ignore (define in dts)
+  window.tailscale = tailscaleApi
+  // @ts-ignore (define in dts)
+  window.security = securityApi
 }

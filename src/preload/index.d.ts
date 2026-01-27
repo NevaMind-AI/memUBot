@@ -105,6 +105,64 @@ interface SettingsApi {
   save: (settings: Partial<AppSettings>) => Promise<IpcResponse>
 }
 
+// Tailscale peer type
+interface TailscalePeer {
+  id: string
+  hostname: string
+  ipAddress: string
+  online: boolean
+  os?: string
+  lastSeen?: string
+}
+
+// Tailscale status type
+interface TailscaleStatus {
+  installed: boolean
+  running: boolean
+  loggedIn: boolean
+  ipAddress?: string
+  hostname?: string
+  tailnetName?: string
+  peers?: TailscalePeer[]
+  error?: string
+}
+
+// Tailscale API interface
+interface TailscaleApi {
+  getStatus: () => Promise<IpcResponse<TailscaleStatus>>
+  connect: () => Promise<{ success: boolean; error?: string }>
+  disconnect: () => Promise<{ success: boolean; error?: string }>
+  login: () => Promise<{ success: boolean; error?: string }>
+  logout: () => Promise<{ success: boolean; error?: string }>
+  ping: (target: string) => Promise<{ success: boolean; latency?: number; error?: string }>
+  onStatusChanged: (callback: (status: TailscaleStatus) => void) => () => void
+}
+
+// Bound user type
+interface BoundUser {
+  userId: number
+  username: string
+  firstName?: string
+  lastName?: string
+  boundAt: number
+}
+
+// Security code info type
+interface SecurityCodeInfo {
+  active: boolean
+  expiresAt?: number
+  remainingSeconds?: number
+}
+
+// Security API interface
+interface SecurityApi {
+  generateCode: () => Promise<IpcResponse<{ code: string }>>
+  getCodeInfo: () => Promise<IpcResponse<SecurityCodeInfo>>
+  getBoundUsers: () => Promise<IpcResponse<BoundUser[]>>
+  removeBoundUser: (userId: number) => Promise<IpcResponse<{ removed: boolean }>>
+  clearBoundUsers: () => Promise<IpcResponse>
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -113,5 +171,7 @@ declare global {
     telegram: TelegramApi
     proxy: ProxyApi
     settings: SettingsApi
+    tailscale: TailscaleApi
+    security: SecurityApi
   }
 }

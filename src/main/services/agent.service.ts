@@ -3,7 +3,9 @@ import { SocksProxyAgent } from 'socks-proxy-agent'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import fetch from 'node-fetch'
 import { computerUseTools } from '../tools/computer.definitions'
+import { telegramTools } from '../tools/telegram.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool } from '../tools/computer.executor'
+import { executeTelegramTool } from '../tools/telegram.executor'
 import { loadProxyConfig, buildProxyUrl } from '../config/proxy.config'
 import { loadSettings } from '../config/settings.config'
 import type { ConversationMessage, AgentResponse } from '../types'
@@ -14,6 +16,11 @@ You have access to:
 1. **Computer control** - Take screenshots, move mouse, click, type, press keys, scroll
 2. **Bash/Terminal** - Execute any shell commands
 3. **Text editor** - View and edit files with precision
+4. **Telegram messaging** - Send various types of content to the user via Telegram:
+   - Text messages (with Markdown/HTML formatting)
+   - Photos, videos, audio files, voice messages
+   - Documents/files of any type
+   - Locations, contacts, polls, stickers
 
 Guidelines:
 - Always take a screenshot first to understand the current state of the screen
@@ -21,6 +28,7 @@ Guidelines:
 - For clicking UI elements, take a screenshot first to locate them
 - Use bash for command-line tasks, file operations, git, npm, etc.
 - Use the text editor for viewing and editing code files
+- Use Telegram tools to send rich content (images, files, etc.) to the user
 - Explain what you're doing and why
 - Ask for confirmation before destructive operations
 
@@ -29,6 +37,7 @@ You are an expert assistant that can help with:
 - System administration
 - File management
 - Web browsing and automation
+- Sharing files and media via Telegram
 - Any computer task the user needs help with`
 
 /**
@@ -142,12 +151,12 @@ export class AgentService {
       iterations++
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
 
-      // Call Claude API with computer use tools
+      // Call Claude API with computer use and telegram tools
       const response = await client.messages.create({
         model,
         max_tokens: maxTokens,
         system: systemPrompt,
-        tools: computerUseTools,
+        tools: [...computerUseTools, ...telegramTools],
         messages: this.conversationHistory
       })
 
@@ -261,6 +270,7 @@ export class AgentService {
     name: string,
     input: unknown
   ): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    // Computer use tools
     switch (name) {
       case 'computer':
         return await executeComputerTool(input as Parameters<typeof executeComputerTool>[0])
@@ -270,10 +280,14 @@ export class AgentService {
 
       case 'str_replace_editor':
         return await executeTextEditorTool(input as Parameters<typeof executeTextEditorTool>[0])
-
-      default:
-        return { success: false, error: `Unknown tool: ${name}` }
     }
+
+    // Telegram tools
+    if (name.startsWith('telegram_')) {
+      return await executeTelegramTool(name, input)
+    }
+
+    return { success: false, error: `Unknown tool: ${name}` }
   }
 
   /**

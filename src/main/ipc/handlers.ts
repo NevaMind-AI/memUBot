@@ -4,6 +4,8 @@ import { fileService } from '../services/file.service'
 import { setupTelegramHandlers } from './telegram.handlers'
 import { setupProxyHandlers } from './proxy.handlers'
 import { setupSettingsHandlers } from './settings.handlers'
+import { setupTailscaleHandlers } from './tailscale.handlers'
+import { setupSecurityHandlers } from './security.handlers'
 import type { IpcResponse, FileInfo } from '../types'
 
 /**
@@ -15,6 +17,8 @@ export function setupIpcHandlers(): void {
   setupTelegramHandlers()
   setupProxyHandlers()
   setupSettingsHandlers()
+  setupTailscaleHandlers()
+  setupSecurityHandlers()
 }
 
 /**

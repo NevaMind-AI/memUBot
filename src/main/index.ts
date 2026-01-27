@@ -2,8 +2,11 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { setupIpcHandlers } from './ipc/handlers'
+import { startTailscaleStatusPolling } from './ipc/tailscale.handlers'
 
-function createWindow(): void {
+let stopTailscalePolling: (() => void) | null = null
+
+function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
     width: 680,
     height: 800,
@@ -32,6 +35,8 @@ function createWindow(): void {
   } else {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
+
+  return mainWindow
 }
 
 // Initialize app
@@ -48,11 +53,19 @@ app.whenReady().then(() => {
   setupIpcHandlers()
 
   // Create main window
-  createWindow()
+  const mainWindow = createWindow()
+
+  // Start Tailscale status polling
+  stopTailscalePolling = startTailscaleStatusPolling(mainWindow)
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      const newWindow = createWindow()
+      // Restart Tailscale polling for new window
+      if (stopTailscalePolling) {
+        stopTailscalePolling()
+      }
+      stopTailscalePolling = startTailscaleStatusPolling(newWindow)
     }
   })
 })

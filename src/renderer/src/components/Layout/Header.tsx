@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
-import { Power, Loader2, Circle } from 'lucide-react'
+import { Power, Loader2, Circle, Users } from 'lucide-react'
 import { toast } from '../Toast'
+import { BoundUsersModal } from '../Telegram/BoundUsersModal'
 
 interface HeaderProps {
   title: string
@@ -18,6 +19,7 @@ interface BotStatus {
 export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JSX.Element {
   const [status, setStatus] = useState<BotStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
+  const [showBoundUsers, setShowBoundUsers] = useState(false)
 
   useEffect(() => {
     if (showTelegramStatus) {
@@ -76,7 +78,7 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
   return (
     <header className="h-14 flex items-center justify-between px-5 bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--glass-border)]">
       {/* Title */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <div>
           <h1 className="text-[15px] font-semibold text-[var(--text-primary)] leading-tight">
             {title}
@@ -85,6 +87,16 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
             <p className="text-[11px] text-[var(--text-muted)] leading-tight">{subtitle}</p>
           )}
         </div>
+        {/* Bound Users Button - only show for Telegram */}
+        {showTelegramStatus && (
+          <button
+            onClick={() => setShowBoundUsers(true)}
+            className="p-1.5 rounded-lg hover:bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all"
+            title="Bound Accounts"
+          >
+            <Users className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {/* Actions */}
@@ -131,6 +143,11 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
           </>
         )}
       </div>
+
+      {/* Bound Users Modal */}
+      {showTelegramStatus && (
+        <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} />
+      )}
     </header>
   )
 }

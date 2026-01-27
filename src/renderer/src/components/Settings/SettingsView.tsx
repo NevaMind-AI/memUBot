@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Globe, Bot, Info, Key, Database, Loader2, Check, AlertCircle } from 'lucide-react'
+import { Globe, Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield } from 'lucide-react'
 import { ProxySettings } from './ProxySettings'
+import { TailscaleStatus } from './TailscaleStatus'
+import { SecuritySettings } from './SecuritySettings'
 import { Slider } from '../Slider'
 
-type SettingsTab = 'general' | 'proxy' | 'model' | 'data' | 'about'
+type SettingsTab = 'general' | 'network' | 'security' | 'model' | 'data' | 'about'
 
 interface AppSettings {
   claudeApiKey: string
@@ -20,7 +22,8 @@ export function SettingsView(): JSX.Element {
 
   const tabs = [
     { id: 'general' as const, icon: Key, label: 'General' },
-    { id: 'proxy' as const, icon: Globe, label: 'Network' },
+    { id: 'network' as const, icon: Globe, label: 'Network' },
+    { id: 'security' as const, icon: Shield, label: 'Security' },
     { id: 'model' as const, icon: Bot, label: 'AI Model' },
     { id: 'data' as const, icon: Database, label: 'Data' },
     { id: 'about' as const, icon: Info, label: 'About' }
@@ -57,7 +60,8 @@ export function SettingsView(): JSX.Element {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-lg mx-auto py-6 px-5">
           {activeTab === 'general' && <GeneralSettings />}
-          {activeTab === 'proxy' && <ProxySettings />}
+          {activeTab === 'network' && <NetworkSettings />}
+          {activeTab === 'security' && <SecuritySettings />}
           {activeTab === 'model' && <ModelSettings />}
           {activeTab === 'data' && <DataSettings />}
           {activeTab === 'about' && <AboutSection />}
@@ -221,6 +225,30 @@ function GeneralSettings(): JSX.Element {
           )}
         </button>
       )}
+    </div>
+  )
+}
+
+function NetworkSettings(): JSX.Element {
+  return (
+    <div className="space-y-6">
+      {/* Proxy Section */}
+      <div>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">Proxy Settings</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5 mb-4">
+          Configure proxy for external connections
+        </p>
+        <ProxySettings />
+      </div>
+
+      {/* Tailscale Section */}
+      <div>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">Tailscale VPN</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5 mb-4">
+          Secure mesh network for private connectivity
+        </p>
+        <TailscaleStatus />
+      </div>
     </div>
   )
 }
