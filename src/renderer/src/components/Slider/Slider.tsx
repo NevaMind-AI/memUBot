@@ -20,7 +20,7 @@ export function Slider({ min, max, step, value, onChange }: SliderProps): JSX.El
       onChange={(e) => onChange(parseFloat(e.target.value))}
       className="slider-input w-full h-1 rounded-full cursor-pointer appearance-none"
       style={{
-        background: `linear-gradient(to right, #2596D1 ${percentage}%, #e2e8f0 ${percentage}%)`
+        background: `linear-gradient(to right, var(--primary) ${percentage}%, var(--bg-input) ${percentage}%)`
       }}
     />
   )

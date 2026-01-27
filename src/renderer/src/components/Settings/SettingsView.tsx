@@ -29,7 +29,7 @@ export function SettingsView(): JSX.Element {
   return (
     <div className="flex-1 flex">
       {/* Settings Sidebar */}
-      <div className="w-52 bg-white/40 backdrop-blur-xl border-r border-white/60 py-4">
+      <div className="w-52 bg-[var(--glass-bg)] backdrop-blur-xl border-r border-[var(--glass-border)] py-4">
         <nav className="px-3 space-y-1">
           {tabs.map((tab) => {
             const Icon = tab.icon
@@ -41,8 +41,8 @@ export function SettingsView(): JSX.Element {
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-gradient-to-r from-[#7DCBF7]/20 to-[#2596D1]/20 text-[#2596D1] shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                    ? 'bg-gradient-to-r from-[#7DCBF7]/20 to-[#2596D1]/20 text-[var(--primary)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
                 }`}
               >
                 <Icon className="w-4 h-4" />
@@ -122,7 +122,7 @@ function GeneralSettings(): JSX.Element {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 text-[#2596D1] animate-spin" />
+        <Loader2 className="w-5 h-5 text-[var(--primary)] animate-spin" />
       </div>
     )
   }
@@ -130,52 +130,54 @@ function GeneralSettings(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-slate-800">General</h3>
-        <p className="text-[12px] text-slate-500 mt-0.5">Basic application settings</p>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">General</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Basic application settings</p>
       </div>
 
       <div className="space-y-3">
         {/* API Key */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="mb-3">
-            <h4 className="text-[13px] font-medium text-slate-700">Claude API Key</h4>
-            <p className="text-[11px] text-slate-500 mt-0.5">Your Anthropic API key</p>
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Claude API Key</h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Your Anthropic API key</p>
           </div>
           <input
             type="password"
             placeholder="sk-ant-api03-..."
             value={settings.claudeApiKey || ''}
             onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all"
+            className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
           />
         </div>
 
         {/* Telegram Token */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="mb-3">
-            <h4 className="text-[13px] font-medium text-slate-700">Telegram Bot Token</h4>
-            <p className="text-[11px] text-slate-500 mt-0.5">Token from @BotFather</p>
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+              Telegram Bot Token
+            </h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Token from @BotFather</p>
           </div>
           <input
             type="password"
             placeholder="123456789:ABCdef..."
             value={settings.telegramBotToken || ''}
             onChange={(e) => setSettings({ ...settings, telegramBotToken: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all"
+            className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
           />
         </div>
 
         {/* Language */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Language</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Display language</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Language</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Display language</p>
             </div>
             <select
               value={settings.language || 'en'}
               onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-              className="w-auto min-w-[100px] px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 focus:outline-none focus:border-[#2596D1]/50"
+              className="w-auto min-w-[100px] px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/50"
             >
               <option value="en">English</option>
               <option value="zh">中文</option>
@@ -189,8 +191,8 @@ function GeneralSettings(): JSX.Element {
         <div
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${
             message.type === 'success'
-              ? 'bg-emerald-50/80 border-emerald-200/50 text-emerald-700'
-              : 'bg-red-50/80 border-red-200/50 text-red-700'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+              : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
           }`}
         >
           {message.type === 'success' ? (
@@ -280,7 +282,7 @@ function ModelSettings(): JSX.Element {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 text-[#2596D1] animate-spin" />
+        <Loader2 className="w-5 h-5 text-[var(--primary)] animate-spin" />
       </div>
     )
   }
@@ -288,22 +290,24 @@ function ModelSettings(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-slate-800">AI Model</h3>
-        <p className="text-[12px] text-slate-500 mt-0.5">Configure AI model parameters</p>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">AI Model</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+          Configure AI model parameters
+        </p>
       </div>
 
       <div className="space-y-3">
         {/* Model Selection */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Model</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Claude model version</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Model</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Claude model version</p>
             </div>
             <select
               value={settings.claudeModel || 'claude-sonnet-4-5'}
               onChange={(e) => setSettings({ ...settings, claudeModel: e.target.value })}
-              className="w-auto min-w-[180px] px-3 py-2 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 focus:outline-none focus:border-[#2596D1]/50"
+              className="w-auto min-w-[180px] px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/50"
             >
               <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
               <option value="claude-opus-4-5">Claude Opus 4.5</option>
@@ -313,13 +317,13 @@ function ModelSettings(): JSX.Element {
         </div>
 
         {/* Max Tokens */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Max Tokens</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Maximum response length</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Max Tokens</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Maximum response length</p>
             </div>
-            <span className="text-[13px] text-[#2596D1] font-medium tabular-nums">
+            <span className="text-[13px] text-[var(--primary)] font-medium tabular-nums">
               {settings.maxTokens || 8192}
             </span>
           </div>
@@ -333,13 +337,13 @@ function ModelSettings(): JSX.Element {
         </div>
 
         {/* Temperature */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Temperature</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Creativity level (0-1)</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Temperature</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Creativity level (0-1)</p>
             </div>
-            <span className="text-[13px] text-[#2596D1] font-medium tabular-nums">
+            <span className="text-[13px] text-[var(--primary)] font-medium tabular-nums">
               {(settings.temperature || 0.7).toFixed(1)}
             </span>
           </div>
@@ -353,10 +357,10 @@ function ModelSettings(): JSX.Element {
         </div>
 
         {/* System Prompt */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="mb-3">
-            <h4 className="text-[13px] font-medium text-slate-700">System Prompt</h4>
-            <p className="text-[11px] text-slate-500 mt-0.5">
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">System Prompt</h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
               Custom instructions (leave empty for default)
             </p>
           </div>
@@ -365,7 +369,7 @@ function ModelSettings(): JSX.Element {
             placeholder="You are a helpful assistant..."
             value={settings.systemPrompt || ''}
             onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all resize-none"
+            className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all resize-none"
           />
         </div>
       </div>
@@ -375,8 +379,8 @@ function ModelSettings(): JSX.Element {
         <div
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${
             message.type === 'success'
-              ? 'bg-emerald-50/80 border-emerald-200/50 text-emerald-700'
-              : 'bg-red-50/80 border-red-200/50 text-red-700'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+              : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
           }`}
         >
           {message.type === 'success' ? (
@@ -413,46 +417,54 @@ function DataSettings(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-slate-800">Data</h3>
-        <p className="text-[12px] text-slate-500 mt-0.5">Manage your data and storage</p>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">Data</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+          Manage your data and storage
+        </p>
       </div>
 
       <div className="space-y-3">
         {/* Storage Info */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Storage Used</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Local message storage</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Storage Used</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Local message storage</p>
             </div>
-            <span className="text-[13px] text-slate-700 font-medium tabular-nums">--</span>
+            <span className="text-[13px] text-[var(--text-primary)] font-medium tabular-nums">
+              --
+            </span>
           </div>
-          <div className="w-full h-2 rounded-full bg-slate-100">
+          <div className="w-full h-2 rounded-full bg-[var(--bg-input)]">
             <div className="w-0 h-full rounded-full bg-gradient-to-r from-[#7DCBF7] to-[#2596D1]" />
           </div>
         </div>
 
         {/* Export Data */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Export Data</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Download all messages as JSON</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Export Data</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                Download all messages as JSON
+              </p>
             </div>
-            <button className="px-4 py-2 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 font-medium hover:bg-white hover:shadow-md transition-all">
+            <button className="px-4 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] font-medium hover:bg-[var(--bg-card-solid)] hover:shadow-md transition-all">
               Export
             </button>
           </div>
         </div>
 
         {/* Clear Data */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Clear All Data</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Delete all stored messages</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Clear All Data</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                Delete all stored messages
+              </p>
             </div>
-            <button className="px-4 py-2 rounded-xl bg-red-50/80 border border-red-200/50 text-[13px] text-red-600 font-medium hover:bg-red-100/80 transition-all">
+            <button className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-[13px] text-red-600 dark:text-red-400 font-medium hover:bg-red-500/20 transition-all">
               Clear
             </button>
           </div>
@@ -466,18 +478,18 @@ function AboutSection(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-slate-800">About</h3>
-        <p className="text-[12px] text-slate-500 mt-0.5">Application information</p>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">About</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Application information</p>
       </div>
 
-      <div className="p-6 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm text-center">
+      <div className="p-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm text-center">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] flex items-center justify-center shadow-lg shadow-[#2596D1]/25">
           <span className="text-white text-2xl font-bold">M</span>
         </div>
-        <h4 className="text-lg font-semibold text-slate-800">Local Memu</h4>
-        <p className="text-[12px] text-slate-500 mt-0.5">Version 1.0.0</p>
-        <div className="mt-4 pt-4 border-t border-slate-200/50">
-          <p className="text-[12px] text-slate-500 leading-relaxed">
+        <h4 className="text-lg font-semibold text-[var(--text-primary)]">Local Memu</h4>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Version 1.0.0</p>
+        <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+          <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
             A local AI assistant with Computer Use.
             <br />
             Powered by Claude AI.
@@ -486,22 +498,28 @@ function AboutSection(): JSX.Element {
       </div>
 
       <div className="space-y-2">
-        <div className="p-3.5 rounded-xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-3.5 rounded-xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[12px] text-slate-500">Electron</span>
-            <span className="text-[12px] text-slate-700 font-medium tabular-nums">28.0.0</span>
+            <span className="text-[12px] text-[var(--text-muted)]">Electron</span>
+            <span className="text-[12px] text-[var(--text-primary)] font-medium tabular-nums">
+              28.0.0
+            </span>
           </div>
         </div>
-        <div className="p-3.5 rounded-xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-3.5 rounded-xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[12px] text-slate-500">Node.js</span>
-            <span className="text-[12px] text-slate-700 font-medium tabular-nums">20.x</span>
+            <span className="text-[12px] text-[var(--text-muted)]">Node.js</span>
+            <span className="text-[12px] text-[var(--text-primary)] font-medium tabular-nums">
+              20.x
+            </span>
           </div>
         </div>
-        <div className="p-3.5 rounded-xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-3.5 rounded-xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
-            <span className="text-[12px] text-slate-500">Chrome</span>
-            <span className="text-[12px] text-slate-700 font-medium tabular-nums">120.x</span>
+            <span className="text-[12px] text-[var(--text-muted)]">Chrome</span>
+            <span className="text-[12px] text-[var(--text-primary)] font-medium tabular-nums">
+              120.x
+            </span>
           </div>
         </div>
       </div>

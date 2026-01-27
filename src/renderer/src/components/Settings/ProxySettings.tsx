@@ -76,7 +76,7 @@ export function ProxySettings(): JSX.Element {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-5 h-5 text-[#2596D1] animate-spin" />
+        <Loader2 className="w-5 h-5 text-[var(--primary)] animate-spin" />
       </div>
     )
   }
@@ -84,24 +84,28 @@ export function ProxySettings(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-slate-800">Network</h3>
-        <p className="text-[12px] text-slate-500 mt-0.5">Configure proxy for API connections</p>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">Network</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+          Configure proxy for API connections
+        </p>
       </div>
 
       <div className="space-y-3">
         {/* Enable Toggle */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Enable Proxy</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Route through proxy server</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Enable Proxy</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                Route through proxy server
+              </p>
             </div>
             <button
               onClick={() => setConfig({ ...config, enabled: !config.enabled })}
               className={`relative w-12 h-7 rounded-full transition-all duration-200 ${
                 config.enabled
                   ? 'bg-gradient-to-r from-[#7DCBF7] to-[#2596D1]'
-                  : 'bg-slate-200'
+                  : 'bg-[var(--bg-input)]'
               }`}
             >
               <span
@@ -114,11 +118,11 @@ export function ProxySettings(): JSX.Element {
         </div>
 
         {/* Proxy Type */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-slate-700">Proxy Type</h4>
-              <p className="text-[11px] text-slate-500 mt-0.5">Protocol type</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Proxy Type</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Protocol type</p>
             </div>
             <div className="flex gap-2">
               {(['socks5', 'http'] as const).map((type) => (
@@ -128,8 +132,8 @@ export function ProxySettings(): JSX.Element {
                   disabled={!config.enabled}
                   className={`px-4 py-2 rounded-xl text-[12px] font-medium transition-all duration-200 ${
                     config.type === type
-                      ? 'bg-gradient-to-r from-[#7DCBF7]/20 to-[#2596D1]/20 text-[#2596D1] shadow-sm'
-                      : 'bg-slate-50/80 text-slate-500 hover:text-slate-700 hover:bg-white/80'
+                      ? 'bg-gradient-to-r from-[#7DCBF7]/20 to-[#2596D1]/20 text-[var(--primary)] shadow-sm'
+                      : 'bg-[var(--bg-input)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
                   } disabled:opacity-40 disabled:cursor-not-allowed`}
                 >
                   {type.toUpperCase()}
@@ -140,36 +144,40 @@ export function ProxySettings(): JSX.Element {
         </div>
 
         {/* Host & Port */}
-        <div className="p-4 rounded-2xl bg-white/70 backdrop-blur-xl border border-white/80 shadow-sm space-y-4">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm space-y-4">
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
-              <label className="block text-[11px] font-medium text-slate-500 mb-2">Host</label>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
+                Host
+              </label>
               <input
                 type="text"
                 value={config.host}
                 onChange={(e) => setConfig({ ...config, host: e.target.value })}
                 disabled={!config.enabled}
                 placeholder="127.0.0.1"
-                className="w-full px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all disabled:opacity-40"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-40"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-2">Port</label>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
+                Port
+              </label>
               <input
                 type="number"
                 value={config.port}
                 onChange={(e) => setConfig({ ...config, port: parseInt(e.target.value) || 0 })}
                 disabled={!config.enabled}
                 placeholder="1080"
-                className="w-full px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all disabled:opacity-40"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-40"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-2">
-                Username <span className="text-slate-400">(optional)</span>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
+                Username <span className="text-[var(--text-placeholder)]">(optional)</span>
               </label>
               <input
                 type="text"
@@ -177,12 +185,12 @@ export function ProxySettings(): JSX.Element {
                 onChange={(e) => setConfig({ ...config, username: e.target.value || undefined })}
                 disabled={!config.enabled}
                 placeholder="username"
-                className="w-full px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all disabled:opacity-40"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-40"
               />
             </div>
             <div>
-              <label className="block text-[11px] font-medium text-slate-500 mb-2">
-                Password <span className="text-slate-400">(optional)</span>
+              <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
+                Password <span className="text-[var(--text-placeholder)]">(optional)</span>
               </label>
               <input
                 type="password"
@@ -190,7 +198,7 @@ export function ProxySettings(): JSX.Element {
                 onChange={(e) => setConfig({ ...config, password: e.target.value || undefined })}
                 disabled={!config.enabled}
                 placeholder="••••••••"
-                className="w-full px-3 py-2.5 rounded-xl bg-slate-50/80 border border-slate-200/50 text-[13px] text-slate-700 placeholder-slate-400 focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all disabled:opacity-40"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-40"
               />
             </div>
           </div>
@@ -202,8 +210,8 @@ export function ProxySettings(): JSX.Element {
         <div
           className={`flex items-center gap-2 px-4 py-3 rounded-xl border ${
             message.type === 'success'
-              ? 'bg-emerald-50/80 border-emerald-200/50 text-emerald-700'
-              : 'bg-red-50/80 border-red-200/50 text-red-700'
+              ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+              : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
           }`}
         >
           {message.type === 'success' ? (

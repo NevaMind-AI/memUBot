@@ -1,13 +1,31 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sidebar, Header } from './components/Layout'
 import { TelegramView } from './components/Telegram'
 import { SettingsView } from './components/Settings'
 import { ToastContainer } from './components/Toast'
+import { useThemeStore, applyTheme } from './stores/themeStore'
 
 type NavItem = 'telegram' | 'settings'
 
 function App(): JSX.Element {
   const [activeNav, setActiveNav] = useState<NavItem>('telegram')
+  const themeMode = useThemeStore((state) => state.mode)
+
+  // Apply theme on mount and when mode changes
+  useEffect(() => {
+    applyTheme(themeMode)
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = () => {
+      if (themeMode === 'system') {
+        applyTheme('system')
+      }
+    }
+
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [themeMode])
 
   const getHeaderInfo = () => {
     switch (activeNav) {
@@ -30,7 +48,7 @@ function App(): JSX.Element {
   const headerInfo = getHeaderInfo()
 
   return (
-    <div className="h-screen flex bg-gradient-to-b from-[#f0f9ff] via-[#e0f2fe] to-[#f8fafc] overflow-hidden">
+    <div className="h-screen flex overflow-hidden bg-gradient-to-b from-[var(--bg-base)] via-[var(--bg-secondary)] to-[var(--bg-tertiary)]">
       {/* Toast Container */}
       <ToastContainer />
 

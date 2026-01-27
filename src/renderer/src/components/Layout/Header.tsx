@@ -74,12 +74,16 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
   const isConnected = status?.isConnected
 
   return (
-    <header className="h-14 flex items-center justify-between px-5 bg-white/60 backdrop-blur-xl border-b border-white/80">
+    <header className="h-14 flex items-center justify-between px-5 bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--glass-border)]">
       {/* Title */}
       <div className="flex items-center gap-2">
         <div>
-          <h1 className="text-[15px] font-semibold text-slate-800 leading-tight">{title}</h1>
-          {subtitle && <p className="text-[11px] text-slate-500 leading-tight">{subtitle}</p>}
+          <h1 className="text-[15px] font-semibold text-[var(--text-primary)] leading-tight">
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="text-[11px] text-[var(--text-muted)] leading-tight">{subtitle}</p>
+          )}
         </div>
       </div>
 
@@ -88,11 +92,11 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
         {showTelegramStatus && (
           <>
             {/* Status Indicator */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/70 backdrop-blur-sm border border-slate-200/50">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--border-color)]">
               <Circle
-                className={`w-2 h-2 ${isConnected ? 'fill-emerald-500 text-emerald-500' : 'fill-slate-400 text-slate-400'}`}
+                className={`w-2 h-2 ${isConnected ? 'fill-emerald-500 text-emerald-500' : 'fill-[var(--text-muted)] text-[var(--text-muted)]'}`}
               />
-              <span className="text-[12px] text-slate-600 font-medium">
+              <span className="text-[12px] text-[var(--text-secondary)] font-medium">
                 {isConnected ? `@${status?.username}` : 'Offline'}
               </span>
             </div>
@@ -103,7 +107,7 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
               disabled={connecting}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[13px] font-medium transition-all duration-200 ${
                 isConnected
-                  ? 'bg-red-50/80 backdrop-blur-sm border border-red-200/50 text-red-600 hover:bg-red-100/80 hover:shadow-md'
+                  ? 'bg-red-500/10 dark:bg-red-500/20 backdrop-blur-sm border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20 hover:shadow-md'
                   : 'bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25 hover:shadow-xl hover:shadow-[#2596D1]/30'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >

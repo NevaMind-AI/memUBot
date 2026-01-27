@@ -12,15 +12,15 @@ const iconMap = {
 const styleMap = {
   success: {
     icon: 'text-emerald-500',
-    text: 'text-emerald-700'
+    text: 'text-emerald-700 dark:text-emerald-400'
   },
   error: {
     icon: 'text-red-500',
-    text: 'text-red-700'
+    text: 'text-red-700 dark:text-red-400'
   },
   warning: {
     icon: 'text-amber-500',
-    text: 'text-amber-700'
+    text: 'text-amber-700 dark:text-amber-400'
   },
   info: {
     icon: 'text-[#2596D1]',
@@ -57,15 +57,17 @@ function ToastItem({ toast }: { toast: ToastType }): JSX.Element {
 
   return (
     <div
-      className={`flex items-start gap-3 px-4 py-3 rounded-xl bg-white backdrop-blur-xl border border-slate-200/50 shadow-lg shadow-slate-200/50 transition-all duration-200 ${
+      className={`flex items-start gap-3 px-4 py-3 rounded-xl bg-[var(--bg-card-solid)] backdrop-blur-xl border border-[var(--border-color)] shadow-lg transition-all duration-200 ${
         isVisible && !isLeaving ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4'
       }`}
     >
       <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${style.icon}`} />
-      <p className={`text-[13px] leading-relaxed flex-1 text-slate-700`}>{toast.message}</p>
+      <p className="text-[13px] leading-relaxed flex-1 text-[var(--text-secondary)]">
+        {toast.message}
+      </p>
       <button
         onClick={handleClose}
-        className="p-0.5 rounded hover:bg-slate-100 transition-colors text-slate-400 hover:text-slate-600"
+        className="p-0.5 rounded hover:bg-[var(--bg-card)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
       >
         <X className="w-3.5 h-3.5" />
       </button>
