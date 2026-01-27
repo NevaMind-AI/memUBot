@@ -41,6 +41,8 @@ interface BotStatus {
   platform: 'telegram' | 'whatsapp' | 'discord'
   isConnected: boolean
   username?: string
+  botName?: string
+  avatarUrl?: string
   error?: string
 }
 
@@ -163,6 +165,24 @@ interface SecurityApi {
   clearBoundUsers: () => Promise<IpcResponse>
 }
 
+// LLM status type
+type LLMStatus = 'idle' | 'thinking' | 'tool_executing'
+
+// LLM status info type
+interface LLMStatusInfo {
+  status: LLMStatus
+  currentTool?: string
+  iteration?: number
+}
+
+// LLM API interface
+interface LLMApi {
+  getStatus: () => Promise<LLMStatusInfo>
+  abort: () => Promise<{ success: boolean }>
+  isProcessing: () => Promise<boolean>
+  onStatusChanged: (callback: (status: LLMStatusInfo) => void) => () => void
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -173,5 +193,6 @@ declare global {
     settings: SettingsApi
     tailscale: TailscaleApi
     security: SecurityApi
+    llm: LLMApi
   }
 }

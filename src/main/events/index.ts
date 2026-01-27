@@ -3,9 +3,18 @@ import { BrowserWindow } from 'electron'
 import type { AppMessage } from '../apps/types'
 
 /**
+ * LLM status info type
+ */
+export interface LLMStatusInfo {
+  status: 'idle' | 'thinking' | 'tool_executing'
+  currentTool?: string
+  iteration?: number
+}
+
+/**
  * Event types for the application
  */
-export type AppEventType = 'telegram:new-message' | 'telegram:status-changed'
+export type AppEventType = 'telegram:new-message' | 'telegram:status-changed' | 'llm:status-changed'
 
 /**
  * Application event emitter
@@ -40,6 +49,15 @@ class AppEventEmitter extends EventEmitter {
     console.log('[Events] Emitting status changed:', status)
     this.emit('telegram:status-changed', status)
     this.sendToRenderer('telegram:status-changed', status)
+  }
+
+  /**
+   * Emit LLM status changed event
+   */
+  emitLLMStatusChanged(status: LLMStatusInfo): void {
+    console.log('[Events] Emitting LLM status changed:', status)
+    this.emit('llm:status-changed', status)
+    this.sendToRenderer('llm:status-changed', status)
   }
 }
 

@@ -70,14 +70,32 @@ export class TelegramBotService {
       // Get bot info
       console.log('[Telegram] Getting bot info...')
       const me = await this.bot.getMe()
+
+      // Get bot avatar
+      let avatarUrl: string | undefined
+      try {
+        const photos = await this.bot.getUserProfilePhotos(me.id, { limit: 1 })
+        if (photos.total_count > 0 && photos.photos[0]?.length > 0) {
+          // Get the smallest photo (last in array) for efficiency
+          const photo = photos.photos[0][photos.photos[0].length - 1]
+          avatarUrl = await this.bot.getFileLink(photo.file_id)
+        }
+      } catch (photoError) {
+        console.log('[Telegram] Could not get bot avatar:', photoError)
+      }
+
       this.status = {
         platform: 'telegram',
         isConnected: true,
-        username: me.username
+        username: me.username,
+        botName: me.first_name,
+        avatarUrl
       }
 
       console.log(`[Telegram] Bot connected successfully: @${me.username}`)
+      console.log(`[Telegram] Bot name: ${me.first_name}`)
       console.log(`[Telegram] Bot ID: ${me.id}`)
+      console.log(`[Telegram] Bot avatar: ${avatarUrl || 'none'}`)
 
       // Start manual polling
       this.startManualPolling()

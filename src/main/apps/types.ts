@@ -34,6 +34,8 @@ export interface BotStatus {
   platform: AppPlatform
   isConnected: boolean
   username?: string
+  botName?: string
+  avatarUrl?: string
   error?: string
 }
 

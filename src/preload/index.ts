@@ -71,6 +71,18 @@ const securityApi = {
   clearBoundUsers: () => ipcRenderer.invoke('security:clear-bound-users')
 }
 
+// LLM API
+const llmApi = {
+  getStatus: () => ipcRenderer.invoke('llm:get-status'),
+  abort: () => ipcRenderer.invoke('llm:abort'),
+  isProcessing: () => ipcRenderer.invoke('llm:is-processing'),
+  // Event listener for status changes
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('llm:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('llm:status-changed')
+  }
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -82,6 +94,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('settings', settingsApi)
     contextBridge.exposeInMainWorld('tailscale', tailscaleApi)
     contextBridge.exposeInMainWorld('security', securityApi)
+    contextBridge.exposeInMainWorld('llm', llmApi)
   } catch (error) {
     console.error(error)
   }
@@ -102,4 +115,6 @@ if (process.contextIsolated) {
   window.tailscale = tailscaleApi
   // @ts-ignore (define in dts)
   window.security = securityApi
+  // @ts-ignore (define in dts)
+  window.llm = llmApi
 }

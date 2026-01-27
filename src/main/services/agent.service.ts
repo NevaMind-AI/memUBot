@@ -8,7 +8,19 @@ import { executeComputerTool, executeBashTool, executeTextEditorTool } from '../
 import { executeTelegramTool } from '../tools/telegram.executor'
 import { loadProxyConfig, buildProxyUrl } from '../config/proxy.config'
 import { loadSettings } from '../config/settings.config'
+import { appEvents } from '../events'
 import type { ConversationMessage, AgentResponse } from '../types'
+
+/**
+ * LLM processing status
+ */
+export type LLMStatus = 'idle' | 'thinking' | 'tool_executing'
+
+export interface LLMStatusInfo {
+  status: LLMStatus
+  currentTool?: string
+  iteration?: number
+}
 
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant with full control over the user's computer. You are working together (cowork) with the user to accomplish tasks.
 
@@ -110,14 +122,56 @@ async function createClient(): Promise<{ client: Anthropic; model: string; maxTo
  */
 export class AgentService {
   private conversationHistory: Anthropic.MessageParam[] = []
+  private currentStatus: LLMStatusInfo = { status: 'idle' }
+  private abortController: AbortController | null = null
+  private isAborted = false
+
+  /**
+   * Get current LLM status
+   */
+  getStatus(): LLMStatusInfo {
+    return this.currentStatus
+  }
+
+  /**
+   * Update and emit status
+   */
+  private setStatus(status: LLMStatus, currentTool?: string, iteration?: number): void {
+    this.currentStatus = { status, currentTool, iteration }
+    appEvents.emitLLMStatusChanged(this.currentStatus)
+  }
+
+  /**
+   * Abort the current processing
+   */
+  abort(): void {
+    console.log('[Agent] Aborting current processing...')
+    this.isAborted = true
+    if (this.abortController) {
+      this.abortController.abort()
+    }
+    this.setStatus('idle')
+  }
+
+  /**
+   * Check if processing is currently active
+   */
+  isProcessing(): boolean {
+    return this.currentStatus.status !== 'idle'
+  }
 
   /**
    * Process a user message and return the agent's response
    * This implements the agentic loop for computer use
    */
   async processMessage(userMessage: string): Promise<AgentResponse> {
+    // Reset abort state
+    this.isAborted = false
+    this.abortController = new AbortController()
+
     try {
       console.log('[Agent] Processing message:', userMessage.substring(0, 50) + '...')
+      this.setStatus('thinking')
 
       // Add user message to history
       this.conversationHistory.push({
@@ -127,13 +181,29 @@ export class AgentService {
 
       // Run the agentic loop
       const response = await this.runAgentLoop()
+
+      // Set status back to idle
+      this.setStatus('idle')
       return response
     } catch (error) {
+      this.setStatus('idle')
+
+      // Check if it was an abort
+      if (this.isAborted) {
+        console.log('[Agent] Processing was aborted')
+        return {
+          success: true,
+          message: '[Processing stopped by user]'
+        }
+      }
+
       console.error('[Agent] Error:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error)
       }
+    } finally {
+      this.abortController = null
     }
   }
 
@@ -148,8 +218,14 @@ export class AgentService {
     const maxIterations = 50 // Prevent infinite loops
 
     while (iterations < maxIterations) {
+      // Check if aborted
+      if (this.isAborted) {
+        throw new Error('Aborted')
+      }
+
       iterations++
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
+      this.setStatus('thinking', undefined, iterations)
 
       // Call Claude API with computer use and telegram tools
       const response = await client.messages.create({
@@ -159,6 +235,11 @@ export class AgentService {
         tools: [...computerUseTools, ...telegramTools],
         messages: this.conversationHistory
       })
+
+      // Check if aborted after API call
+      if (this.isAborted) {
+        throw new Error('Aborted')
+      }
 
       console.log('[Agent] Response received, stop_reason:', response.stop_reason)
 
@@ -196,6 +277,11 @@ export class AgentService {
    * Process tool use blocks and execute tools
    */
   private async processToolUse(response: Anthropic.Message): Promise<void> {
+    // Check if aborted
+    if (this.isAborted) {
+      throw new Error('Aborted')
+    }
+
     // Add assistant's response (with tool use) to history
     this.conversationHistory.push({
       role: 'assistant',
@@ -213,7 +299,13 @@ export class AgentService {
     const toolResults: Anthropic.ToolResultBlockParam[] = []
 
     for (const toolUse of toolUseBlocks) {
+      // Check if aborted before each tool
+      if (this.isAborted) {
+        throw new Error('Aborted')
+      }
+
       console.log('[Agent] Executing tool:', toolUse.name)
+      this.setStatus('tool_executing', toolUse.name)
       const result = await this.executeTool(toolUse.name, toolUse.input)
 
       // Handle screenshot specially - include image in response
