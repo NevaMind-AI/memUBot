@@ -1,8 +1,8 @@
-import { Send, Settings, Sun, Moon, Monitor, Gamepad2 } from 'lucide-react'
+import { Send, Settings, Sun, Moon, Monitor, Gamepad2, MessageCircle, Hash, MessagesSquare } from 'lucide-react'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import logoSvg from '../../assets/logo.svg'
 
-type NavItem = 'telegram' | 'discord' | 'settings'
+type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'settings'
 
 interface SidebarProps {
   activeNav: NavItem
@@ -62,6 +62,45 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           }`}
         >
           <Gamepad2 className="w-[18px] h-[18px]" />
+        </button>
+
+        {/* WhatsApp */}
+        <button
+          onClick={() => onNavChange('whatsapp')}
+          title="WhatsApp"
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'whatsapp'
+              ? 'bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-lg shadow-[#25D366]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#25D366] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <MessagesSquare className="w-[18px] h-[18px]" />
+        </button>
+
+        {/* Slack */}
+        <button
+          onClick={() => onNavChange('slack')}
+          title="Slack"
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'slack'
+              ? 'bg-gradient-to-br from-[#4A154B] to-[#611F69] text-white shadow-lg shadow-[#4A154B]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#4A154B] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <Hash className="w-[18px] h-[18px]" />
+        </button>
+
+        {/* Line */}
+        <button
+          onClick={() => onNavChange('line')}
+          title="Line"
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'line'
+              ? 'bg-gradient-to-br from-[#00B900] to-[#00C300] text-white shadow-lg shadow-[#00B900]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#00B900] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <MessageCircle className="w-[18px] h-[18px]" />
         </button>
       </nav>
 

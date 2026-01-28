@@ -5,9 +5,15 @@ import fetch from 'node-fetch'
 import { computerUseTools } from '../tools/computer.definitions'
 import { telegramTools } from '../tools/telegram.definitions'
 import { discordTools } from '../tools/discord.definitions'
+import { whatsappTools } from '../tools/whatsapp.definitions'
+import { slackTools } from '../tools/slack.definitions'
+import { lineTools } from '../tools/line.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool } from '../tools/computer.executor'
 import { executeTelegramTool } from '../tools/telegram.executor'
 import { executeDiscordTool } from '../tools/discord.executor'
+import { executeWhatsAppTool } from '../tools/whatsapp.executor'
+import { executeSlackTool } from '../tools/slack.executor'
+import { executeLineTool } from '../tools/line.executor'
 import { loadProxyConfig, buildProxyUrl } from '../config/proxy.config'
 import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
@@ -23,7 +29,7 @@ const MAX_CONTEXT_MESSAGES = 20
 /**
  * Supported platforms for messaging tools
  */
-export type MessagePlatform = 'telegram' | 'discord' | 'none'
+export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'none'
 
 /**
  * LLM processing status
@@ -88,6 +94,85 @@ You are an expert assistant that can help with:
 - System administration
 - File management
 - Sharing files and media via Discord
+- Any command-line task the user needs help with`
+
+const WHATSAPP_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
+
+You have access to:
+1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+2. **Text editor** - View and edit files with precision
+3. **WhatsApp messaging** - Send various types of content to the user via WhatsApp:
+   - Text messages
+   - Images with captions
+   - Documents/files
+   - Locations
+   - Contacts
+
+Guidelines:
+- Use bash for command-line tasks, file operations, git, npm, etc.
+- Use the text editor for viewing and editing code files
+- Use WhatsApp tools to send rich content (images, files, etc.) to the user
+- Explain what you're doing and why
+- Ask for confirmation before destructive operations
+
+You are an expert assistant that can help with:
+- Software development and coding
+- System administration
+- File management
+- Sharing files and media via WhatsApp
+- Any command-line task the user needs help with`
+
+const SLACK_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
+
+You have access to:
+1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+2. **Text editor** - View and edit files with precision
+3. **Slack messaging** - Send various types of content to the user via Slack:
+   - Text messages (with mrkdwn formatting)
+   - Rich Block Kit messages
+   - File uploads
+   - Reactions to messages
+   - Thread replies
+
+Guidelines:
+- Use bash for command-line tasks, file operations, git, npm, etc.
+- Use the text editor for viewing and editing code files
+- Use Slack tools to send rich content (blocks, files, etc.) to the user
+- Explain what you're doing and why
+- Ask for confirmation before destructive operations
+
+You are an expert assistant that can help with:
+- Software development and coding
+- System administration
+- File management
+- Sharing files and media via Slack
+- Any command-line task the user needs help with`
+
+const LINE_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
+
+You have access to:
+1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+2. **Text editor** - View and edit files with precision
+3. **Line messaging** - Send various types of content to the user via Line:
+   - Text messages
+   - Images
+   - Stickers
+   - Locations
+   - Flex Messages (rich interactive cards)
+   - Button templates
+
+Guidelines:
+- Use bash for command-line tasks, file operations, git, npm, etc.
+- Use the text editor for viewing and editing code files
+- Use Line tools to send rich content (images, stickers, flex messages, etc.) to the user
+- Explain what you're doing and why
+- Ask for confirmation before destructive operations
+
+You are an expert assistant that can help with:
+- Software development and coding
+- System administration
+- File management
+- Sharing files and media via Line
 - Any command-line task the user needs help with`
 
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
@@ -181,6 +266,12 @@ function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
       return [...baseTools, ...telegramTools]
     case 'discord':
       return [...baseTools, ...discordTools]
+    case 'whatsapp':
+      return [...baseTools, ...whatsappTools]
+    case 'slack':
+      return [...baseTools, ...slackTools]
+    case 'line':
+      return [...baseTools, ...lineTools]
     case 'none':
     default:
       return baseTools
@@ -203,6 +294,12 @@ async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<st
       return TELEGRAM_SYSTEM_PROMPT
     case 'discord':
       return DISCORD_SYSTEM_PROMPT
+    case 'whatsapp':
+      return WHATSAPP_SYSTEM_PROMPT
+    case 'slack':
+      return SLACK_SYSTEM_PROMPT
+    case 'line':
+      return LINE_SYSTEM_PROMPT
     case 'none':
     default:
       return DEFAULT_SYSTEM_PROMPT
@@ -601,6 +698,30 @@ export class AgentService {
         return { success: false, error: `Discord tools are not available in ${this.currentPlatform} context` }
       }
       return await executeDiscordTool(name, input)
+    }
+
+    // WhatsApp tools
+    if (name.startsWith('whatsapp_')) {
+      if (this.currentPlatform !== 'whatsapp') {
+        return { success: false, error: `WhatsApp tools are not available in ${this.currentPlatform} context` }
+      }
+      return await executeWhatsAppTool(name, input)
+    }
+
+    // Slack tools
+    if (name.startsWith('slack_')) {
+      if (this.currentPlatform !== 'slack') {
+        return { success: false, error: `Slack tools are not available in ${this.currentPlatform} context` }
+      }
+      return await executeSlackTool(name, input)
+    }
+
+    // Line tools
+    if (name.startsWith('line_')) {
+      if (this.currentPlatform !== 'line') {
+        return { success: false, error: `Line tools are not available in ${this.currentPlatform} context` }
+      }
+      return await executeLineTool(name, input)
     }
 
     return { success: false, error: `Unknown tool: ${name}` }

@@ -22,6 +22,17 @@ export interface AppSettings {
   // Discord settings
   discordBotToken: string
 
+  // WhatsApp settings (placeholder for future implementation)
+  whatsappEnabled: boolean
+
+  // Slack settings
+  slackBotToken: string
+  slackAppToken: string
+
+  // Line settings
+  lineChannelAccessToken: string
+  lineChannelSecret: string
+
   // General settings
   language: string
 }
@@ -35,6 +46,14 @@ const DEFAULT_SETTINGS: AppSettings = {
 
   telegramBotToken: '',
   discordBotToken: '',
+
+  whatsappEnabled: false,
+
+  slackBotToken: '',
+  slackAppToken: '',
+
+  lineChannelAccessToken: '',
+  lineChannelSecret: '',
 
   language: 'en'
 }

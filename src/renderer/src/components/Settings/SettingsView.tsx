@@ -15,6 +15,11 @@ interface AppSettings {
   systemPrompt: string
   telegramBotToken: string
   discordBotToken: string
+  whatsappEnabled: boolean
+  slackBotToken: string
+  slackAppToken: string
+  lineChannelAccessToken: string
+  lineChannelSecret: string
   language: string
 }
 
@@ -101,6 +106,10 @@ function GeneralSettings(): JSX.Element {
     settings.claudeApiKey !== originalSettings.claudeApiKey ||
     settings.telegramBotToken !== originalSettings.telegramBotToken ||
     settings.discordBotToken !== originalSettings.discordBotToken ||
+    settings.slackBotToken !== originalSettings.slackBotToken ||
+    settings.slackAppToken !== originalSettings.slackAppToken ||
+    settings.lineChannelAccessToken !== originalSettings.lineChannelAccessToken ||
+    settings.lineChannelSecret !== originalSettings.lineChannelSecret ||
     settings.language !== originalSettings.language
 
   const handleSave = async () => {
@@ -111,6 +120,10 @@ function GeneralSettings(): JSX.Element {
         claudeApiKey: settings.claudeApiKey,
         telegramBotToken: settings.telegramBotToken,
         discordBotToken: settings.discordBotToken,
+        slackBotToken: settings.slackBotToken,
+        slackAppToken: settings.slackAppToken,
+        lineChannelAccessToken: settings.lineChannelAccessToken,
+        lineChannelSecret: settings.lineChannelSecret,
         language: settings.language
       })
       if (result.success) {
@@ -189,6 +202,112 @@ function GeneralSettings(): JSX.Element {
             onChange={(e) => setSettings({ ...settings, discordBotToken: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#5865F2]/50 focus:ring-2 focus:ring-[#5865F2]/10 transition-all"
           />
+        </div>
+
+        {/* WhatsApp - QR Code Auth */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#25D366]/30 shadow-sm">
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#25D366] to-[#128C7E] flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">W</span>
+              </div>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                WhatsApp
+              </h4>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">
+              Connect via QR code scan (like WhatsApp Web)
+            </p>
+          </div>
+          <div className="p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-center">
+            <div className="w-32 h-32 mx-auto mb-3 rounded-lg bg-white flex items-center justify-center border border-gray-200">
+              <span className="text-[11px] text-gray-400">QR Code</span>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)]">
+              Scan with WhatsApp to connect
+            </p>
+            <button className="mt-3 px-4 py-2 rounded-lg bg-gradient-to-r from-[#25D366] to-[#128C7E] text-white text-[12px] font-medium hover:shadow-lg hover:shadow-[#25D366]/25 transition-all">
+              Generate QR Code
+            </button>
+          </div>
+        </div>
+
+        {/* Slack Tokens */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#4A154B]/30 shadow-sm">
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#4A154B] to-[#611F69] flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">S</span>
+              </div>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                Slack
+              </h4>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">
+              Tokens from Slack API Dashboard
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Bot Token</label>
+              <input
+                type="password"
+                placeholder="xoxb-..."
+                value={settings.slackBotToken || ''}
+                onChange={(e) => setSettings({ ...settings, slackBotToken: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#4A154B]/50 focus:ring-2 focus:ring-[#4A154B]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">App Token (Socket Mode)</label>
+              <input
+                type="password"
+                placeholder="xapp-..."
+                value={settings.slackAppToken || ''}
+                onChange={(e) => setSettings({ ...settings, slackAppToken: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#4A154B]/50 focus:ring-2 focus:ring-[#4A154B]/10 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Line Tokens */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#00B900]/30 shadow-sm">
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#00B900] to-[#00C300] flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">L</span>
+              </div>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                Line
+              </h4>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">
+              Credentials from LINE Developers Console
+            </p>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Channel Access Token</label>
+              <input
+                type="password"
+                placeholder="Token from Messaging API"
+                value={settings.lineChannelAccessToken || ''}
+                onChange={(e) => setSettings({ ...settings, lineChannelAccessToken: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#00B900]/50 focus:ring-2 focus:ring-[#00B900]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Channel Secret</label>
+              <input
+                type="password"
+                placeholder="Secret from Basic Settings"
+                value={settings.lineChannelSecret || ''}
+                onChange={(e) => setSettings({ ...settings, lineChannelSecret: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#00B900]/50 focus:ring-2 focus:ring-[#00B900]/10 transition-all"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Language */}

@@ -26,7 +26,7 @@ interface FileInfo {
 // App message type
 interface AppMessage {
   id: string
-  platform: 'telegram' | 'whatsapp' | 'discord'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line'
   chatId: string
   senderId: string
   senderName: string
@@ -38,7 +38,7 @@ interface AppMessage {
 
 // Bot status type
 interface BotStatus {
-  platform: 'telegram' | 'whatsapp' | 'discord'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line'
   isConnected: boolean
   username?: string
   botName?: string
@@ -65,6 +65,11 @@ interface AppSettings {
   systemPrompt: string
   telegramBotToken: string
   discordBotToken: string
+  whatsappEnabled: boolean
+  slackBotToken: string
+  slackAppToken: string
+  lineChannelAccessToken: string
+  lineChannelSecret: string
   language: string
 }
 
@@ -98,6 +103,40 @@ interface TelegramApi {
 
 // Discord API interface (single-user mode)
 interface DiscordApi {
+  connect: () => Promise<IpcResponse>
+  disconnect: () => Promise<IpcResponse>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  // Event listeners (returns unsubscribe function)
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+}
+
+// WhatsApp API interface (single-user mode)
+interface WhatsAppApi {
+  connect: () => Promise<IpcResponse>
+  disconnect: () => Promise<IpcResponse>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getQRCode: () => Promise<IpcResponse<string | undefined>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  // Event listeners (returns unsubscribe function)
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+}
+
+// Slack API interface (single-user mode)
+interface SlackApi {
+  connect: () => Promise<IpcResponse>
+  disconnect: () => Promise<IpcResponse>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  // Event listeners (returns unsubscribe function)
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+}
+
+// Line API interface (single-user mode)
+interface LineApi {
   connect: () => Promise<IpcResponse>
   disconnect: () => Promise<IpcResponse>
   getStatus: () => Promise<IpcResponse<BotStatus>>
@@ -153,7 +192,7 @@ interface TailscaleApi {
 }
 
 // Platform type
-type Platform = 'telegram' | 'discord'
+type Platform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line'
 
 // Bound user type
 interface BoundUser {
@@ -208,6 +247,9 @@ declare global {
     file: FileApi
     telegram: TelegramApi
     discord: DiscordApi
+    whatsapp: WhatsAppApi
+    slack: SlackApi
+    line: LineApi
     proxy: ProxyApi
     settings: SettingsApi
     tailscale: TailscaleApi

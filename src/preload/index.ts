@@ -93,6 +93,58 @@ const discordApi = {
   }
 }
 
+// WhatsApp API (single-user mode)
+const whatsappApi = {
+  connect: () => ipcRenderer.invoke('whatsapp:connect'),
+  disconnect: () => ipcRenderer.invoke('whatsapp:disconnect'),
+  getStatus: () => ipcRenderer.invoke('whatsapp:status'),
+  getQRCode: () => ipcRenderer.invoke('whatsapp:get-qr'),
+  getMessages: (limit?: number) => ipcRenderer.invoke('whatsapp:get-messages', limit),
+  // Event listeners
+  onNewMessage: (callback: (message: unknown) => void) => {
+    ipcRenderer.on('whatsapp:new-message', (_event, message) => callback(message))
+    return () => ipcRenderer.removeAllListeners('whatsapp:new-message')
+  },
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('whatsapp:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('whatsapp:status-changed')
+  }
+}
+
+// Slack API (single-user mode)
+const slackApi = {
+  connect: () => ipcRenderer.invoke('slack:connect'),
+  disconnect: () => ipcRenderer.invoke('slack:disconnect'),
+  getStatus: () => ipcRenderer.invoke('slack:status'),
+  getMessages: (limit?: number) => ipcRenderer.invoke('slack:get-messages', limit),
+  // Event listeners
+  onNewMessage: (callback: (message: unknown) => void) => {
+    ipcRenderer.on('slack:new-message', (_event, message) => callback(message))
+    return () => ipcRenderer.removeAllListeners('slack:new-message')
+  },
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('slack:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('slack:status-changed')
+  }
+}
+
+// Line API (single-user mode)
+const lineApi = {
+  connect: () => ipcRenderer.invoke('line:connect'),
+  disconnect: () => ipcRenderer.invoke('line:disconnect'),
+  getStatus: () => ipcRenderer.invoke('line:status'),
+  getMessages: (limit?: number) => ipcRenderer.invoke('line:get-messages', limit),
+  // Event listeners
+  onNewMessage: (callback: (message: unknown) => void) => {
+    ipcRenderer.on('line:new-message', (_event, message) => callback(message))
+    return () => ipcRenderer.removeAllListeners('line:new-message')
+  },
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('line:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('line:status-changed')
+  }
+}
+
 // LLM API
 const llmApi = {
   getStatus: () => ipcRenderer.invoke('llm:get-status'),
@@ -113,6 +165,9 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('file', fileApi)
     contextBridge.exposeInMainWorld('telegram', telegramApi)
     contextBridge.exposeInMainWorld('discord', discordApi)
+    contextBridge.exposeInMainWorld('whatsapp', whatsappApi)
+    contextBridge.exposeInMainWorld('slack', slackApi)
+    contextBridge.exposeInMainWorld('line', lineApi)
     contextBridge.exposeInMainWorld('proxy', proxyApi)
     contextBridge.exposeInMainWorld('settings', settingsApi)
     contextBridge.exposeInMainWorld('tailscale', tailscaleApi)
@@ -132,6 +187,12 @@ if (process.contextIsolated) {
   window.telegram = telegramApi
   // @ts-ignore (define in dts)
   window.discord = discordApi
+  // @ts-ignore (define in dts)
+  window.whatsapp = whatsappApi
+  // @ts-ignore (define in dts)
+  window.slack = slackApi
+  // @ts-ignore (define in dts)
+  window.line = lineApi
   // @ts-ignore (define in dts)
   window.proxy = proxyApi
   // @ts-ignore (define in dts)

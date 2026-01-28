@@ -3,6 +3,9 @@ import { agentService } from '../services/agent.service'
 import { fileService } from '../services/file.service'
 import { setupTelegramHandlers } from './telegram.handlers'
 import { setupDiscordHandlers } from './discord.handlers'
+import { setupWhatsAppHandlers } from './whatsapp.handlers'
+import { setupSlackHandlers } from './slack.handlers'
+import { setupLineHandlers } from './line.handlers'
 import { setupProxyHandlers } from './proxy.handlers'
 import { setupSettingsHandlers } from './settings.handlers'
 import { setupTailscaleHandlers } from './tailscale.handlers'
@@ -18,6 +21,9 @@ export function setupIpcHandlers(): void {
   setupFileHandlers()
   setupTelegramHandlers()
   setupDiscordHandlers()
+  setupWhatsAppHandlers()
+  setupSlackHandlers()
+  setupLineHandlers()
   setupProxyHandlers()
   setupSettingsHandlers()
   setupTailscaleHandlers()
