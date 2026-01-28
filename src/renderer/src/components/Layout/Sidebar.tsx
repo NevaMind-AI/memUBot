@@ -1,6 +1,7 @@
-import { Send, Settings, Sun, Moon, Monitor, Gamepad2, MessageCircle, Hash, MessagesSquare } from 'lucide-react'
+import { Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import logoSvg from '../../assets/logo.svg'
+import { TelegramIcon, DiscordIcon, WhatsAppIcon, SlackIcon, LineIcon } from '../Icons/AppIcons'
 
 type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'settings'
 
@@ -45,10 +46,10 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             activeNav === 'telegram'
               ? 'bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25'
-              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#2596D1] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
           }`}
         >
-          <Send className="w-[18px] h-[18px]" />
+          <TelegramIcon className="w-[18px] h-[18px]" />
         </button>
 
         {/* Discord */}
@@ -61,7 +62,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
               : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#5865F2] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
           }`}
         >
-          <Gamepad2 className="w-[18px] h-[18px]" />
+          <DiscordIcon className="w-[18px] h-[18px]" />
         </button>
 
         {/* WhatsApp */}
@@ -74,7 +75,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
               : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#25D366] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
           }`}
         >
-          <MessagesSquare className="w-[18px] h-[18px]" />
+          <WhatsAppIcon className="w-[18px] h-[18px]" />
         </button>
 
         {/* Slack */}
@@ -87,7 +88,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
               : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#4A154B] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
           }`}
         >
-          <Hash className="w-[18px] h-[18px]" />
+          <SlackIcon className="w-[18px] h-[18px]" />
         </button>
 
         {/* Line */}
@@ -100,7 +101,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
               : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#00B900] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
           }`}
         >
-          <MessageCircle className="w-[18px] h-[18px]" />
+          <LineIcon className="w-[18px] h-[18px]" />
         </button>
       </nav>
 

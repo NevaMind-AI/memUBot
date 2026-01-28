@@ -1,7 +1,7 @@
 {
-  "name": "local-memu",
+  "name": "memu-bot",
   "version": "1.0.0",
-  "description": "An Electron application with Vite and React",
+  "description": "memU bot - AI Assistant for messaging platforms",
   "main": "./out/main/index.js",
   "author": "",
   "license": "MIT",

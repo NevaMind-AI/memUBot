@@ -1,5 +1,5 @@
-appId: com.electron.local-memu
-productName: local-memu
+appId: com.nevamind.memu-bot
+productName: memU bot
 directories:
   buildResources: build
 files:
@@ -11,7 +11,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: local-memu
+  executableName: memu-bot
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}

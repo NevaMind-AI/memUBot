@@ -105,10 +105,16 @@ body,
   transition: background 0.3s ease, color 0.3s ease;
 }
 
-/* Custom scrollbar */
+/* Custom scrollbar - overlay style (not taking layout space) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-track {
@@ -123,6 +129,25 @@ body,
 
 ::-webkit-scrollbar-thumb:hover {
   opacity: 0.5;
+}
+
+/* Make scrollbar overlay content instead of taking space */
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
+  overflow: overlay;
+}
+
+@supports not (overflow: overlay) {
+  .overflow-y-auto {
+    overflow-y: auto;
+  }
+  .overflow-x-auto {
+    overflow-x: auto;
+  }
+  .overflow-auto {
+    overflow: auto;
+  }
 }
 
 /* Selection */

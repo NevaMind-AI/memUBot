@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { Power, Loader2, Circle, Users, Square, Brain, Wrench, Bot, MessageCircle, Gamepad2, Hash } from 'lucide-react'
+import { Power, Loader2, Circle, Users, Square, Brain, Wrench } from 'lucide-react'
 import { toast } from '../Toast'
 import { BoundUsersModal } from '../Telegram/BoundUsersModal'
 import { DiscordBoundUsersModal } from '../Discord/BoundUsersModal'
+import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
 
 interface HeaderProps {
   title: string
@@ -43,14 +44,13 @@ function BotAvatar({
     )
   }
 
-  // Default avatar icons
+  // Platform icon component
   const iconMap = {
-    telegram: { connected: Bot, default: MessageCircle },
-    discord: { connected: Gamepad2, default: Gamepad2 },
-    slack: { connected: Hash, default: Hash }
+    telegram: TelegramIcon,
+    discord: DiscordIcon,
+    slack: SlackIcon
   }
-  const Icon = iconMap[platform].connected
-  const DefaultIcon = iconMap[platform].default
+  const PlatformIcon = iconMap[platform]
 
   return (
     <div
@@ -62,9 +62,9 @@ function BotAvatar({
       style={isConnected ? { background: `linear-gradient(to bottom right, ${colors.from}, ${colors.to})` } : {}}
     >
       {isConnected ? (
-        <Icon className="w-5 h-5 text-white" />
+        <PlatformIcon className="w-5 h-5 text-white" />
       ) : (
-        <DefaultIcon className="w-5 h-5 text-[var(--text-muted)]" />
+        <PlatformIcon className="w-5 h-5 text-[var(--text-muted)]" />
       )}
     </div>
   )
