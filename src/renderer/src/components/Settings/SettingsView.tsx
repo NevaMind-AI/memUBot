@@ -108,8 +108,9 @@ function GeneralSettings(): JSX.Element {
     settings.discordBotToken !== originalSettings.discordBotToken ||
     settings.slackBotToken !== originalSettings.slackBotToken ||
     settings.slackAppToken !== originalSettings.slackAppToken ||
-    settings.lineChannelAccessToken !== originalSettings.lineChannelAccessToken ||
-    settings.lineChannelSecret !== originalSettings.lineChannelSecret ||
+    // Line settings temporarily disabled
+    // settings.lineChannelAccessToken !== originalSettings.lineChannelAccessToken ||
+    // settings.lineChannelSecret !== originalSettings.lineChannelSecret ||
     settings.language !== originalSettings.language
 
   const handleSave = async () => {
@@ -122,8 +123,9 @@ function GeneralSettings(): JSX.Element {
         discordBotToken: settings.discordBotToken,
         slackBotToken: settings.slackBotToken,
         slackAppToken: settings.slackAppToken,
-        lineChannelAccessToken: settings.lineChannelAccessToken,
-        lineChannelSecret: settings.lineChannelSecret,
+        // Line settings temporarily disabled
+        // lineChannelAccessToken: settings.lineChannelAccessToken,
+        // lineChannelSecret: settings.lineChannelSecret,
         language: settings.language
       })
       if (result.success) {
@@ -214,8 +216,8 @@ function GeneralSettings(): JSX.Element {
           />
         </div>
 
-        {/* WhatsApp - QR Code Auth */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#25D366]/30 shadow-sm">
+        {/* WhatsApp - QR Code Auth - Temporarily disabled */}
+        {/* <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#25D366]/30 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#25D366] to-[#128C7E] flex items-center justify-center">
@@ -240,7 +242,7 @@ function GeneralSettings(): JSX.Element {
               Generate QR Code
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Slack Tokens */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#4A154B]/30 shadow-sm">
@@ -281,8 +283,8 @@ function GeneralSettings(): JSX.Element {
           </div>
         </div>
 
-        {/* Line Tokens */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#00B900]/30 shadow-sm">
+        {/* Line Tokens - Temporarily disabled */}
+        {/* <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#00B900]/30 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#00B900] to-[#00C300] flex items-center justify-center">
@@ -318,7 +320,7 @@ function GeneralSettings(): JSX.Element {
               />
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Language */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
@@ -663,7 +665,7 @@ function AboutSection(): JSX.Element {
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] flex items-center justify-center shadow-lg shadow-[#2596D1]/25">
           <span className="text-white text-2xl font-bold">M</span>
         </div>
-        <h4 className="text-lg font-semibold text-[var(--text-primary)]">Local Memu</h4>
+        <h4 className="text-lg font-semibold text-[var(--text-primary)]">memU bot</h4>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Version 1.0.0</p>
         <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
           <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">

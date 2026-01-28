@@ -226,7 +226,7 @@ export class DiscordBotService {
         await message.reply(
           '❌ Your account is not bound to this device.\n\n' +
             'Use `@bot /bind <code>` to bind your account first.\n' +
-            'Get the security code from the Local Memu app (Settings → Security).'
+            'Get the security code from the memU bot app (Settings → Security).'
         )
         return
       }
@@ -261,7 +261,7 @@ export class DiscordBotService {
       await message.reply(
         '🔐 Please provide a security code:\n\n' +
           '`@bot /bind <6-digit-code>`\n\n' +
-          'Get the code from the Local Memu app (Settings → Security).'
+          'Get the code from the memU bot app (Settings → Security).'
       )
       return
     }

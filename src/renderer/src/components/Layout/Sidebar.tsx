@@ -1,6 +1,6 @@
 import { Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
-import logoSvg from '../../assets/logo.svg'
+import appIcon from '../../assets/app-icon.png'
 import { TelegramIcon, DiscordIcon, WhatsAppIcon, SlackIcon, LineIcon } from '../Icons/AppIcons'
 
 type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'settings'
@@ -32,9 +32,9 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
 
   return (
     <aside className="w-16 flex flex-col bg-[var(--glass-bg)] backdrop-blur-xl">
-      {/* Logo - Same height as header */}
+      {/* App Icon - Same height as header */}
       <div className="h-14 flex translate-y-0.5 items-center justify-center">
-        <img src={logoSvg} alt="Memu Logo" className="w-10 h-10" />
+        <img src={appIcon} alt="memU bot" className="w-10 h-10 rounded-lg" />
       </div>
 
       {/* Main Navigation */}
@@ -65,8 +65,8 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           <DiscordIcon className="w-[18px] h-[18px]" />
         </button>
 
-        {/* WhatsApp */}
-        <button
+        {/* WhatsApp - Temporarily disabled */}
+        {/* <button
           onClick={() => onNavChange('whatsapp')}
           title="WhatsApp"
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
@@ -76,7 +76,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           }`}
         >
           <WhatsAppIcon className="w-[18px] h-[18px]" />
-        </button>
+        </button> */}
 
         {/* Slack */}
         <button
@@ -91,8 +91,8 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           <SlackIcon className="w-[18px] h-[18px]" />
         </button>
 
-        {/* Line */}
-        <button
+        {/* Line - Temporarily disabled */}
+        {/* <button
           onClick={() => onNavChange('line')}
           title="Line"
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
@@ -102,7 +102,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           }`}
         >
           <LineIcon className="w-[18px] h-[18px]" />
-        </button>
+        </button> */}
       </nav>
 
       {/* Bottom Actions: Settings + Theme */}

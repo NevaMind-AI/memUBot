@@ -94,7 +94,7 @@ function App(): JSX.Element {
         }
       default:
         return {
-          title: 'Local Memu',
+          title: 'memU bot',
           showTelegramStatus: false,
           showDiscordStatus: false,
           showWhatsAppStatus: false,
