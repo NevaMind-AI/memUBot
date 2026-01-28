@@ -316,7 +316,7 @@ export class AgentService {
   private abortController: AbortController | null = null
   private isAborted = false
   private currentPlatform: MessagePlatform = 'none'
-  private contextLoaded = false
+  private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
   private currentImageUrls: string[] = []
 
   /**
@@ -357,8 +357,20 @@ export class AgentService {
    * Load historical context from storage for a specific platform
    */
   private async loadContextFromStorage(platform: MessagePlatform): Promise<void> {
-    // Skip if context already loaded or platform is 'none'
-    if (this.contextLoaded || platform === 'none') {
+    // Skip if platform is 'none'
+    if (platform === 'none') {
+      return
+    }
+
+    // If switching platforms, clear previous context and reload
+    if (this.contextLoadedForPlatform !== null && this.contextLoadedForPlatform !== platform) {
+      console.log(`[Agent] Platform switched from ${this.contextLoadedForPlatform} to ${platform}, clearing context...`)
+      this.conversationHistory = []
+      this.contextLoadedForPlatform = null
+    }
+
+    // Skip if context already loaded for this platform
+    if (this.contextLoadedForPlatform === platform) {
       return
     }
 
@@ -414,7 +426,7 @@ export class AgentService {
       console.error('[Agent] Error loading context:', error)
     }
 
-    this.contextLoaded = true
+    this.contextLoadedForPlatform = platform
   }
 
   /**
@@ -429,8 +441,8 @@ export class AgentService {
     platform: MessagePlatform = 'none',
     imageUrls: string[] = []
   ): Promise<AgentResponse> {
-    // Load historical context if this is a new session
-    if (!this.contextLoaded && platform !== 'none') {
+    // Load historical context if this is a new session or platform changed
+    if (platform !== 'none') {
       await this.loadContextFromStorage(platform)
     }
 
@@ -754,7 +766,7 @@ export class AgentService {
    */
   clearHistory(): void {
     this.conversationHistory = []
-    this.contextLoaded = false
+    this.contextLoadedForPlatform = null
   }
 }
 

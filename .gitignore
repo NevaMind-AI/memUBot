@@ -23,3 +23,16 @@ out
 *.njsproj
 *.sln
 *.sw?
+
+# Sensitive files - never commit
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+secrets.json
+config.local.json
+
+# Build artifacts
+build/*.icns
+build/*.ico
