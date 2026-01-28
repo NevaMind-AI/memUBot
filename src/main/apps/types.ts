@@ -5,6 +5,17 @@
 // Supported app platforms
 export type AppPlatform = 'telegram' | 'whatsapp' | 'discord'
 
+// Attachment structure for messages
+export interface MessageAttachment {
+  id: string
+  name: string
+  url: string
+  contentType?: string
+  size: number
+  width?: number
+  height?: number
+}
+
 // Base message structure
 export interface AppMessage {
   id: string
@@ -13,6 +24,7 @@ export interface AppMessage {
   senderId: string
   senderName: string
   content: string
+  attachments?: MessageAttachment[]
   timestamp: Date
   isFromBot: boolean
   replyToId?: string

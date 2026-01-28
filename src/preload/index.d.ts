@@ -64,6 +64,7 @@ interface AppSettings {
   temperature: number
   systemPrompt: string
   telegramBotToken: string
+  discordBotToken: string
   language: string
 }
 
@@ -86,6 +87,17 @@ interface FileApi {
 
 // Telegram API interface (single-user mode)
 interface TelegramApi {
+  connect: () => Promise<IpcResponse>
+  disconnect: () => Promise<IpcResponse>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  // Event listeners (returns unsubscribe function)
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+}
+
+// Discord API interface (single-user mode)
+interface DiscordApi {
   connect: () => Promise<IpcResponse>
   disconnect: () => Promise<IpcResponse>
   getStatus: () => Promise<IpcResponse<BotStatus>>
@@ -140,8 +152,13 @@ interface TailscaleApi {
   onStatusChanged: (callback: (status: TailscaleStatus) => void) => () => void
 }
 
+// Platform type
+type Platform = 'telegram' | 'discord'
+
 // Bound user type
 interface BoundUser {
+  platform: Platform
+  uniqueId: string
   userId: number
   username: string
   firstName?: string
@@ -160,9 +177,10 @@ interface SecurityCodeInfo {
 interface SecurityApi {
   generateCode: () => Promise<IpcResponse<{ code: string }>>
   getCodeInfo: () => Promise<IpcResponse<SecurityCodeInfo>>
-  getBoundUsers: () => Promise<IpcResponse<BoundUser[]>>
-  removeBoundUser: (userId: number) => Promise<IpcResponse<{ removed: boolean }>>
-  clearBoundUsers: () => Promise<IpcResponse>
+  getBoundUsers: (platform?: Platform) => Promise<IpcResponse<BoundUser[]>>
+  removeBoundUser: (userId: number, platform?: Platform) => Promise<IpcResponse<{ removed: boolean }>>
+  removeBoundUserById: (uniqueId: string, platform: Platform) => Promise<IpcResponse<{ removed: boolean }>>
+  clearBoundUsers: (platform?: Platform) => Promise<IpcResponse>
 }
 
 // LLM status type
@@ -189,6 +207,7 @@ declare global {
     agent: AgentApi
     file: FileApi
     telegram: TelegramApi
+    discord: DiscordApi
     proxy: ProxyApi
     settings: SettingsApi
     tailscale: TailscaleApi

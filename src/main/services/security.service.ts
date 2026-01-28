@@ -1,11 +1,14 @@
 /**
  * Security Service
  * Manages security codes for user binding
+ * Supports platform-specific bound users (Telegram, Discord, etc.)
  */
 
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { app } from 'electron'
+
+type Platform = 'telegram' | 'discord'
 
 interface SecurityCode {
   code: string
@@ -14,7 +17,9 @@ interface SecurityCode {
 }
 
 interface BoundUser {
-  userId: number
+  platform: Platform
+  uniqueId: string // Platform-specific unique ID (as string for consistency)
+  userId: number // Numeric ID for backwards compatibility
   username: string
   firstName?: string
   lastName?: string
@@ -22,11 +27,12 @@ interface BoundUser {
 }
 
 const STORAGE_DIR = 'security-data'
-const BOUND_USERS_FILE = 'bound-users.json'
+const BOUND_USERS_FILE = 'bound-users-v2.json'
 
 class SecurityService {
   private currentCode: SecurityCode | null = null
-  private boundUsers: Map<number, BoundUser> = new Map()
+  // Map by platform -> Map by uniqueId -> BoundUser
+  private boundUsersByPlatform: Map<Platform, Map<string, BoundUser>> = new Map()
   private storagePath: string
   private initialized = false
   private readonly CODE_EXPIRY_MS = 3 * 60 * 1000 // 3 minutes
@@ -34,6 +40,9 @@ class SecurityService {
 
   constructor() {
     this.storagePath = path.join(app.getPath('userData'), STORAGE_DIR)
+    // Initialize platform maps
+    this.boundUsersByPlatform.set('telegram', new Map())
+    this.boundUsersByPlatform.set('discord', new Map())
   }
 
   /**
@@ -54,11 +63,22 @@ class SecurityService {
       const filePath = path.join(this.storagePath, BOUND_USERS_FILE)
       const content = await fs.readFile(filePath, 'utf-8')
       const users = JSON.parse(content) as BoundUser[]
-      this.boundUsers.clear()
+
+      // Clear all maps
+      this.boundUsersByPlatform.forEach((map) => map.clear())
+
+      // Load users into their respective platform maps
       for (const user of users) {
-        this.boundUsers.set(user.userId, user)
+        const platform = user.platform || 'telegram' // Default to telegram for old data
+        const platformMap = this.boundUsersByPlatform.get(platform)
+        if (platformMap) {
+          platformMap.set(user.uniqueId || String(user.userId), user)
+        }
       }
-      console.log(`[Security] Loaded ${users.length} bound users`)
+
+      console.log(
+        `[Security] Loaded bound users: Telegram=${this.boundUsersByPlatform.get('telegram')?.size || 0}, Discord=${this.boundUsersByPlatform.get('discord')?.size || 0}`
+      )
     } catch {
       console.log('[Security] No existing bound users found')
     }
@@ -69,8 +89,13 @@ class SecurityService {
    */
   private async saveBoundUsersToDisk(): Promise<void> {
     const filePath = path.join(this.storagePath, BOUND_USERS_FILE)
-    const users = Array.from(this.boundUsers.values())
-    await fs.writeFile(filePath, JSON.stringify(users, null, 2), 'utf-8')
+    const allUsers: BoundUser[] = []
+
+    this.boundUsersByPlatform.forEach((platformMap) => {
+      allUsers.push(...platformMap.values())
+    })
+
+    await fs.writeFile(filePath, JSON.stringify(allUsers, null, 2), 'utf-8')
   }
 
   /**
@@ -131,7 +156,76 @@ class SecurityService {
     userId: number,
     username: string,
     firstName?: string,
-    lastName?: string
+    lastName?: string,
+    platform: Platform = 'telegram'
+  ): Promise<{ success: boolean; error?: string }> {
+    await this.ensureInitialized()
+
+    const uniqueId = String(userId)
+
+    // Check if there's an active code
+    if (!this.currentCode) {
+      return { success: false, error: 'No active security code. Please generate a new one.' }
+    }
+
+    // Check if code is expired
+    const now = Date.now()
+    if (now >= this.currentCode.expiresAt) {
+      this.currentCode = null
+      return { success: false, error: 'Security code has expired. Please generate a new one.' }
+    }
+
+    // Validate code
+    if (this.currentCode.code !== code) {
+      return { success: false, error: 'Invalid security code.' }
+    }
+
+    // Get the platform map
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    if (!platformMap) {
+      return { success: false, error: 'Invalid platform.' }
+    }
+
+    // Check if user is already bound on this platform
+    if (platformMap.has(uniqueId)) {
+      // Consume the code anyway
+      this.currentCode = null
+      return { success: false, error: 'This account is already bound to this device.' }
+    }
+
+    // Bind the user
+    const boundUser: BoundUser = {
+      platform,
+      uniqueId,
+      userId,
+      username,
+      firstName,
+      lastName,
+      boundAt: now
+    }
+    platformMap.set(uniqueId, boundUser)
+
+    // Save to disk
+    await this.saveBoundUsersToDisk()
+
+    // Consume the code (one-time use)
+    this.currentCode = null
+
+    console.log(`[Security] User ${username} (${uniqueId}) successfully bound to ${platform}`)
+    return { success: true }
+  }
+
+  /**
+   * Validate a security code and bind a user using string ID (for Discord snowflake IDs)
+   * This avoids precision loss when converting large IDs to numbers
+   */
+  async validateAndBindByStringId(
+    code: string,
+    uniqueId: string,
+    username: string,
+    firstName?: string,
+    lastName?: string,
+    platform: Platform = 'discord'
   ): Promise<{ success: boolean; error?: string }> {
     await this.ensureInitialized()
 
@@ -152,21 +246,30 @@ class SecurityService {
       return { success: false, error: 'Invalid security code.' }
     }
 
-    // Check if user is already bound
-    if (this.boundUsers.has(userId)) {
+    // Get the platform map
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    if (!platformMap) {
+      return { success: false, error: 'Invalid platform.' }
+    }
+
+    // Check if user is already bound on this platform
+    if (platformMap.has(uniqueId)) {
       // Consume the code anyway
       this.currentCode = null
       return { success: false, error: 'This account is already bound to this device.' }
     }
 
-    // Bind the user
-    this.boundUsers.set(userId, {
-      userId,
+    // Bind the user (use 0 for userId since we're using string uniqueId)
+    const boundUser: BoundUser = {
+      platform,
+      uniqueId,
+      userId: 0, // Not used for string ID platforms
       username,
       firstName,
       lastName,
       boundAt: now
-    })
+    }
+    platformMap.set(uniqueId, boundUser)
 
     // Save to disk
     await this.saveBoundUsersToDisk()
@@ -174,58 +277,121 @@ class SecurityService {
     // Consume the code (one-time use)
     this.currentCode = null
 
-    console.log(`[Security] User ${username} (${userId}) successfully bound`)
+    console.log(`[Security] User ${username} (${uniqueId}) successfully bound to ${platform}`)
     return { success: true }
   }
 
   /**
-   * Check if a user is authorized
+   * Check if a user is authorized on a specific platform
    */
-  async isAuthorized(userId: number): Promise<boolean> {
+  async isAuthorized(userId: number, platform: Platform = 'telegram'): Promise<boolean> {
     await this.ensureInitialized()
-    return this.boundUsers.has(userId)
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    return platformMap?.has(String(userId)) || false
   }
 
   /**
-   * Get all bound users
+   * Check if a user is authorized by string ID (for Discord)
    */
-  async getBoundUsers(): Promise<BoundUser[]> {
+  async isAuthorizedByStringId(uniqueId: string, platform: Platform): Promise<boolean> {
     await this.ensureInitialized()
-    return Array.from(this.boundUsers.values())
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    return platformMap?.has(uniqueId) || false
   }
 
   /**
-   * Remove a bound user
+   * Get all bound users for a specific platform
    */
-  async removeBoundUser(userId: number): Promise<boolean> {
+  async getBoundUsers(platform?: Platform): Promise<BoundUser[]> {
     await this.ensureInitialized()
-    const existed = this.boundUsers.has(userId)
-    this.boundUsers.delete(userId)
+
+    if (platform) {
+      const platformMap = this.boundUsersByPlatform.get(platform)
+      return platformMap ? Array.from(platformMap.values()) : []
+    }
+
+    // Return all users if no platform specified
+    const allUsers: BoundUser[] = []
+    this.boundUsersByPlatform.forEach((platformMap) => {
+      allUsers.push(...platformMap.values())
+    })
+    return allUsers
+  }
+
+  /**
+   * Remove a bound user from a specific platform
+   */
+  async removeBoundUser(userId: number, platform: Platform = 'telegram'): Promise<boolean> {
+    await this.ensureInitialized()
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    if (!platformMap) return false
+
+    const uniqueId = String(userId)
+    const existed = platformMap.has(uniqueId)
+    platformMap.delete(uniqueId)
     if (existed) {
       await this.saveBoundUsersToDisk()
-      console.log(`[Security] User ${userId} has been unbound`)
+      console.log(`[Security] User ${userId} has been unbound from ${platform}`)
     }
     return existed
   }
 
   /**
-   * Clear all bound users
+   * Remove a bound user by string ID
    */
-  async clearAllBoundUsers(): Promise<void> {
+  async removeBoundUserByStringId(uniqueId: string, platform: Platform): Promise<boolean> {
     await this.ensureInitialized()
-    this.boundUsers.clear()
-    await this.saveBoundUsersToDisk()
-    console.log('[Security] All bound users cleared')
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    if (!platformMap) return false
+
+    const existed = platformMap.has(uniqueId)
+    platformMap.delete(uniqueId)
+    if (existed) {
+      await this.saveBoundUsersToDisk()
+      console.log(`[Security] User ${uniqueId} has been unbound from ${platform}`)
+    }
+    return existed
   }
 
   /**
-   * Check if there are any bound users
+   * Clear all bound users for a specific platform
    */
-  async hasBoundUsers(): Promise<boolean> {
+  async clearBoundUsers(platform?: Platform): Promise<void> {
     await this.ensureInitialized()
-    return this.boundUsers.size > 0
+
+    if (platform) {
+      const platformMap = this.boundUsersByPlatform.get(platform)
+      if (platformMap) {
+        platformMap.clear()
+      }
+      console.log(`[Security] All ${platform} bound users cleared`)
+    } else {
+      // Clear all platforms
+      this.boundUsersByPlatform.forEach((map) => map.clear())
+      console.log('[Security] All bound users cleared')
+    }
+
+    await this.saveBoundUsersToDisk()
+  }
+
+  /**
+   * Check if there are any bound users for a platform
+   */
+  async hasBoundUsers(platform?: Platform): Promise<boolean> {
+    await this.ensureInitialized()
+
+    if (platform) {
+      const platformMap = this.boundUsersByPlatform.get(platform)
+      return (platformMap?.size || 0) > 0
+    }
+
+    // Check all platforms
+    for (const [, platformMap] of this.boundUsersByPlatform) {
+      if (platformMap.size > 0) return true
+    }
+    return false
   }
 }
 
 export const securityService = new SecurityService()
-export type { BoundUser }
+export type { BoundUser, Platform }

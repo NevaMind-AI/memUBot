@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Sidebar, Header } from './components/Layout'
 import { TelegramView } from './components/Telegram'
+import { DiscordView } from './components/Discord'
 import { SettingsView } from './components/Settings'
 import { ToastContainer } from './components/Toast'
 import { useThemeStore, applyTheme } from './stores/themeStore'
 
-type NavItem = 'telegram' | 'settings'
+type NavItem = 'telegram' | 'discord' | 'settings'
 
 function App(): JSX.Element {
   const [activeNav, setActiveNav] = useState<NavItem>('telegram')
@@ -33,15 +34,24 @@ function App(): JSX.Element {
         return {
           title: 'Telegram',
           subtitle: 'AI Assistant',
-          showTelegramStatus: true
+          showTelegramStatus: true,
+          showDiscordStatus: false
+        }
+      case 'discord':
+        return {
+          title: 'Discord',
+          subtitle: 'AI Assistant',
+          showTelegramStatus: false,
+          showDiscordStatus: true
         }
       case 'settings':
         return {
           title: 'Settings',
-          showTelegramStatus: false
+          showTelegramStatus: false,
+          showDiscordStatus: false
         }
       default:
-        return { title: 'Local Memu', showTelegramStatus: false }
+        return { title: 'Local Memu', showTelegramStatus: false, showDiscordStatus: false }
     }
   }
 
@@ -62,11 +72,13 @@ function App(): JSX.Element {
           title={headerInfo.title}
           subtitle={headerInfo.subtitle}
           showTelegramStatus={headerInfo.showTelegramStatus}
+          showDiscordStatus={headerInfo.showDiscordStatus}
         />
 
         {/* Content */}
         <main className="flex-1 overflow-hidden flex">
           {activeNav === 'telegram' && <TelegramView />}
+          {activeNav === 'discord' && <DiscordView />}
           {activeNav === 'settings' && <SettingsView />}
         </main>
       </div>

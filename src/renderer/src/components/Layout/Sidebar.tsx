@@ -1,8 +1,8 @@
-import { Send, Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { Send, Settings, Sun, Moon, Monitor, Gamepad2 } from 'lucide-react'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import logoSvg from '../../assets/logo.svg'
 
-type NavItem = 'telegram' | 'settings'
+type NavItem = 'telegram' | 'discord' | 'settings'
 
 interface SidebarProps {
   activeNav: NavItem
@@ -38,6 +38,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
 
       {/* Main Navigation */}
       <nav className="flex-1 flex flex-col items-center pt-4 gap-2">
+        {/* Telegram */}
         <button
           onClick={() => onNavChange('telegram')}
           title="Telegram"
@@ -48,6 +49,19 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           }`}
         >
           <Send className="w-[18px] h-[18px]" />
+        </button>
+
+        {/* Discord */}
+        <button
+          onClick={() => onNavChange('discord')}
+          title="Discord"
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'discord'
+              ? 'bg-gradient-to-br from-[#5865F2] to-[#7289DA] text-white shadow-lg shadow-[#5865F2]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#5865F2] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <Gamepad2 className="w-[18px] h-[18px]" />
         </button>
       </nav>
 

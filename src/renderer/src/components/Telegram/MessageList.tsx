@@ -13,17 +13,27 @@ interface AppMessage {
   isFromBot: boolean
 }
 
+interface BotStatus {
+  platform: string
+  isConnected: boolean
+  username?: string
+  botName?: string
+  avatarUrl?: string
+}
+
 export function MessageList(): JSX.Element {
   const [messages, setMessages] = useState<AppMessage[]>([])
   const [loading, setLoading] = useState(false)
+  const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     loadMessages()
+    loadBotStatus()
   }, [])
 
   useEffect(() => {
-    const unsubscribe = window.telegram.onNewMessage((message: AppMessage) => {
+    const unsubscribeMessages = window.telegram.onNewMessage((message: AppMessage) => {
       setMessages((prev) => {
         const exists = prev.some((m) => m.id === message.id)
         if (exists) return prev
@@ -31,7 +41,15 @@ export function MessageList(): JSX.Element {
       })
     })
 
-    return () => unsubscribe()
+    // Subscribe to status changes to get updated avatar
+    const unsubscribeStatus = window.telegram.onStatusChanged((status: BotStatus) => {
+      setBotAvatarUrl(status.avatarUrl || null)
+    })
+
+    return () => {
+      unsubscribeMessages()
+      unsubscribeStatus()
+    }
   }, [])
 
   useEffect(() => {
@@ -53,6 +71,17 @@ export function MessageList(): JSX.Element {
       console.error('Failed to load messages:', error)
     }
     setLoading(false)
+  }
+
+  const loadBotStatus = async () => {
+    try {
+      const result = await window.telegram.getStatus()
+      if (result.success && result.data) {
+        setBotAvatarUrl(result.data.avatarUrl || null)
+      }
+    } catch (error) {
+      console.error('Failed to load bot status:', error)
+    }
   }
 
   const formatTime = (date: Date) => {
@@ -131,19 +160,25 @@ export function MessageList(): JSX.Element {
                   className={`flex gap-2.5 ${msg.isFromBot ? 'flex-row-reverse' : ''}`}
                 >
                   {/* Avatar */}
-                  <div
-                    className={`w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center shadow-md ${
-                      msg.isFromBot
-                        ? 'bg-gradient-to-br from-[#7DCBF7] to-[#2596D1]'
-                        : 'bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--glass-border)]'
-                    }`}
-                  >
-                    {msg.isFromBot ? (
-                      <Bot className="w-4 h-4 text-white" />
+                  {msg.isFromBot ? (
+                    // Bot avatar - use actual avatar if available
+                    botAvatarUrl ? (
+                      <img
+                        src={botAvatarUrl}
+                        alt="Bot"
+                        className="w-8 h-8 rounded-xl flex-shrink-0 object-cover border-2 border-[#7DCBF7] shadow-md"
+                      />
                     ) : (
+                      <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center shadow-md bg-gradient-to-br from-[#7DCBF7] to-[#2596D1]">
+                        <Bot className="w-4 h-4 text-white" />
+                      </div>
+                    )
+                  ) : (
+                    // User avatar
+                    <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center shadow-md bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--glass-border)]">
                       <User className="w-4 h-4 text-[var(--text-muted)]" />
-                    )}
-                  </div>
+                    </div>
+                  )}
 
                   {/* Message Bubble */}
                   <div className={`max-w-[70%] ${msg.isFromBot ? 'items-end' : 'items-start'}`}>

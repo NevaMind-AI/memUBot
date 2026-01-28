@@ -48,7 +48,8 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
   const loadBoundUsers = async () => {
     setLoading(true)
     try {
-      const result = await window.security.getBoundUsers()
+      // Get only Telegram bound users
+      const result = await window.security.getBoundUsers('telegram')
       if (result.success && result.data) {
         setUsers(result.data)
       }
@@ -61,7 +62,8 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
   const handleRemoveUser = async (userId: number, username: string) => {
     setDeletingId(userId)
     try {
-      const result = await window.security.removeBoundUser(userId)
+      // Remove from Telegram platform
+      const result = await window.security.removeBoundUser(userId, 'telegram')
       if (result.success) {
         setUsers((prev) => prev.filter((u) => u.userId !== userId))
         toast.success(`Removed @${username}`)

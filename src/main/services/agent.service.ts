@@ -4,12 +4,26 @@ import { HttpsProxyAgent } from 'https-proxy-agent'
 import fetch from 'node-fetch'
 import { computerUseTools } from '../tools/computer.definitions'
 import { telegramTools } from '../tools/telegram.definitions'
+import { discordTools } from '../tools/discord.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool } from '../tools/computer.executor'
 import { executeTelegramTool } from '../tools/telegram.executor'
+import { executeDiscordTool } from '../tools/discord.executor'
 import { loadProxyConfig, buildProxyUrl } from '../config/proxy.config'
 import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
+import { telegramStorage } from '../apps/telegram/storage'
+import { discordStorage } from '../apps/discord/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
+
+/**
+ * Maximum number of historical messages to load as context
+ */
+const MAX_CONTEXT_MESSAGES = 20
+
+/**
+ * Supported platforms for messaging tools
+ */
+export type MessagePlatform = 'telegram' | 'discord' | 'none'
 
 /**
  * LLM processing status
@@ -22,22 +36,21 @@ export interface LLMStatusInfo {
   iteration?: number
 }
 
-const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant with full control over the user's computer. You are working together (cowork) with the user to accomplish tasks.
+/**
+ * System prompts for different platforms
+ */
+const TELEGRAM_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
 
 You have access to:
-1. **Computer control** - Take screenshots, move mouse, click, type, press keys, scroll
-2. **Bash/Terminal** - Execute any shell commands
-3. **Text editor** - View and edit files with precision
-4. **Telegram messaging** - Send various types of content to the user via Telegram:
+1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+2. **Text editor** - View and edit files with precision
+3. **Telegram messaging** - Send various types of content to the user via Telegram:
    - Text messages (with Markdown/HTML formatting)
    - Photos, videos, audio files, voice messages
    - Documents/files of any type
    - Locations, contacts, polls, stickers
 
 Guidelines:
-- Always take a screenshot first to understand the current state of the screen
-- Be precise with mouse coordinates - the screen resolution is available after taking a screenshot
-- For clicking UI elements, take a screenshot first to locate them
 - Use bash for command-line tasks, file operations, git, npm, etc.
 - Use the text editor for viewing and editing code files
 - Use Telegram tools to send rich content (images, files, etc.) to the user
@@ -48,9 +61,52 @@ You are an expert assistant that can help with:
 - Software development and coding
 - System administration
 - File management
-- Web browsing and automation
 - Sharing files and media via Telegram
-- Any computer task the user needs help with`
+- Any command-line task the user needs help with`
+
+const DISCORD_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
+
+You have access to:
+1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+2. **Text editor** - View and edit files with precision
+3. **Discord messaging** - Send various types of content to the user via Discord:
+   - Text messages (with Discord markdown formatting)
+   - Rich embed messages with titles, descriptions, colors, and fields
+   - Files and images as attachments
+   - Reply to specific messages
+   - Add reactions to messages
+
+Guidelines:
+- Use bash for command-line tasks, file operations, git, npm, etc.
+- Use the text editor for viewing and editing code files
+- Use Discord tools to send rich content (embeds, files, etc.) to the user
+- Explain what you're doing and why
+- Ask for confirmation before destructive operations
+
+You are an expert assistant that can help with:
+- Software development and coding
+- System administration
+- File management
+- Sharing files and media via Discord
+- Any command-line task the user needs help with`
+
+const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
+
+You have access to:
+1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+2. **Text editor** - View and edit files with precision
+
+Guidelines:
+- Use bash for command-line tasks, file operations, git, npm, etc.
+- Use the text editor for viewing and editing code files
+- Explain what you're doing and why
+- Ask for confirmation before destructive operations
+
+You are an expert assistant that can help with:
+- Software development and coding
+- System administration
+- File management
+- Any command-line task the user needs help with`
 
 /**
  * Create a custom fetch function with proxy support
@@ -86,7 +142,7 @@ async function createProxyFetch(): Promise<typeof globalThis.fetch | undefined> 
 /**
  * Create Anthropic client with current settings
  */
-async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number; systemPrompt: string }> {
+async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number }> {
   const settings = await loadSettings()
   const customFetch = await createProxyFetch()
 
@@ -106,13 +162,50 @@ async function createClient(): Promise<{ client: Anthropic; model: string; maxTo
   }
 
   const client = new Anthropic(clientOptions)
-  const systemPrompt = settings.systemPrompt || DEFAULT_SYSTEM_PROMPT
 
   return {
     client,
     model: settings.claudeModel,
-    maxTokens: settings.maxTokens,
-    systemPrompt
+    maxTokens: settings.maxTokens
+  }
+}
+
+/**
+ * Get tools for a specific platform
+ */
+function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
+  const baseTools = [...computerUseTools]
+  
+  switch (platform) {
+    case 'telegram':
+      return [...baseTools, ...telegramTools]
+    case 'discord':
+      return [...baseTools, ...discordTools]
+    case 'none':
+    default:
+      return baseTools
+  }
+}
+
+/**
+ * Get system prompt for a specific platform
+ */
+async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<string> {
+  const settings = await loadSettings()
+  
+  // If user has custom system prompt, use it
+  if (settings.systemPrompt) {
+    return settings.systemPrompt
+  }
+  
+  switch (platform) {
+    case 'telegram':
+      return TELEGRAM_SYSTEM_PROMPT
+    case 'discord':
+      return DISCORD_SYSTEM_PROMPT
+    case 'none':
+    default:
+      return DEFAULT_SYSTEM_PROMPT
   }
 }
 
@@ -125,6 +218,9 @@ export class AgentService {
   private currentStatus: LLMStatusInfo = { status: 'idle' }
   private abortController: AbortController | null = null
   private isAborted = false
+  private currentPlatform: MessagePlatform = 'none'
+  private contextLoaded = false
+  private currentImageUrls: string[] = []
 
   /**
    * Get current LLM status
@@ -161,23 +257,135 @@ export class AgentService {
   }
 
   /**
+   * Load historical context from storage for a specific platform
+   */
+  private async loadContextFromStorage(platform: MessagePlatform): Promise<void> {
+    // Skip if context already loaded or platform is 'none'
+    if (this.contextLoaded || platform === 'none') {
+      return
+    }
+
+    console.log(`[Agent] Loading historical context for ${platform}...`)
+
+    try {
+      let messages: Array<{ text?: string; isFromBot: boolean }> = []
+
+      if (platform === 'telegram') {
+        const storedMessages = await telegramStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        messages = storedMessages.map(m => ({
+          text: m.text,
+          isFromBot: m.isFromBot
+        }))
+      } else if (platform === 'discord') {
+        const storedMessages = await discordStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        messages = storedMessages.map(m => ({
+          text: m.text,
+          isFromBot: m.isFromBot
+        }))
+      }
+
+      // Convert to Anthropic message format
+      // We need to group consecutive messages from the same role
+      if (messages.length > 0) {
+        let lastRole: 'user' | 'assistant' | null = null
+        
+        for (const msg of messages) {
+          if (!msg.text) continue
+          
+          const role: 'user' | 'assistant' = msg.isFromBot ? 'assistant' : 'user'
+          
+          // Anthropic API requires alternating user/assistant messages
+          // If same role as last, append to previous or skip
+          if (role === lastRole && this.conversationHistory.length > 0) {
+            // Append to last message
+            const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]
+            if (typeof lastMsg.content === 'string') {
+              lastMsg.content = lastMsg.content + '\n\n' + msg.text
+            }
+          } else {
+            this.conversationHistory.push({
+              role,
+              content: msg.text
+            })
+            lastRole = role
+          }
+        }
+        
+        console.log(`[Agent] Loaded ${this.conversationHistory.length} context messages`)
+      }
+    } catch (error) {
+      console.error('[Agent] Error loading context:', error)
+    }
+
+    this.contextLoaded = true
+  }
+
+  /**
    * Process a user message and return the agent's response
    * This implements the agentic loop for computer use
+   * @param userMessage The message from the user
+   * @param platform The platform the message came from (affects available tools)
+   * @param imageUrls Optional array of image URLs to include in the message
    */
-  async processMessage(userMessage: string): Promise<AgentResponse> {
+  async processMessage(
+    userMessage: string,
+    platform: MessagePlatform = 'none',
+    imageUrls: string[] = []
+  ): Promise<AgentResponse> {
+    // Load historical context if this is a new session
+    if (!this.contextLoaded && platform !== 'none') {
+      await this.loadContextFromStorage(platform)
+    }
+
     // Reset abort state
     this.isAborted = false
     this.abortController = new AbortController()
+    this.currentPlatform = platform
+    
+    // Store image URLs for this message
+    this.currentImageUrls = imageUrls
 
     try {
-      console.log('[Agent] Processing message:', userMessage.substring(0, 50) + '...')
+      console.log(`[Agent] Processing message from ${platform}:`, userMessage.substring(0, 50) + '...')
+      console.log(`[Agent] Image URLs:`, imageUrls.length > 0 ? imageUrls : 'none')
       this.setStatus('thinking')
 
-      // Add user message to history
-      this.conversationHistory.push({
-        role: 'user',
-        content: userMessage
-      })
+      // Build message content with images if present
+      if (imageUrls.length > 0) {
+        // Create multimodal content with images and text
+        const contentParts: Anthropic.ContentBlockParam[] = []
+        
+        // Add images first
+        for (const imageUrl of imageUrls) {
+          contentParts.push({
+            type: 'image',
+            source: {
+              type: 'url',
+              url: imageUrl
+            }
+          } as Anthropic.ImageBlockParam)
+        }
+        
+        // Add text if present
+        if (userMessage) {
+          contentParts.push({
+            type: 'text',
+            text: userMessage
+          })
+        }
+        
+        this.conversationHistory.push({
+          role: 'user',
+          content: contentParts
+        })
+        console.log(`[Agent] Added multimodal message with ${imageUrls.length} images`)
+      } else {
+        // Text-only message
+        this.conversationHistory.push({
+          role: 'user',
+          content: userMessage
+        })
+      }
 
       // Run the agentic loop
       const response = await this.runAgentLoop()
@@ -212,7 +420,12 @@ export class AgentService {
    */
   private async runAgentLoop(): Promise<AgentResponse> {
     // Create client with current settings (re-read each time in case settings changed)
-    const { client, model, maxTokens, systemPrompt } = await createClient()
+    const { client, model, maxTokens } = await createClient()
+    const systemPrompt = await getSystemPromptForPlatform(this.currentPlatform)
+    const tools = getToolsForPlatform(this.currentPlatform)
+
+    console.log(`[Agent] Using tools for platform: ${this.currentPlatform}`)
+    console.log(`[Agent] Available tools: ${tools.map(t => t.name).join(', ')}`)
 
     let iterations = 0
     const maxIterations = 50 // Prevent infinite loops
@@ -227,12 +440,12 @@ export class AgentService {
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
       this.setStatus('thinking', undefined, iterations)
 
-      // Call Claude API with computer use and telegram tools
+      // Call Claude API with platform-specific tools
       const response = await client.messages.create({
         model,
         max_tokens: maxTokens,
         system: systemPrompt,
-        tools: [...computerUseTools, ...telegramTools],
+        tools,
         messages: this.conversationHistory
       })
 
@@ -376,7 +589,18 @@ export class AgentService {
 
     // Telegram tools
     if (name.startsWith('telegram_')) {
+      if (this.currentPlatform !== 'telegram') {
+        return { success: false, error: `Telegram tools are not available in ${this.currentPlatform} context` }
+      }
       return await executeTelegramTool(name, input)
+    }
+
+    // Discord tools
+    if (name.startsWith('discord_')) {
+      if (this.currentPlatform !== 'discord') {
+        return { success: false, error: `Discord tools are not available in ${this.currentPlatform} context` }
+      }
+      return await executeDiscordTool(name, input)
     }
 
     return { success: false, error: `Unknown tool: ${name}` }
@@ -409,6 +633,7 @@ export class AgentService {
    */
   clearHistory(): void {
     this.conversationHistory = []
+    this.contextLoaded = false
   }
 }
 

@@ -14,6 +14,7 @@ interface AppSettings {
   temperature: number
   systemPrompt: string
   telegramBotToken: string
+  discordBotToken: string
   language: string
 }
 
@@ -99,6 +100,7 @@ function GeneralSettings(): JSX.Element {
   const hasChanges =
     settings.claudeApiKey !== originalSettings.claudeApiKey ||
     settings.telegramBotToken !== originalSettings.telegramBotToken ||
+    settings.discordBotToken !== originalSettings.discordBotToken ||
     settings.language !== originalSettings.language
 
   const handleSave = async () => {
@@ -108,6 +110,7 @@ function GeneralSettings(): JSX.Element {
       const result = await window.settings.save({
         claudeApiKey: settings.claudeApiKey,
         telegramBotToken: settings.telegramBotToken,
+        discordBotToken: settings.discordBotToken,
         language: settings.language
       })
       if (result.success) {
@@ -168,6 +171,23 @@ function GeneralSettings(): JSX.Element {
             value={settings.telegramBotToken || ''}
             onChange={(e) => setSettings({ ...settings, telegramBotToken: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
+          />
+        </div>
+
+        {/* Discord Token */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+          <div className="mb-3">
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+              Discord Bot Token
+            </h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Token from Discord Developer Portal</p>
+          </div>
+          <input
+            type="password"
+            placeholder="MTIz..."
+            value={settings.discordBotToken || ''}
+            onChange={(e) => setSettings({ ...settings, discordBotToken: e.target.value })}
+            className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#5865F2]/50 focus:ring-2 focus:ring-[#5865F2]/10 transition-all"
           />
         </div>
 

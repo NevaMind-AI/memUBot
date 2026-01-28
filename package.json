@@ -20,11 +20,13 @@
     "@anthropic-ai/sdk": "^0.71.2",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
+    "discord.js": "^14.25.1",
     "https-proxy-agent": "^7.0.6",
     "lucide-react": "^0.563.0",
     "node-fetch": "^3.3.2",
     "node-telegram-bot-api": "^0.67.0",
     "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "screenshot-desktop": "^1.15.3",
     "socks-proxy-agent": "^8.0.5",
     "zustand": "^5.0.10"
@@ -36,6 +38,7 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.19",
+    "bufferutil": "^4.1.0",
     "electron": "^31.1.0",
     "electron-builder": "^24.13.3",
     "electron-vite": "^2.3.0",
@@ -44,6 +47,8 @@
     "react-dom": "^18.3.1",
     "tailwindcss": "^3.4.4",
     "typescript": "^5.5.2",
-    "vite": "^5.3.1"
+    "utf-8-validate": "^6.0.6",
+    "vite": "^5.3.1",
+    "zlib-sync": "^0.1.10"
   }
 }

@@ -97,6 +97,9 @@ export class TelegramBotService {
       console.log(`[Telegram] Bot ID: ${me.id}`)
       console.log(`[Telegram] Bot avatar: ${avatarUrl || 'none'}`)
 
+      // Emit status changed event
+      appEvents.emitTelegramStatusChanged(this.status)
+
       // Start manual polling
       this.startManualPolling()
     } catch (error) {
@@ -106,6 +109,7 @@ export class TelegramBotService {
         isConnected: false,
         error: error instanceof Error ? error.message : String(error)
       }
+      appEvents.emitTelegramStatusChanged(this.status)
       throw error
     }
   }
@@ -197,7 +201,7 @@ export class TelegramBotService {
         return
       }
 
-      const isAuthorized = await securityService.isAuthorized(userId)
+      const isAuthorized = await securityService.isAuthorized(userId, 'telegram')
       if (!isAuthorized) {
         console.log(`[Telegram] Unauthorized user ${userId}, sending error message`)
         await this.sendUnauthorizedMessage(msg.chat.id)
@@ -226,8 +230,8 @@ export class TelegramBotService {
       return
     }
 
-    // Check if already bound
-    const isAlreadyBound = await securityService.isAuthorized(userId)
+    // Check if already bound on Telegram platform
+    const isAlreadyBound = await securityService.isAuthorized(userId, 'telegram')
     if (isAlreadyBound) {
       await this.bot?.sendMessage(chatId, '✅ Your account is already bound to this device.')
       return
@@ -248,8 +252,15 @@ export class TelegramBotService {
 
     const code = parts[1].trim()
 
-    // Validate and bind
-    const result = await securityService.validateAndBind(code, userId, username, firstName, lastName)
+    // Validate and bind to Telegram platform
+    const result = await securityService.validateAndBind(
+      code,
+      userId,
+      username,
+      firstName,
+      lastName,
+      'telegram'
+    )
 
     if (result.success) {
       console.log(`[Telegram] User ${username} (${userId}) successfully bound`)
@@ -289,6 +300,7 @@ export class TelegramBotService {
       platform: 'telegram',
       isConnected: false
     }
+    appEvents.emitTelegramStatusChanged(this.status)
     console.log('[Telegram] Disconnected')
   }
 
@@ -353,8 +365,8 @@ export class TelegramBotService {
     this.currentChatId = chatId
 
     try {
-      // Get response from Agent
-      const response = await agentService.processMessage(userMessage)
+      // Get response from Agent with Telegram-specific tools
+      const response = await agentService.processMessage(userMessage, 'telegram')
 
       if (response.success && response.message) {
         console.log('[Telegram] Agent response:', response.message.substring(0, 100) + '...')

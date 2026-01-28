@@ -83,13 +83,6 @@ export function ProxySettings(): JSX.Element {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">Network</h3>
-        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-          Configure proxy for API connections
-        </p>
-      </div>
-
       <div className="space-y-3">
         {/* Enable Toggle */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">

@@ -1,46 +1,59 @@
 import { useState, useEffect } from 'react'
-import { Power, Loader2, Circle, Users, Square, Brain, Wrench, Bot, MessageCircle } from 'lucide-react'
+import { Power, Loader2, Circle, Users, Square, Brain, Wrench, Bot, MessageCircle, Gamepad2 } from 'lucide-react'
 import { toast } from '../Toast'
 import { BoundUsersModal } from '../Telegram/BoundUsersModal'
+import { DiscordBoundUsersModal } from '../Discord/BoundUsersModal'
 
 interface HeaderProps {
   title: string
   subtitle?: string
   showTelegramStatus?: boolean
+  showDiscordStatus?: boolean
 }
 
-// Telegram bot avatar component
+// Bot avatar component - supports both Telegram and Discord themes
 function BotAvatar({
   isConnected,
-  avatarUrl
+  avatarUrl,
+  platform
 }: {
   isConnected: boolean
   avatarUrl?: string
+  platform: 'telegram' | 'discord'
 }): JSX.Element {
+  const colors = platform === 'discord'
+    ? { from: '#5865F2', to: '#7289DA', border: '#5865F2' }
+    : { from: '#7DCBF7', to: '#2596D1', border: '#7DCBF7' }
+
   // If we have an avatar URL and connected, show the actual avatar
   if (isConnected && avatarUrl) {
     return (
       <img
         src={avatarUrl}
         alt="Bot Avatar"
-        className="w-9 h-9 rounded-full object-cover border-2 border-[#7DCBF7]"
+        className="w-9 h-9 rounded-full object-cover border-2"
+        style={{ borderColor: colors.border }}
       />
     )
   }
 
   // Default avatar icons
+  const Icon = platform === 'discord' ? Gamepad2 : Bot
+  const DefaultIcon = platform === 'discord' ? Gamepad2 : MessageCircle
+
   return (
     <div
       className={`w-9 h-9 rounded-full flex items-center justify-center ${
         isConnected
-          ? 'bg-gradient-to-br from-[#7DCBF7] to-[#2596D1]'
+          ? ''
           : 'bg-[var(--bg-card)] border border-[var(--border-color)]'
       }`}
+      style={isConnected ? { background: `linear-gradient(to bottom right, ${colors.from}, ${colors.to})` } : {}}
     >
       {isConnected ? (
-        <Bot className="w-5 h-5 text-white" />
+        <Icon className="w-5 h-5 text-white" />
       ) : (
-        <MessageCircle className="w-5 h-5 text-[var(--text-muted)]" />
+        <DefaultIcon className="w-5 h-5 text-[var(--text-muted)]" />
       )}
     </div>
   )
@@ -61,57 +74,99 @@ interface LLMStatusInfo {
   iteration?: number
 }
 
-export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JSX.Element {
-  const [status, setStatus] = useState<BotStatus | null>(null)
+export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus }: HeaderProps): JSX.Element {
+  const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
+  const [discordStatus, setDiscordStatus] = useState<BotStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
   const [llmStatus, setLLMStatus] = useState<LLMStatusInfo>({ status: 'idle' })
+
+  // Current platform status
+  const status = showTelegramStatus ? telegramStatus : showDiscordStatus ? discordStatus : null
+  const platform = showTelegramStatus ? 'telegram' : showDiscordStatus ? 'discord' : null
+
+  // Platform colors
+  const platformColors = platform === 'discord'
+    ? { from: '#5865F2', to: '#7289DA', shadow: '#5865F2' }
+    : { from: '#7DCBF7', to: '#2596D1', shadow: '#2596D1' }
 
   // Subscribe to LLM status changes
   useEffect(() => {
     const unsubscribe = window.llm.onStatusChanged((newStatus: LLMStatusInfo) => {
       setLLMStatus(newStatus)
     })
-    // Get initial status
     window.llm.getStatus().then(setLLMStatus)
     return () => unsubscribe()
   }, [])
 
+  // Subscribe to Telegram status
   useEffect(() => {
     if (showTelegramStatus) {
-      checkStatus()
+      checkTelegramStatus()
       const unsubscribe = window.telegram.onStatusChanged((newStatus: BotStatus) => {
-        setStatus(newStatus)
+        setTelegramStatus(newStatus)
       })
       return () => unsubscribe()
     }
   }, [showTelegramStatus])
 
-  const checkStatus = async () => {
+  // Subscribe to Discord status
+  useEffect(() => {
+    if (showDiscordStatus) {
+      checkDiscordStatus()
+      const unsubscribe = window.discord.onStatusChanged((newStatus: BotStatus) => {
+        setDiscordStatus(newStatus)
+      })
+      return () => unsubscribe()
+    }
+  }, [showDiscordStatus])
+
+  const checkTelegramStatus = async () => {
     try {
       const result = await window.telegram.getStatus()
       if (result.success && result.data) {
-        setStatus(result.data)
+        setTelegramStatus(result.data)
       }
     } catch (error) {
-      console.error('Failed to get status:', error)
+      console.error('Failed to get Telegram status:', error)
+    }
+  }
+
+  const checkDiscordStatus = async () => {
+    try {
+      const result = await window.discord.getStatus()
+      if (result.success && result.data) {
+        setDiscordStatus(result.data)
+      }
+    } catch (error) {
+      console.error('Failed to get Discord status:', error)
     }
   }
 
   const handleConnect = async () => {
     setConnecting(true)
     try {
-      const result = await window.telegram.connect()
-      if (!result.success) {
-        setStatus({ platform: 'telegram', isConnected: false, error: result.error })
-        toast.error(result.error || 'Failed to connect Telegram bot')
-      } else {
-        toast.success('Telegram bot connected successfully')
+      if (showTelegramStatus) {
+        const result = await window.telegram.connect()
+        if (!result.success) {
+          setTelegramStatus({ platform: 'telegram', isConnected: false, error: result.error })
+          toast.error(result.error || 'Failed to connect Telegram bot')
+        } else {
+          toast.success('Telegram bot connected successfully')
+        }
+        await checkTelegramStatus()
+      } else if (showDiscordStatus) {
+        const result = await window.discord.connect()
+        if (!result.success) {
+          setDiscordStatus({ platform: 'discord', isConnected: false, error: result.error })
+          toast.error(result.error || 'Failed to connect Discord bot')
+        } else {
+          toast.success('Discord bot connected successfully')
+        }
+        await checkDiscordStatus()
       }
-      await checkStatus()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed'
-      setStatus({ platform: 'telegram', isConnected: false, error: errorMessage })
       toast.error(errorMessage)
     }
     setConnecting(false)
@@ -119,9 +174,15 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
 
   const handleDisconnect = async () => {
     try {
-      await window.telegram.disconnect()
-      toast.info('Telegram bot disconnected')
-      await checkStatus()
+      if (showTelegramStatus) {
+        await window.telegram.disconnect()
+        toast.info('Telegram bot disconnected')
+        await checkTelegramStatus()
+      } else if (showDiscordStatus) {
+        await window.discord.disconnect()
+        toast.info('Discord bot disconnected')
+        await checkDiscordStatus()
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Disconnect failed'
       toast.error(errorMessage)
@@ -140,14 +201,15 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
 
   const isConnected = status?.isConnected
   const isLLMProcessing = llmStatus.status !== 'idle'
+  const showStatus = showTelegramStatus || showDiscordStatus
 
   // Get display info based on connection status
-  const displayName = showTelegramStatus
+  const displayName = showStatus
     ? isConnected
       ? status?.botName || status?.username || 'Bot'
-      : 'Telegram'
+      : platform === 'discord' ? 'Discord' : 'Telegram'
     : title
-  const displaySubtitle = showTelegramStatus
+  const displaySubtitle = showStatus
     ? isConnected
       ? `@${status?.username}`
       : 'AI Assistant'
@@ -158,8 +220,10 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
     <header className="h-14 flex items-center justify-between px-5 bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--glass-border)]">
       {/* Title with Avatar */}
       <div className="flex items-center gap-3">
-        {/* Avatar - only for Telegram */}
-        {showTelegramStatus && <BotAvatar isConnected={!!isConnected} avatarUrl={avatarUrl} />}
+        {/* Avatar */}
+        {showStatus && platform && (
+          <BotAvatar isConnected={!!isConnected} avatarUrl={avatarUrl} platform={platform} />
+        )}
 
         {/* Title and Subtitle */}
         <div className="flex items-center gap-2">
@@ -169,7 +233,7 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
                 {displayName}
               </h1>
               {/* Connection status dot */}
-              {showTelegramStatus && (
+              {showStatus && (
                 <Circle
                   className={`w-2 h-2 ${isConnected ? 'fill-emerald-500 text-emerald-500' : 'fill-[var(--text-muted)] text-[var(--text-muted)]'}`}
                 />
@@ -180,8 +244,8 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
             )}
           </div>
 
-          {/* Bound Users Button - only show for Telegram */}
-          {showTelegramStatus && (
+          {/* Bound Users Button */}
+          {showStatus && (
             <button
               onClick={() => setShowBoundUsers(true)}
               className="p-1.5 rounded-lg hover:bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all"
@@ -195,7 +259,7 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        {showTelegramStatus && (
+        {showStatus && (
           <>
             {/* LLM Status Indicator */}
             {isLLMProcessing && (
@@ -231,8 +295,13 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
               className={`p-2 rounded-lg transition-all duration-200 ${
                 isConnected
                   ? 'bg-red-500/10 dark:bg-red-500/20 backdrop-blur-sm border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20 hover:shadow-md'
-                  : 'bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25 hover:shadow-xl hover:shadow-[#2596D1]/30'
+                  : ''
               } disabled:opacity-50 disabled:cursor-not-allowed`}
+              style={!isConnected ? {
+                background: `linear-gradient(to right, ${platformColors.from}, ${platformColors.to})`,
+                color: 'white',
+                boxShadow: `0 10px 15px -3px ${platformColors.shadow}40`
+              } : {}}
             >
               {connecting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -244,9 +313,14 @@ export function Header({ title, subtitle, showTelegramStatus }: HeaderProps): JS
         )}
       </div>
 
-      {/* Bound Users Modal */}
+      {/* Bound Users Modal - Telegram */}
       {showTelegramStatus && (
         <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} />
+      )}
+
+      {/* Bound Users Modal - Discord */}
+      {showDiscordStatus && (
+        <DiscordBoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} />
       )}
     </header>
   )

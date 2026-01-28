@@ -19,6 +19,9 @@ export interface AppSettings {
   // Telegram settings
   telegramBotToken: string
 
+  // Discord settings
+  discordBotToken: string
+
   // General settings
   language: string
 }
@@ -31,6 +34,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   systemPrompt: '',
 
   telegramBotToken: '',
+  discordBotToken: '',
 
   language: 'en'
 }

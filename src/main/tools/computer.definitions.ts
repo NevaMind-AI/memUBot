@@ -134,4 +134,6 @@ Available commands:
 }
 
 // Export all computer use tools
-export const computerUseTools: Anthropic.Tool[] = [computerTool, bashTool, textEditorTool]
+// Note: computerTool (screenshot, mouse, keyboard) is disabled for stability
+// Only bash and text editor are available
+export const computerUseTools: Anthropic.Tool[] = [bashTool, textEditorTool]

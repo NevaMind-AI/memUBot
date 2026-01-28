@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { securityService } from '../services/security.service'
+import { securityService, type Platform } from '../services/security.service'
 
 export function setupSecurityHandlers(): void {
   // Generate a new security code
@@ -28,10 +28,10 @@ export function setupSecurityHandlers(): void {
     }
   })
 
-  // Get all bound users
-  ipcMain.handle('security:get-bound-users', async () => {
+  // Get bound users for a specific platform (or all if not specified)
+  ipcMain.handle('security:get-bound-users', async (_, platform?: Platform) => {
     try {
-      const users = await securityService.getBoundUsers()
+      const users = await securityService.getBoundUsers(platform)
       return { success: true, data: users }
     } catch (error) {
       return {
@@ -41,23 +41,42 @@ export function setupSecurityHandlers(): void {
     }
   })
 
-  // Remove a bound user
-  ipcMain.handle('security:remove-bound-user', async (_, userId: number) => {
-    try {
-      const removed = await securityService.removeBoundUser(userId)
-      return { success: true, data: { removed } }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to remove user'
+  // Remove a bound user from a specific platform
+  ipcMain.handle(
+    'security:remove-bound-user',
+    async (_, userId: number, platform: Platform = 'telegram') => {
+      try {
+        const removed = await securityService.removeBoundUser(userId, platform)
+        return { success: true, data: { removed } }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to remove user'
+        }
       }
     }
-  })
+  )
 
-  // Clear all bound users
-  ipcMain.handle('security:clear-bound-users', async () => {
+  // Remove a bound user by string ID (for Discord)
+  ipcMain.handle(
+    'security:remove-bound-user-by-id',
+    async (_, uniqueId: string, platform: Platform) => {
+      try {
+        const removed = await securityService.removeBoundUserByStringId(uniqueId, platform)
+        return { success: true, data: { removed } }
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to remove user'
+        }
+      }
+    }
+  )
+
+  // Clear bound users for a specific platform (or all if not specified)
+  ipcMain.handle('security:clear-bound-users', async (_, platform?: Platform) => {
     try {
-      await securityService.clearAllBoundUsers()
+      await securityService.clearBoundUsers(platform)
       return { success: true }
     } catch (error) {
       return {
