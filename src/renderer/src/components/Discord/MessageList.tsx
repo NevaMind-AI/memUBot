@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import { User, Bot, FileIcon, Download } from 'lucide-react'
+import { User, Bot, FileIcon, Download, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useMessageList, BaseMessage } from '../../hooks/useMessageList'
 
 interface MessageAttachment {
   id: string
@@ -13,25 +13,8 @@ interface MessageAttachment {
   height?: number
 }
 
-interface AppMessage {
-  id: string
-  platform: string
-  chatId: string
-  senderId: string
-  senderName: string
-  content: string
+interface DiscordMessage extends BaseMessage {
   attachments?: MessageAttachment[]
-  timestamp: Date
-  isFromBot: boolean
-  replyToId?: string
-}
-
-interface BotStatus {
-  platform: string
-  isConnected: boolean
-  username?: string
-  botName?: string
-  avatarUrl?: string
 }
 
 /**
@@ -61,60 +44,22 @@ function isVideo(attachment: MessageAttachment): boolean {
  * Discord Message List - Displays messages with Discord purple theme
  */
 export function DiscordMessageList(): JSX.Element {
-  const [messages, setMessages] = useState<AppMessage[]>([])
-  const [loading, setLoading] = useState(true)
-  const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const {
+    messages,
+    loading,
+    loadingMore,
+    hasMore,
+    botAvatarUrl,
+    containerRef,
+    messagesEndRef,
+    handleScroll
+  } = useMessageList({
+    api: window.discord,
+    pageSize: 20
+  })
 
-  // Load messages and bot status on mount
-  useEffect(() => {
-    loadMessages()
-    loadBotStatus()
-
-    // Subscribe to new messages
-    const unsubscribeMessages = window.discord.onNewMessage((message: AppMessage) => {
-      setMessages((prev) => [...prev, message])
-    })
-
-    // Subscribe to status changes to get updated avatar
-    const unsubscribeStatus = window.discord.onStatusChanged((status: BotStatus) => {
-      setBotAvatarUrl(status.avatarUrl || null)
-    })
-
-    return () => {
-      unsubscribeMessages()
-      unsubscribeStatus()
-    }
-  }, [])
-
-  // Auto-scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const loadMessages = async () => {
-    try {
-      const result = await window.discord.getMessages(200)
-      if (result.success && result.data) {
-        setMessages(result.data)
-      }
-    } catch (error) {
-      console.error('Failed to load messages:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const loadBotStatus = async () => {
-    try {
-      const result = await window.discord.getStatus()
-      if (result.success && result.data) {
-        setBotAvatarUrl(result.data.avatarUrl || null)
-      }
-    } catch (error) {
-      console.error('Failed to load bot status:', error)
-    }
-  }
+  // Cast messages to DiscordMessage for attachments support
+  const discordMessages = messages as DiscordMessage[]
 
   const formatTime = (date: Date) => {
     const d = new Date(date)
@@ -143,10 +88,10 @@ export function DiscordMessageList(): JSX.Element {
   }
 
   // Group messages by date
-  const groupedMessages: { date: string; messages: AppMessage[] }[] = []
+  const groupedMessages: { date: string; messages: DiscordMessage[] }[] = []
   let currentDate = ''
 
-  for (const msg of messages) {
+  for (const msg of discordMessages) {
     const msgDate = formatDate(msg.timestamp)
     if (msgDate !== currentDate) {
       currentDate = msgDate
@@ -164,7 +109,7 @@ export function DiscordMessageList(): JSX.Element {
     )
   }
 
-  if (messages.length === 0) {
+  if (discordMessages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
@@ -181,7 +126,25 @@ export function DiscordMessageList(): JSX.Element {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-3">
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto px-4 py-3"
+      onScroll={handleScroll}
+    >
+      {/* Loading more indicator */}
+      {loadingMore && (
+        <div className="flex justify-center py-2">
+          <Loader2 className="w-5 h-5 text-[#5865F2] animate-spin" />
+        </div>
+      )}
+      
+      {/* Load more hint */}
+      {hasMore && !loadingMore && (
+        <div className="flex justify-center py-2">
+          <span className="text-[11px] text-[var(--text-muted)]">Scroll up to load more</span>
+        </div>
+      )}
+
       {groupedMessages.map((group) => (
         <div key={group.date}>
           {/* Date Separator */}

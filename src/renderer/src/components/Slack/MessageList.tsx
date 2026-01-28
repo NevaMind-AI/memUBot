@@ -1,109 +1,69 @@
-import { useState, useEffect, useRef } from 'react'
-import { Bot, User, Hash } from 'lucide-react'
+import { User, Bot, MessageSquare, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
+import { useMessageList } from '../../hooks/useMessageList'
 
-interface AppMessage {
-  id: string
-  platform: string
-  chatId: string
-  senderId: string
-  senderName: string
-  content: string
-  timestamp: Date
-  isFromBot: boolean
-}
-
-interface BotStatus {
-  platform: string
-  isConnected: boolean
-  username?: string
-  botName?: string
-  avatarUrl?: string
-}
-
+/**
+ * Slack Message List - Displays messages with Slack purple theme
+ */
 export function SlackMessageList(): JSX.Element {
-  const [messages, setMessages] = useState<AppMessage[]>([])
-  const [loading, setLoading] = useState(false)
-  const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    loadMessages()
-    loadBotStatus()
-  }, [])
-
-  useEffect(() => {
-    const unsubscribeMessages = window.slack.onNewMessage((message: AppMessage) => {
-      setMessages((prev) => {
-        const exists = prev.some((m) => m.id === message.id)
-        if (exists) return prev
-        return [...prev, { ...message, timestamp: new Date(message.timestamp) }]
-      })
-    })
-
-    const unsubscribeStatus = window.slack.onStatusChanged((status: BotStatus) => {
-      setBotAvatarUrl(status.avatarUrl || null)
-    })
-
-    return () => {
-      unsubscribeMessages()
-      unsubscribeStatus()
-    }
-  }, [])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const loadMessages = async () => {
-    setLoading(true)
-    try {
-      const result = await window.slack.getMessages(200)
-      if (result.success && result.data) {
-        const msgs = result.data.map((m) => ({
-          ...m,
-          timestamp: new Date(m.timestamp)
-        }))
-        setMessages(msgs)
-      }
-    } catch (error) {
-      console.error('Failed to load messages:', error)
-    }
-    setLoading(false)
-  }
-
-  const loadBotStatus = async () => {
-    try {
-      const result = await window.slack.getStatus()
-      if (result.success && result.data) {
-        setBotAvatarUrl(result.data.avatarUrl || null)
-      }
-    } catch (error) {
-      console.error('Failed to load bot status:', error)
-    }
-  }
+  const {
+    messages,
+    loading,
+    loadingMore,
+    hasMore,
+    botAvatarUrl,
+    containerRef,
+    messagesEndRef,
+    handleScroll
+  } = useMessageList({
+    api: window.slack,
+    pageSize: 20
+  })
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const d = new Date(date)
+    return d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
   const formatDate = (date: Date) => {
+    const d = new Date(date)
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (date.toDateString() === today.toDateString()) {
+    if (d.toDateString() === today.toDateString()) {
       return 'Today'
-    } else if (date.toDateString() === yesterday.toDateString()) {
+    } else if (d.toDateString() === yesterday.toDateString()) {
       return 'Yesterday'
     }
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })
+    return d.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined
+    })
+  }
+
+  // Group messages by date
+  const groupedMessages: { date: string; messages: typeof messages }[] = []
+  let currentDate = ''
+
+  for (const msg of messages) {
+    const msgDate = formatDate(msg.timestamp)
+    if (msgDate !== currentDate) {
+      currentDate = msgDate
+      groupedMessages.push({ date: msgDate, messages: [msg] })
+    } else {
+      groupedMessages[groupedMessages.length - 1].messages.push(msg)
+    }
   }
 
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="w-6 h-6 border-2 border-[#4A154B]/50 border-t-transparent rounded-full animate-spin" />
+        <div className="text-[var(--text-muted)]">Loading messages...</div>
       </div>
     )
   }
@@ -112,107 +72,156 @@ export function SlackMessageList(): JSX.Element {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-[#4A154B]/10 border border-[#4A154B]/20 shadow-lg flex items-center justify-center">
-            <Hash className="w-7 h-7 text-[#4A154B]" />
+          <div className="w-16 h-16 rounded-full bg-[#611f69]/20 flex items-center justify-center mx-auto mb-4">
+            <MessageSquare className="w-8 h-8 text-[#611f69]" />
           </div>
-          <h2 className="text-[15px] font-semibold text-[var(--text-primary)] mb-1">
-            No Messages Yet
-          </h2>
-          <p className="text-[13px] text-[var(--text-muted)] max-w-[220px]">
-            Connect your Slack bot to start chatting.
+          <p className="text-[var(--text-muted)] text-sm">No messages yet</p>
+          <p className="text-[var(--text-muted)] text-xs mt-1">
+            Message the bot in Slack to start chatting
           </p>
         </div>
       </div>
     )
   }
 
-  // Group messages by date
-  const groupedMessages: { date: string; messages: AppMessage[] }[] = []
-  let currentDate = ''
-
-  for (const msg of messages) {
-    const msgDate = formatDate(msg.timestamp)
-    if (msgDate !== currentDate) {
-      currentDate = msgDate
-      groupedMessages.push({ date: msgDate, messages: [] })
-    }
-    groupedMessages[groupedMessages.length - 1].messages.push(msg)
-  }
-
   return (
-    <div className="flex-1 overflow-y-auto px-5 py-4">
-      <div className="max-w-xl mx-auto space-y-5">
-        {groupedMessages.map((group, groupIndex) => (
-          <div key={groupIndex}>
-            {/* Date Separator */}
-            <div className="flex items-center justify-center mb-4">
-              <div className="px-3 py-1.5 rounded-full bg-[#4A154B]/10 border border-[#4A154B]/20 shadow-sm text-[11px] text-[#4A154B] font-medium">
-                {group.date}
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto px-4 py-3"
+      onScroll={handleScroll}
+    >
+      {/* Loading more indicator */}
+      {loadingMore && (
+        <div className="flex justify-center py-2">
+          <Loader2 className="w-5 h-5 text-[#611f69] animate-spin" />
+        </div>
+      )}
+      
+      {/* Load more hint */}
+      {hasMore && !loadingMore && (
+        <div className="flex justify-center py-2">
+          <span className="text-[11px] text-[var(--text-muted)]">Scroll up to load more</span>
+        </div>
+      )}
+
+      {groupedMessages.map((group) => (
+        <div key={group.date}>
+          {/* Date Separator */}
+          <div className="flex items-center justify-center my-4">
+            <div className="flex-1 h-px bg-[#611f69]/20" />
+            <span className="px-3 text-[11px] text-[#611f69] font-medium">{group.date}</span>
+            <div className="flex-1 h-px bg-[#611f69]/20" />
+          </div>
+
+          {/* Messages */}
+          {group.messages.map((msg) => (
+            <div
+              key={msg.id}
+              className={`flex gap-3 mb-3 ${msg.isFromBot ? 'flex-row-reverse' : 'flex-row'}`}
+            >
+              {/* Avatar */}
+              {msg.isFromBot ? (
+                // Bot avatar - use actual avatar if available
+                botAvatarUrl ? (
+                  <img
+                    src={botAvatarUrl}
+                    alt="Bot"
+                    className="w-8 h-8 rounded-lg flex-shrink-0 object-cover border-2 border-[#611f69]"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-[#611f69] to-[#8b4f99]">
+                    <Bot className="w-4 h-4 text-white" />
+                  </div>
+                )
+              ) : (
+                // User avatar
+                <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center bg-gradient-to-br from-[#8b4f99] to-[#611f69]">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+              )}
+
+              {/* Message Bubble */}
+              <div
+                className={`max-w-[70%] overflow-hidden ${
+                  msg.isFromBot
+                    ? 'bg-[#611f69]/10 dark:bg-[#611f69]/20 border border-[#611f69]/20'
+                    : 'bg-[#8b4f99]/10 dark:bg-[#8b4f99]/20 border border-[#8b4f99]/20'
+                } rounded-2xl px-4 py-2`}
+              >
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-1">
+                  <span
+                    className={`text-[12px] font-semibold ${
+                      msg.isFromBot ? 'text-[#611f69]' : 'text-[#8b4f99]'
+                    }`}
+                  >
+                    {msg.senderName}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-muted)]">
+                    {formatTime(msg.timestamp)}
+                  </span>
+                </div>
+
+                {/* Content */}
+                {msg.content && (
+                  msg.isFromBot ? (
+                    <div className="text-[13px] text-[var(--text-primary)] prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:my-2 prose-headings:text-[var(--text-primary)]" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      <ReactMarkdown
+                        components={{
+                          code: ({ className, children, node, ...props }) => {
+                            const isBlock = node?.position && className?.includes('language-')
+                            return isBlock ? (
+                              <code
+                                className={`${className || ''} block p-2 rounded bg-slate-800 dark:bg-slate-900 text-slate-100 text-[12px]`}
+                                style={{ 
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-all',
+                                  overflowWrap: 'anywhere'
+                                }}
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            ) : (
+                              <code
+                                className="px-1 py-0.5 rounded bg-[var(--bg-input)] text-[#611f69] text-[12px]"
+                                style={{ 
+                                  wordBreak: 'break-all',
+                                  overflowWrap: 'anywhere'
+                                }}
+                                {...props}
+                              >
+                                {children}
+                              </code>
+                            )
+                          },
+                          pre: ({ children }) => (
+                            <pre 
+                              className="my-2 rounded-lg overflow-hidden"
+                              style={{ 
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-all'
+                              }}
+                            >
+                              {children}
+                            </pre>
+                          )
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-[13px] text-[var(--text-primary)]" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      {msg.content}
+                    </p>
+                  )
+                )}
               </div>
             </div>
-
-            {/* Messages */}
-            <div className="space-y-3">
-              {group.messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={`flex gap-2.5 ${msg.isFromBot ? 'flex-row-reverse' : ''}`}
-                >
-                  {/* Avatar */}
-                  {msg.isFromBot ? (
-                    botAvatarUrl ? (
-                      <img
-                        src={botAvatarUrl}
-                        alt="Bot"
-                        className="w-8 h-8 rounded-lg flex-shrink-0 object-cover border-2 border-[#4A154B] shadow-md"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center shadow-md bg-gradient-to-br from-[#4A154B] to-[#611F69]">
-                        <Bot className="w-4 h-4 text-white" />
-                      </div>
-                    )
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center shadow-md bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--glass-border)]">
-                      <User className="w-4 h-4 text-[var(--text-muted)]" />
-                    </div>
-                  )}
-
-                  {/* Message Bubble */}
-                  <div className={`max-w-[70%] ${msg.isFromBot ? 'items-end' : 'items-start'}`}>
-                    {!msg.isFromBot && (
-                      <p className="text-[10px] text-[var(--text-muted)] mb-1 px-1">
-                        {msg.senderName}
-                      </p>
-                    )}
-                    <div
-                      className={`px-4 py-2.5 rounded-lg shadow-sm ${
-                        msg.isFromBot
-                          ? 'bg-gradient-to-br from-[#4A154B]/20 to-[#611F69]/20 backdrop-blur-sm border border-[#4A154B]/30 rounded-tr-sm'
-                          : 'bg-[var(--bg-card)] backdrop-blur-sm border border-[var(--glass-border)] rounded-tl-sm'
-                      }`}
-                    >
-                      {msg.isFromBot ? (
-                        <div className="markdown-content text-[13px] leading-relaxed text-[var(--text-primary)]">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        </div>
-                      ) : (
-                        <p className="text-[13px] whitespace-pre-wrap break-words leading-relaxed text-[var(--text-primary)]">
-                          {msg.content}
-                        </p>
-                      )}
-                    </div>
-                    <p
-                      className={`text-[10px] text-[var(--text-muted)] mt-1 px-1 ${msg.isFromBot ? 'text-right' : ''}`}
-                    >
-                      {formatTime(msg.timestamp)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ))}
       <div ref={messagesEndRef} />
     </div>
   )

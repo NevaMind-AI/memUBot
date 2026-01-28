@@ -20,6 +20,7 @@
     "@anthropic-ai/sdk": "^0.71.2",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
+    "@slack/bolt": "^4.6.0",
     "discord.js": "^14.25.1",
     "https-proxy-agent": "^7.0.6",
     "lucide-react": "^0.563.0",

@@ -63,7 +63,7 @@ const tailscaleApi = {
 }
 
 // Security API
-type Platform = 'telegram' | 'discord'
+type Platform = 'telegram' | 'discord' | 'slack'
 
 const securityApi = {
   generateCode: () => ipcRenderer.invoke('security:generate-code'),

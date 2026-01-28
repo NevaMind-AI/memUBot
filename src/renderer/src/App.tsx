@@ -122,6 +122,7 @@ function App(): JSX.Element {
           subtitle={headerInfo.subtitle}
           showTelegramStatus={headerInfo.showTelegramStatus}
           showDiscordStatus={headerInfo.showDiscordStatus}
+          showSlackStatus={headerInfo.showSlackStatus}
         />
 
         {/* Content */}

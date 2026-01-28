@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Power, Loader2, Circle, Users, Square, Brain, Wrench, Bot, MessageCircle, Gamepad2 } from 'lucide-react'
+import { Power, Loader2, Circle, Users, Square, Brain, Wrench, Bot, MessageCircle, Gamepad2, Hash } from 'lucide-react'
 import { toast } from '../Toast'
 import { BoundUsersModal } from '../Telegram/BoundUsersModal'
 import { DiscordBoundUsersModal } from '../Discord/BoundUsersModal'
@@ -9,9 +9,12 @@ interface HeaderProps {
   subtitle?: string
   showTelegramStatus?: boolean
   showDiscordStatus?: boolean
+  showSlackStatus?: boolean
 }
 
-// Bot avatar component - supports both Telegram and Discord themes
+type Platform = 'telegram' | 'discord' | 'slack'
+
+// Bot avatar component - supports Telegram, Discord, and Slack themes
 function BotAvatar({
   isConnected,
   avatarUrl,
@@ -19,11 +22,14 @@ function BotAvatar({
 }: {
   isConnected: boolean
   avatarUrl?: string
-  platform: 'telegram' | 'discord'
+  platform: Platform
 }): JSX.Element {
-  const colors = platform === 'discord'
-    ? { from: '#5865F2', to: '#7289DA', border: '#5865F2' }
-    : { from: '#7DCBF7', to: '#2596D1', border: '#7DCBF7' }
+  const colorMap = {
+    telegram: { from: '#7DCBF7', to: '#2596D1', border: '#7DCBF7' },
+    discord: { from: '#5865F2', to: '#7289DA', border: '#5865F2' },
+    slack: { from: '#4A154B', to: '#611F69', border: '#4A154B' }
+  }
+  const colors = colorMap[platform]
 
   // If we have an avatar URL and connected, show the actual avatar
   if (isConnected && avatarUrl) {
@@ -38,8 +44,13 @@ function BotAvatar({
   }
 
   // Default avatar icons
-  const Icon = platform === 'discord' ? Gamepad2 : Bot
-  const DefaultIcon = platform === 'discord' ? Gamepad2 : MessageCircle
+  const iconMap = {
+    telegram: { connected: Bot, default: MessageCircle },
+    discord: { connected: Gamepad2, default: Gamepad2 },
+    slack: { connected: Hash, default: Hash }
+  }
+  const Icon = iconMap[platform].connected
+  const DefaultIcon = iconMap[platform].default
 
   return (
     <div
@@ -74,21 +85,39 @@ interface LLMStatusInfo {
   iteration?: number
 }
 
-export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus }: HeaderProps): JSX.Element {
+export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus }: HeaderProps): JSX.Element {
   const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
   const [discordStatus, setDiscordStatus] = useState<BotStatus | null>(null)
+  const [slackStatus, setSlackStatus] = useState<BotStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
   const [llmStatus, setLLMStatus] = useState<LLMStatusInfo>({ status: 'idle' })
 
+  // Determine current platform
+  const platform: Platform | null = showTelegramStatus
+    ? 'telegram'
+    : showDiscordStatus
+    ? 'discord'
+    : showSlackStatus
+    ? 'slack'
+    : null
+
   // Current platform status
-  const status = showTelegramStatus ? telegramStatus : showDiscordStatus ? discordStatus : null
-  const platform = showTelegramStatus ? 'telegram' : showDiscordStatus ? 'discord' : null
+  const status = showTelegramStatus
+    ? telegramStatus
+    : showDiscordStatus
+    ? discordStatus
+    : showSlackStatus
+    ? slackStatus
+    : null
 
   // Platform colors
-  const platformColors = platform === 'discord'
-    ? { from: '#5865F2', to: '#7289DA', shadow: '#5865F2' }
-    : { from: '#7DCBF7', to: '#2596D1', shadow: '#2596D1' }
+  const platformColorMap = {
+    telegram: { from: '#7DCBF7', to: '#2596D1', shadow: '#2596D1' },
+    discord: { from: '#5865F2', to: '#7289DA', shadow: '#5865F2' },
+    slack: { from: '#4A154B', to: '#611F69', shadow: '#4A154B' }
+  }
+  const platformColors = platform ? platformColorMap[platform] : platformColorMap.telegram
 
   // Subscribe to LLM status changes
   useEffect(() => {
@@ -121,6 +150,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus 
     }
   }, [showDiscordStatus])
 
+  // Subscribe to Slack status
+  useEffect(() => {
+    if (showSlackStatus) {
+      checkSlackStatus()
+      const unsubscribe = window.slack.onStatusChanged((newStatus: BotStatus) => {
+        setSlackStatus(newStatus)
+      })
+      return () => unsubscribe()
+    }
+  }, [showSlackStatus])
+
   const checkTelegramStatus = async () => {
     try {
       const result = await window.telegram.getStatus()
@@ -140,6 +180,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus 
       }
     } catch (error) {
       console.error('Failed to get Discord status:', error)
+    }
+  }
+
+  const checkSlackStatus = async () => {
+    try {
+      const result = await window.slack.getStatus()
+      if (result.success && result.data) {
+        setSlackStatus(result.data)
+      }
+    } catch (error) {
+      console.error('Failed to get Slack status:', error)
     }
   }
 
@@ -164,6 +215,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus 
           toast.success('Discord bot connected successfully')
         }
         await checkDiscordStatus()
+      } else if (showSlackStatus) {
+        const result = await window.slack.connect()
+        if (!result.success) {
+          setSlackStatus({ platform: 'slack', isConnected: false, error: result.error })
+          toast.error(result.error || 'Failed to connect Slack bot')
+        } else {
+          toast.success('Slack bot connected successfully')
+        }
+        await checkSlackStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Connection failed'
@@ -182,6 +242,10 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus 
         await window.discord.disconnect()
         toast.info('Discord bot disconnected')
         await checkDiscordStatus()
+      } else if (showSlackStatus) {
+        await window.slack.disconnect()
+        toast.info('Slack bot disconnected')
+        await checkSlackStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Disconnect failed'
@@ -201,17 +265,18 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus 
 
   const isConnected = status?.isConnected
   const isLLMProcessing = llmStatus.status !== 'idle'
-  const showStatus = showTelegramStatus || showDiscordStatus
+  const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus
 
   // Get display info based on connection status
+  const platformName = platform === 'discord' ? 'Discord' : platform === 'slack' ? 'Slack' : 'Telegram'
   const displayName = showStatus
     ? isConnected
       ? status?.botName || status?.username || 'Bot'
-      : platform === 'discord' ? 'Discord' : 'Telegram'
+      : platformName
     : title
   const displaySubtitle = showStatus
     ? isConnected
-      ? `@${status?.username}`
+      ? status?.username ? `@${status.username}` : ''
       : 'AI Assistant'
     : subtitle
   const avatarUrl = status?.avatarUrl
@@ -321,6 +386,11 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus 
       {/* Bound Users Modal - Discord */}
       {showDiscordStatus && (
         <DiscordBoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} />
+      )}
+
+      {/* Bound Users Modal - Slack (reuse Telegram modal for now) */}
+      {showSlackStatus && (
+        <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="slack" />
       )}
     </header>
   )

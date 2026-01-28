@@ -4,6 +4,7 @@ import { X, User, Trash2, Loader2, Shield, AlertTriangle } from 'lucide-react'
 import { toast } from '../../stores/toastStore'
 
 interface BoundUser {
+  uniqueId: string
   userId: number
   username: string
   firstName?: string
@@ -11,17 +12,48 @@ interface BoundUser {
   boundAt: number
 }
 
+type Platform = 'telegram' | 'discord' | 'slack'
+
 interface BoundUsersModalProps {
   isOpen: boolean
   onClose: () => void
+  platform?: Platform
 }
 
-export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.Element | null {
+// Platform-specific colors
+const platformColors: Record<Platform, { from: string; to: string; accent: string }> = {
+  telegram: { from: '#7DCBF7', to: '#2596D1', accent: '#2596D1' },
+  discord: { from: '#5865F2', to: '#7289DA', accent: '#5865F2' },
+  slack: { from: '#4A154B', to: '#611F69', accent: '#4A154B' }
+}
+
+// Platform-specific bind commands
+const platformBindCommands: Record<Platform, string> = {
+  telegram: '/bind <code>',
+  discord: '@bot /bind <code>',
+  slack: '/bind <code>'
+}
+
+// Capitalized platform names
+const platformNames: Record<Platform, string> = {
+  telegram: 'Telegram',
+  discord: 'Discord',
+  slack: 'Slack'
+}
+
+export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: BoundUsersModalProps): JSX.Element | null {
   const [users, setUsers] = useState<BoundUser[]>([])
   const [loading, setLoading] = useState(true)
-  const [deletingId, setDeletingId] = useState<number | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [shouldRender, setShouldRender] = useState(false)
   const [isAnimatingIn, setIsAnimatingIn] = useState(false)
+
+  const colors = platformColors[platform]
+  const bindCommand = platformBindCommands[platform]
+  const platformName = platformNames[platform]
+  
+  // Discord and Slack use string IDs, Telegram uses numeric IDs
+  const usesStringId = platform === 'discord' || platform === 'slack'
 
   // Handle mount/unmount with animation
   useEffect(() => {
@@ -48,8 +80,8 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
   const loadBoundUsers = async () => {
     setLoading(true)
     try {
-      // Get only Telegram bound users
-      const result = await window.security.getBoundUsers('telegram')
+      // Get bound users for the current platform
+      const result = await window.security.getBoundUsers(platform)
       if (result.success && result.data) {
         setUsers(result.data)
       }
@@ -59,14 +91,21 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
     setLoading(false)
   }
 
-  const handleRemoveUser = async (userId: number, username: string) => {
-    setDeletingId(userId)
+  const handleRemoveUser = async (user: BoundUser) => {
+    const identifier = user.uniqueId || String(user.userId)
+    setDeletingId(identifier)
     try {
-      // Remove from Telegram platform
-      const result = await window.security.removeBoundUser(userId, 'telegram')
+      // Use string ID removal for Discord/Slack, numeric ID for Telegram
+      let result
+      if (usesStringId) {
+        result = await window.security.removeBoundUserById(identifier, platform)
+      } else {
+        result = await window.security.removeBoundUser(user.userId, platform)
+      }
+      
       if (result.success) {
-        setUsers((prev) => prev.filter((u) => u.userId !== userId))
-        toast.success(`Removed @${username}`)
+        setUsers((prev) => prev.filter((u) => (u.uniqueId || String(u.userId)) !== identifier))
+        toast.success(`Removed @${user.username}`)
       } else {
         toast.error(result.error || 'Failed to remove user')
       }
@@ -107,11 +146,14 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7DCBF7]/20 to-[#2596D1]/20 flex items-center justify-center">
-              <Shield className="w-4 h-4 text-[#2596D1]" />
+            <div
+              className="w-8 h-8 rounded-lg flex items-center justify-center"
+              style={{ background: `linear-gradient(to bottom right, ${colors.from}20, ${colors.to}20)` }}
+            >
+              <Shield className="w-4 h-4" style={{ color: colors.accent }} />
             </div>
             <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-              Bound Accounts
+              {platformName} Bound Accounts
             </h2>
           </div>
           <button
@@ -126,7 +168,7 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
         <div className="p-5 max-h-[400px] overflow-y-auto bg-white dark:bg-slate-900">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 text-[#2596D1] animate-spin" />
+              <Loader2 className="w-5 h-5 animate-spin" style={{ color: colors.accent }} />
             </div>
           ) : users.length === 0 ? (
             <div className="text-center py-6">
@@ -135,35 +177,44 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
                 No bound accounts yet
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 mb-4">
-                Bind your Telegram account to use this bot
+                Bind your {platformName} account to use this bot
               </p>
 
-              {/* Telegram Binding Instructions */}
+              {/* Binding Instructions */}
               <div className="text-left p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <h4 className="text-[12px] font-medium text-slate-900 dark:text-white mb-2">
-                  How to bind (Telegram)
+                  How to bind ({platformName})
                 </h4>
                 <ol className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
                   <li className="flex items-start gap-2">
-                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[#2596D1]/10 text-[#2596D1] text-[10px] font-medium flex items-center justify-center">
+                    <span
+                      className="flex-shrink-0 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
+                      style={{ background: `${colors.accent}10`, color: colors.accent }}
+                    >
                       1
                     </span>
                     <span>Go to Settings → Security</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[#2596D1]/10 text-[#2596D1] text-[10px] font-medium flex items-center justify-center">
+                    <span
+                      className="flex-shrink-0 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
+                      style={{ background: `${colors.accent}10`, color: colors.accent }}
+                    >
                       2
                     </span>
                     <span>Generate a security code</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <span className="flex-shrink-0 w-4 h-4 rounded-full bg-[#2596D1]/10 text-[#2596D1] text-[10px] font-medium flex items-center justify-center">
+                    <span
+                      className="flex-shrink-0 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
+                      style={{ background: `${colors.accent}10`, color: colors.accent }}
+                    >
                       3
                     </span>
                     <span>
                       Send{' '}
                       <code className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px] text-slate-700 dark:text-slate-300">
-                        /bind &lt;code&gt;
+                        {bindCommand}
                       </code>{' '}
                       to your bot
                     </span>
@@ -179,8 +230,11 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
                   className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#7DCBF7]/30 to-[#2596D1]/30 flex items-center justify-center">
-                      <User className="w-5 h-5 text-[#2596D1]" />
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      style={{ background: `linear-gradient(to bottom right, ${colors.from}30, ${colors.to}30)` }}
+                    >
+                      <User className="w-5 h-5" style={{ color: colors.accent }} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -199,11 +253,11 @@ export function BoundUsersModal({ isOpen, onClose }: BoundUsersModalProps): JSX.
                     </div>
                   </div>
                   <button
-                    onClick={() => handleRemoveUser(user.userId, user.username)}
-                    disabled={deletingId === user.userId}
+                    onClick={() => handleRemoveUser(user)}
+                    disabled={deletingId === (user.uniqueId || String(user.userId))}
                     className="p-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all disabled:opacity-50"
                   >
-                    {deletingId === user.userId ? (
+                    {deletingId === (user.uniqueId || String(user.userId)) ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <Trash2 className="w-4 h-4" />

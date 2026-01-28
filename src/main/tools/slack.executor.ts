@@ -101,6 +101,25 @@ export async function executeSlackAddReaction(input: AddReactionInput): Promise<
   return { success: false, error: result.error }
 }
 
+interface SendEphemeralInput {
+  user_id: string
+  text: string
+}
+
+export async function executeSlackSendEphemeral(input: SendEphemeralInput): Promise<ToolResult> {
+  const channelId = getCurrentChannelId()
+  if (!channelId) {
+    return { success: false, error: 'No active Slack channel. User must send a message first.' }
+  }
+
+  const result = await slackBotService.sendEphemeral(channelId, input.user_id, input.text)
+
+  if (result.success) {
+    return { success: true, data: { sent: true } }
+  }
+  return { success: false, error: result.error }
+}
+
 /**
  * Execute a Slack tool by name
  */
@@ -114,6 +133,8 @@ export async function executeSlackTool(name: string, input: unknown): Promise<To
       return await executeSlackUploadFile(input as UploadFileInput)
     case 'slack_add_reaction':
       return await executeSlackAddReaction(input as AddReactionInput)
+    case 'slack_send_ephemeral':
+      return await executeSlackSendEphemeral(input as SendEphemeralInput)
     default:
       return { success: false, error: `Unknown Slack tool: ${name}` }
   }

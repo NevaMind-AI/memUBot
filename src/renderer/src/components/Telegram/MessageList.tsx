@@ -1,88 +1,21 @@
-import { useState, useEffect, useRef } from 'react'
-import { Bot, User, MessageSquare } from 'lucide-react'
+import { Bot, User, MessageSquare, Loader2 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
-
-interface AppMessage {
-  id: string
-  platform: string
-  chatId: string
-  senderId: string
-  senderName: string
-  content: string
-  timestamp: Date
-  isFromBot: boolean
-}
-
-interface BotStatus {
-  platform: string
-  isConnected: boolean
-  username?: string
-  botName?: string
-  avatarUrl?: string
-}
+import { useMessageList } from '../../hooks/useMessageList'
 
 export function MessageList(): JSX.Element {
-  const [messages, setMessages] = useState<AppMessage[]>([])
-  const [loading, setLoading] = useState(false)
-  const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    loadMessages()
-    loadBotStatus()
-  }, [])
-
-  useEffect(() => {
-    const unsubscribeMessages = window.telegram.onNewMessage((message: AppMessage) => {
-      setMessages((prev) => {
-        const exists = prev.some((m) => m.id === message.id)
-        if (exists) return prev
-        return [...prev, { ...message, timestamp: new Date(message.timestamp) }]
-      })
-    })
-
-    // Subscribe to status changes to get updated avatar
-    const unsubscribeStatus = window.telegram.onStatusChanged((status: BotStatus) => {
-      setBotAvatarUrl(status.avatarUrl || null)
-    })
-
-    return () => {
-      unsubscribeMessages()
-      unsubscribeStatus()
-    }
-  }, [])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const loadMessages = async () => {
-    setLoading(true)
-    try {
-      const result = await window.telegram.getMessages(200)
-      if (result.success && result.data) {
-        const msgs = result.data.map((m) => ({
-          ...m,
-          timestamp: new Date(m.timestamp)
-        }))
-        setMessages(msgs)
-      }
-    } catch (error) {
-      console.error('Failed to load messages:', error)
-    }
-    setLoading(false)
-  }
-
-  const loadBotStatus = async () => {
-    try {
-      const result = await window.telegram.getStatus()
-      if (result.success && result.data) {
-        setBotAvatarUrl(result.data.avatarUrl || null)
-      }
-    } catch (error) {
-      console.error('Failed to load bot status:', error)
-    }
-  }
+  const {
+    messages,
+    loading,
+    loadingMore,
+    hasMore,
+    botAvatarUrl,
+    containerRef,
+    messagesEndRef,
+    handleScroll
+  } = useMessageList({
+    api: window.telegram,
+    pageSize: 20
+  })
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -128,7 +61,7 @@ export function MessageList(): JSX.Element {
   }
 
   // Group messages by date
-  const groupedMessages: { date: string; messages: AppMessage[] }[] = []
+  const groupedMessages: { date: string; messages: typeof messages }[] = []
   let currentDate = ''
 
   for (const msg of messages) {
@@ -141,8 +74,26 @@ export function MessageList(): JSX.Element {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-5 py-4">
+    <div
+      ref={containerRef}
+      className="flex-1 overflow-y-auto px-5 py-4"
+      onScroll={handleScroll}
+    >
       <div className="max-w-xl mx-auto space-y-5">
+        {/* Loading more indicator */}
+        {loadingMore && (
+          <div className="flex justify-center py-2">
+            <Loader2 className="w-5 h-5 text-[var(--primary)] animate-spin" />
+          </div>
+        )}
+        
+        {/* Load more hint */}
+        {hasMore && !loadingMore && (
+          <div className="flex justify-center py-2">
+            <span className="text-[11px] text-[var(--text-muted)]">Scroll up to load more</span>
+          </div>
+        )}
+
         {groupedMessages.map((group, groupIndex) => (
           <div key={groupIndex}>
             {/* Date Separator */}

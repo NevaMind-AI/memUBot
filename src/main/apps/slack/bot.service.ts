@@ -1,3 +1,4 @@
+import { App as SlackApp, LogLevel } from '@slack/bolt'
 import { slackStorage } from './storage'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
@@ -5,24 +6,25 @@ import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
 import type { StoredSlackMessage, SlackWorkspace } from './types'
-
-// Note: @slack/bolt would be imported here for actual implementation
-// import { App as SlackApp } from '@slack/bolt'
+import * as fs from 'fs'
 
 /**
  * SlackBotService manages Slack bot connection and message handling
- * Uses Slack Bolt SDK for event handling
+ * Uses Slack Bolt SDK with Socket Mode for event handling
  */
 export class SlackBotService {
+  private app: SlackApp | null = null
   private status: BotStatus = {
     platform: 'slack',
     isConnected: false
   }
   private currentChannelId: string | null = null
+  private currentThreadTs: string | null = null
   private workspace: SlackWorkspace | null = null
+  private botUserId: string | null = null
 
   /**
-   * Connect to Slack
+   * Connect to Slack using Socket Mode
    */
   async connect(): Promise<void> {
     try {
@@ -36,24 +38,67 @@ export class SlackBotService {
         throw new Error('Slack Bot Token not configured. Please set it in Settings.')
       }
 
+      if (!appToken) {
+        throw new Error('Slack App Token not configured. Please set it in Settings for Socket Mode.')
+      }
+
       // Initialize storage
       await slackStorage.initialize()
       console.log('[Slack] Storage initialized')
 
-      // TODO: Implement Slack Bolt app initialization
-      // This would involve:
-      // 1. Creating Slack App with bot token and app token (for socket mode)
-      // 2. Setting up event listeners for messages
-      // 3. Starting the app
+      // Create Slack app with Socket Mode
+      this.app = new SlackApp({
+        token: botToken,
+        appToken: appToken,
+        socketMode: true,
+        logLevel: LogLevel.INFO
+      })
 
+      // Setup event handlers
+      this.setupEventHandlers()
+
+      // Start the app
+      await this.app.start()
+      console.log('[Slack] Socket Mode connection started')
+
+      // Get bot info
+      const authResult = await this.app.client.auth.test()
+      this.botUserId = authResult.user_id as string
+      console.log('[Slack] Bot User ID:', this.botUserId)
+
+      // Try to get workspace info (optional, requires team:read scope)
+      if (authResult.team_id) {
+        try {
+          const teamInfo = await this.app.client.team.info({ team: authResult.team_id as string })
+          if (teamInfo.team) {
+            this.workspace = {
+              id: teamInfo.team.id || '',
+              name: teamInfo.team.name || '',
+              domain: teamInfo.team.domain || ''
+            }
+            console.log('[Slack] Workspace:', this.workspace.name)
+          }
+        } catch (teamError) {
+          // team:read scope might not be available, use basic info from auth.test
+          console.log('[Slack] Could not get workspace info (team:read scope may be missing), using basic info')
+          this.workspace = {
+            id: authResult.team_id as string,
+            name: authResult.team as string || 'Unknown',
+            domain: ''
+          }
+        }
+      }
+
+      // Update status
       this.status = {
         platform: 'slack',
-        isConnected: false,
-        error: 'Slack integration requires Bot Token and App Token. Please configure in Settings.'
+        isConnected: true,
+        username: authResult.user as string,
+        botName: authResult.bot_id as string
       }
 
       appEvents.emitSlackStatusChanged(this.status)
-      console.log('[Slack] Connection setup requires additional configuration')
+      console.log('[Slack] Connected successfully')
     } catch (error) {
       console.error('[Slack] Connection error:', error)
       this.status = {
@@ -67,52 +112,167 @@ export class SlackBotService {
   }
 
   /**
-   * Disconnect from Slack
+   * Setup event handlers for Slack events
    */
-  async disconnect(): Promise<void> {
-    // TODO: Implement app disconnection
-    this.status = {
-      platform: 'slack',
-      isConnected: false
-    }
-    this.workspace = null
-    appEvents.emitSlackStatusChanged(this.status)
-    console.log('[Slack] Disconnected')
+  private setupEventHandlers(): void {
+    if (!this.app) return
+
+    // Handle /bind slash command
+    this.app.command('/bind', async ({ command, ack, respond }) => {
+      // Acknowledge the command immediately
+      await ack()
+
+      const userId = command.user_id
+      const username = command.user_name
+      const code = command.text.trim()
+
+      console.log(`[Slack] /bind command from ${username} (${userId}) with code: ${code}`)
+
+      if (!code) {
+        await respond({
+          response_type: 'ephemeral',
+          text: '❌ Please provide a security code. Usage: `/bind <code>`'
+        })
+        return
+      }
+
+      // Validate code and bind user
+      const bindResult = await securityService.validateAndBindByStringId(
+        code,
+        userId,
+        username,
+        undefined,
+        undefined,
+        'slack'
+      )
+
+      if (bindResult.success) {
+        await respond({
+          response_type: 'ephemeral',
+          text: `✅ Successfully bound! Welcome, ${username}. You can now chat with me.`
+        })
+        console.log(`[Slack] User ${username} (${userId}) bound successfully`)
+      } else {
+        await respond({
+          response_type: 'ephemeral',
+          text: `❌ ${bindResult.error}`
+        })
+      }
+    })
+
+    // Handle mentions in channels - requires @mention
+    this.app.event('app_mention', async ({ event, say }) => {
+      console.log('[Slack] Received app_mention event:', event)
+      await this.handleMessage(event, say, false)
+    })
+
+    // Handle direct messages - no @mention required
+    this.app.event('message', async ({ event, say }) => {
+      // Type guard for message events
+      if (!('user' in event) || !event.user) return
+      if ('bot_id' in event && event.bot_id) return // Ignore bot messages
+      if ('subtype' in event && event.subtype) return // Ignore message subtypes (edits, deletes, etc.)
+
+      // Check if it's a DM (channel_type: 'im')
+      // DM channels start with 'D', but the safest way is to check channel_type
+      const channelType = 'channel_type' in event ? (event as { channel_type?: string }).channel_type : undefined
+      
+      // Only handle DMs in this event handler
+      // Channel messages should go through app_mention
+      if (channelType !== 'im') {
+        console.log('[Slack] Message is not a DM, ignoring (use @mention in channels)')
+        return
+      }
+
+      console.log('[Slack] Received DM message event:', event)
+      await this.handleMessage(event, say, true)
+    })
   }
 
   /**
    * Handle incoming message
+   * @param event - Slack message event
+   * @param say - Function to send a reply
+   * @param isDM - Whether this is a direct message (no @mention required)
    */
-  private async handleIncomingMessage(
-    messageId: string,
-    channelId: string,
-    fromId: string,
-    fromUsername: string,
-    text: string,
-    timestamp: number,
-    threadTs?: string
+  private async handleMessage(
+    event: {
+      user?: string
+      text?: string
+      channel: string
+      ts: string
+      thread_ts?: string
+    },
+    say: (message: string | { text: string; thread_ts?: string }) => Promise<unknown>,
+    isDM: boolean = false
   ): Promise<void> {
-    console.log('[Slack] Processing message...')
+    const userId = event.user
+    const text = event.text || ''
+    const channelId = event.channel
+    const messageTs = event.ts
+    const threadTs = event.thread_ts
 
-    // Check if user is authorized
-    const isAuthorized = await securityService.isAuthorizedByStringId(fromId, 'slack')
-    if (!isAuthorized) {
-      console.log(`[Slack] Unauthorized user ${fromUsername}, ignoring message`)
+    if (!userId) {
+      console.log('[Slack] Message has no user ID, ignoring')
       return
     }
 
-    // Set current channel for tool calls
+    console.log('[Slack] Processing message from user:', userId)
+    console.log('[Slack] Message text:', text)
+
+    // Set current context
     this.currentChannelId = channelId
+    this.currentThreadTs = threadTs || messageTs
+
+    // Get user info
+    let username = userId
+    let displayName: string | undefined
+
+    try {
+      if (this.app) {
+        const userInfo = await this.app.client.users.info({ user: userId })
+        if (userInfo.user) {
+          username = userInfo.user.name || userId
+          displayName = userInfo.user.real_name || userInfo.user.profile?.display_name
+        }
+      }
+    } catch (error) {
+      console.error('[Slack] Failed to get user info:', error)
+    }
+
+    // Remove bot mention from text if present (only for channel messages, not DMs)
+    let cleanText = text
+    if (!isDM && this.botUserId) {
+      cleanText = text.replace(new RegExp(`<@${this.botUserId}>`, 'g'), '').trim()
+    }
+
+    // Check for /bind command
+    if (cleanText.startsWith('/bind ') || cleanText === '/bind') {
+      await this.handleBindCommand(userId, username, cleanText, say)
+      return
+    }
+
+    // Check if user is authorized
+    const isAuthorized = await securityService.isAuthorizedByStringId(userId, 'slack')
+    if (!isAuthorized) {
+      console.log(`[Slack] Unauthorized user ${username}, ignoring message`)
+      // In DMs: reply directly, in channels: reply in thread
+      const unauthorizedReplyThreadTs = isDM ? threadTs : (threadTs || messageTs)
+      const unauthorizedMsg = '⚠️ You are not authorized to use this bot. Please use `/bind <code>` to bind your account first.'
+      await say(unauthorizedReplyThreadTs ? { text: unauthorizedMsg, thread_ts: unauthorizedReplyThreadTs } : unauthorizedMsg)
+      return
+    }
 
     // Store incoming message
     const storedMsg: StoredSlackMessage = {
-      messageId,
+      messageId: messageTs,
       channelId,
       threadTs,
-      fromId,
-      fromUsername,
-      text,
-      date: timestamp,
+      fromId: userId,
+      fromUsername: username,
+      fromDisplayName: displayName,
+      text: cleanText,
+      date: Math.floor(parseFloat(messageTs)),
       isFromBot: false
     }
     await slackStorage.storeMessage(storedMsg)
@@ -123,23 +283,67 @@ export class SlackBotService {
     appEvents.emitSlackNewMessage(appMessage)
 
     // Process with Agent and reply
-    if (text) {
-      await this.processWithAgentAndReply(channelId, text, threadTs)
+    if (cleanText) {
+      // In DMs: only use thread if user is already in one, otherwise reply directly
+      // In channels: always reply in thread
+      const replyThreadTs = isDM ? threadTs : (threadTs || messageTs)
+      await this.processWithAgentAndReply(channelId, cleanText, replyThreadTs, say)
+    }
+  }
+
+  /**
+   * Handle /bind command
+   */
+  private async handleBindCommand(
+    userId: string,
+    username: string,
+    text: string,
+    say: (message: string | { text: string; thread_ts?: string }) => Promise<unknown>
+  ): Promise<void> {
+    const parts = text.split(' ')
+    const code = parts[1]
+
+    if (!code) {
+      await say('❌ Please provide a security code. Usage: `/bind <code>` or `@bot /bind <code>`')
+      return
+    }
+
+    console.log(`[Slack] Bind attempt from ${username} (${userId}) with code: ${code}`)
+
+    // Validate code and bind user in one step
+    const bindResult = await securityService.validateAndBindByStringId(
+      code,
+      userId,
+      username,
+      undefined, // firstName
+      undefined, // lastName
+      'slack'
+    )
+
+    if (bindResult.success) {
+      await say(`✅ Successfully bound! Welcome, ${username}. You can now chat with me.`)
+      console.log(`[Slack] User ${username} (${userId}) bound successfully`)
+    } else {
+      await say(`❌ ${bindResult.error}`)
     }
   }
 
   /**
    * Process message with Agent and send reply
+   * @param threadTs - Thread timestamp for reply. If undefined, replies directly without threading (for DMs)
    */
   private async processWithAgentAndReply(
     channelId: string,
     userMessage: string,
-    threadTs?: string
+    threadTs: string | undefined,
+    say: (message: string | { text: string; thread_ts?: string }) => Promise<unknown>
   ): Promise<void> {
     console.log('[Slack] Sending to Agent:', userMessage.substring(0, 50) + '...')
 
     if (agentService.isProcessing()) {
       console.log('[Slack] Agent is busy, ignoring message')
+      // Reply with or without thread based on threadTs
+      await say(threadTs ? { text: '⏳ Please wait, I\'m still processing the previous message...', thread_ts: threadTs } : '⏳ Please wait, I\'m still processing the previous message...')
       return
     }
 
@@ -148,7 +352,9 @@ export class SlackBotService {
 
       if (response.success && response.message) {
         console.log('[Slack] Agent response:', response.message.substring(0, 100) + '...')
-        // TODO: Send message via Slack client
+
+        // Send reply (in thread if threadTs is provided, otherwise direct reply for DMs)
+        await say(threadTs ? { text: response.message, thread_ts: threadTs } : response.message)
 
         // Store bot's reply
         const botReply: StoredSlackMessage = {
@@ -169,7 +375,34 @@ export class SlackBotService {
       }
     } catch (error) {
       console.error('[Slack] Error processing with Agent:', error)
+      await say(threadTs ? { text: '❌ Sorry, an error occurred while processing your message.', thread_ts: threadTs } : '❌ Sorry, an error occurred while processing your message.')
     }
+  }
+
+  /**
+   * Disconnect from Slack
+   */
+  async disconnect(): Promise<void> {
+    try {
+      if (this.app) {
+        await this.app.stop()
+        this.app = null
+      }
+    } catch (error) {
+      console.error('[Slack] Error stopping app:', error)
+    }
+
+    this.status = {
+      platform: 'slack',
+      isConnected: false
+    }
+    this.workspace = null
+    this.botUserId = null
+    this.currentChannelId = null
+    this.currentThreadTs = null
+
+    appEvents.emitSlackStatusChanged(this.status)
+    console.log('[Slack] Disconnected')
   }
 
   /**
@@ -184,6 +417,13 @@ export class SlackBotService {
    */
   getCurrentChannelId(): string | null {
     return this.currentChannelId
+  }
+
+  /**
+   * Get current thread timestamp
+   */
+  getCurrentThreadTs(): string | null {
+    return this.currentThreadTs
   }
 
   /**
@@ -228,11 +468,40 @@ export class SlackBotService {
     text: string,
     threadTs?: string
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.status.isConnected || !this.app) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement actual sending via Slack client
-    return { success: false, error: 'Slack sending not yet implemented' }
+
+    try {
+      const result = await this.app.client.chat.postMessage({
+        channel: channelId,
+        text,
+        thread_ts: threadTs
+      })
+
+      if (result.ok && result.ts) {
+        // Store bot's message
+        const botMsg: StoredSlackMessage = {
+          messageId: result.ts,
+          channelId,
+          threadTs,
+          fromId: 'bot',
+          fromUsername: 'Bot',
+          text,
+          date: Math.floor(Date.now() / 1000),
+          isFromBot: true
+        }
+        await slackStorage.storeMessage(botMsg)
+        appEvents.emitSlackNewMessage(this.convertToAppMessage(botMsg))
+
+        return { success: true, messageId: result.ts }
+      }
+
+      return { success: false, error: 'Failed to send message' }
+    } catch (error) {
+      console.error('[Slack] Error sending text:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -244,11 +513,28 @@ export class SlackBotService {
     text?: string,
     threadTs?: string
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.status.isConnected || !this.app) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement actual sending via Slack client
-    return { success: false, error: 'Slack sending not yet implemented' }
+
+    try {
+      // Use any type to avoid Block Kit type complexity
+      const result = await this.app.client.chat.postMessage({
+        channel: channelId,
+        blocks: blocks as any,
+        text: text || 'Message with blocks',
+        thread_ts: threadTs
+      })
+
+      if (result.ok && result.ts) {
+        return { success: true, messageId: result.ts }
+      }
+
+      return { success: false, error: 'Failed to send blocks' }
+    } catch (error) {
+      console.error('[Slack] Error sending blocks:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -261,11 +547,30 @@ export class SlackBotService {
     title?: string,
     initialComment?: string
   ): Promise<{ success: boolean; fileId?: string; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.status.isConnected || !this.app) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement actual file upload via Slack client
-    return { success: false, error: 'Slack sending not yet implemented' }
+
+    try {
+      const fileContent = fs.readFileSync(filePath)
+
+      const result = await this.app.client.files.uploadV2({
+        channel_id: channelId,
+        file: fileContent,
+        filename: filename || filePath.split('/').pop(),
+        title,
+        initial_comment: initialComment
+      }) as any
+
+      if (result.ok && result.files && result.files[0]) {
+        return { success: true, fileId: result.files[0].id }
+      }
+
+      return { success: false, error: 'Failed to upload file' }
+    } catch (error) {
+      console.error('[Slack] Error uploading file:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -276,11 +581,56 @@ export class SlackBotService {
     messageTs: string,
     emoji: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.status.isConnected || !this.app) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement actual reaction via Slack client
-    return { success: false, error: 'Slack sending not yet implemented' }
+
+    try {
+      const result = await this.app.client.reactions.add({
+        channel: channelId,
+        timestamp: messageTs,
+        name: emoji
+      })
+
+      if (result.ok) {
+        return { success: true }
+      }
+
+      return { success: false, error: 'Failed to add reaction' }
+    } catch (error) {
+      console.error('[Slack] Error adding reaction:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send ephemeral message (visible only to specific user)
+   */
+  async sendEphemeral(
+    channelId: string,
+    userId: string,
+    text: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.status.isConnected || !this.app) {
+      return { success: false, error: 'Bot not connected' }
+    }
+
+    try {
+      const result = await this.app.client.chat.postEphemeral({
+        channel: channelId,
+        user: userId,
+        text
+      })
+
+      if (result.ok) {
+        return { success: true }
+      }
+
+      return { success: false, error: 'Failed to send ephemeral message' }
+    } catch (error) {
+      console.error('[Slack] Error sending ephemeral:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 }
 

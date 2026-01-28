@@ -8,7 +8,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { app } from 'electron'
 
-type Platform = 'telegram' | 'discord'
+type Platform = 'telegram' | 'discord' | 'slack'
 
 interface SecurityCode {
   code: string
@@ -43,6 +43,7 @@ class SecurityService {
     // Initialize platform maps
     this.boundUsersByPlatform.set('telegram', new Map())
     this.boundUsersByPlatform.set('discord', new Map())
+    this.boundUsersByPlatform.set('slack', new Map())
   }
 
   /**
@@ -77,7 +78,7 @@ class SecurityService {
       }
 
       console.log(
-        `[Security] Loaded bound users: Telegram=${this.boundUsersByPlatform.get('telegram')?.size || 0}, Discord=${this.boundUsersByPlatform.get('discord')?.size || 0}`
+        `[Security] Loaded bound users: Telegram=${this.boundUsersByPlatform.get('telegram')?.size || 0}, Discord=${this.boundUsersByPlatform.get('discord')?.size || 0}, Slack=${this.boundUsersByPlatform.get('slack')?.size || 0}`
       )
     } catch {
       console.log('[Security] No existing bound users found')
@@ -92,7 +93,7 @@ class SecurityService {
     const allUsers: BoundUser[] = []
 
     this.boundUsersByPlatform.forEach((platformMap) => {
-      allUsers.push(...platformMap.values())
+      allUsers.push(...Array.from(platformMap.values()))
     })
 
     await fs.writeFile(filePath, JSON.stringify(allUsers, null, 2), 'utf-8')
@@ -313,7 +314,7 @@ class SecurityService {
     // Return all users if no platform specified
     const allUsers: BoundUser[] = []
     this.boundUsersByPlatform.forEach((platformMap) => {
-      allUsers.push(...platformMap.values())
+      allUsers.push(...Array.from(platformMap.values()))
     })
     return allUsers
   }
@@ -386,7 +387,8 @@ class SecurityService {
     }
 
     // Check all platforms
-    for (const [, platformMap] of this.boundUsersByPlatform) {
+    const platforms = Array.from(this.boundUsersByPlatform.values())
+    for (const platformMap of platforms) {
       if (platformMap.size > 0) return true
     }
     return false

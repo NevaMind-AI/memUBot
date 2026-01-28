@@ -145,7 +145,7 @@ export function DiscordBoundUsersModal({ isOpen, onClose }: BoundUsersModalProps
             <div className="space-y-2">
               {boundUsers.map((user) => (
                 <div
-                  key={user.userId}
+                  key={user.uniqueId || String(user.userId)}
                   className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-center gap-3">
