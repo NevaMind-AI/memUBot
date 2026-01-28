@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Power, Loader2, Circle, Users, Square, Brain, Wrench } from 'lucide-react'
 import { toast } from '../Toast'
-import { BoundUsersModal } from '../Telegram/BoundUsersModal'
-import { DiscordBoundUsersModal } from '../Discord/BoundUsersModal'
+import { BoundUsersModal } from '../Shared'
 import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
 
 interface HeaderProps {
@@ -380,15 +379,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
 
       {/* Bound Users Modal - Telegram */}
       {showTelegramStatus && (
-        <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} />
+        <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="telegram" />
       )}
 
       {/* Bound Users Modal - Discord */}
       {showDiscordStatus && (
-        <DiscordBoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} />
+        <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="discord" />
       )}
 
-      {/* Bound Users Modal - Slack (reuse Telegram modal for now) */}
+      {/* Bound Users Modal - Slack */}
       {showSlackStatus && (
         <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="slack" />
       )}

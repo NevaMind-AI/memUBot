@@ -20,17 +20,17 @@ interface BoundUsersModalProps {
   platform?: Platform
 }
 
-// Platform-specific colors
-const platformColors: Record<Platform, { from: string; to: string; accent: string }> = {
-  telegram: { from: '#7DCBF7', to: '#2596D1', accent: '#2596D1' },
-  discord: { from: '#5865F2', to: '#7289DA', accent: '#5865F2' },
-  slack: { from: '#4A154B', to: '#611F69', accent: '#4A154B' }
+// Platform-specific colors (with dark mode variants)
+const platformColors: Record<Platform, { from: string; to: string; accent: string; darkAccent: string }> = {
+  telegram: { from: '#7DCBF7', to: '#2596D1', accent: '#2596D1', darkAccent: '#7DCBF7' },
+  discord: { from: '#5865F2', to: '#7289DA', accent: '#5865F2', darkAccent: '#a5b4fc' },
+  slack: { from: '#E0B3E6', to: '#C97BD2', accent: '#611F69', darkAccent: '#E0B3E6' }
 }
 
 // Platform-specific bind commands
 const platformBindCommands: Record<Platform, string> = {
   telegram: '/bind <code>',
-  discord: '@bot /bind <code>',
+  discord: '/bind <code>',
   slack: '/bind <code>'
 }
 
@@ -41,6 +41,10 @@ const platformNames: Record<Platform, string> = {
   slack: 'Slack'
 }
 
+/**
+ * Shared Bound Users Modal
+ * Displays bound accounts for any messaging platform with platform-specific theming
+ */
 export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: BoundUsersModalProps): JSX.Element | null {
   const [users, setUsers] = useState<BoundUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,6 +58,22 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
   
   // Discord and Slack use string IDs, Telegram uses numeric IDs
   const usesStringId = platform === 'discord' || platform === 'slack'
+  
+  // Check if dark mode is active
+  const [isDarkMode, setIsDarkMode] = useState(() => 
+    document.documentElement.classList.contains('dark')
+  )
+  
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'))
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+  
+  // Use appropriate accent color based on theme
+  const accentColor = isDarkMode ? colors.darkAccent : colors.accent
 
   // Handle mount/unmount with animation
   useEffect(() => {
@@ -148,9 +168,9 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
           <div className="flex items-center gap-3">
             <div
               className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{ background: `linear-gradient(to bottom right, ${colors.from}20, ${colors.to}20)` }}
+              style={{ background: `linear-gradient(to bottom right, ${accentColor}20, ${accentColor}30)` }}
             >
-              <Shield className="w-4 h-4" style={{ color: colors.accent }} />
+              <Shield className="w-4 h-4" style={{ color: accentColor }} />
             </div>
             <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
               {platformName} Bound Accounts
@@ -168,7 +188,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
         <div className="p-5 max-h-[400px] overflow-y-auto bg-white dark:bg-slate-900">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin" style={{ color: colors.accent }} />
+              <Loader2 className="w-5 h-5 animate-spin" style={{ color: accentColor }} />
             </div>
           ) : users.length === 0 ? (
             <div className="text-center py-6">
@@ -189,7 +209,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                   <li className="flex items-start gap-2">
                     <span
                       className="flex-shrink-0 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
-                      style={{ background: `${colors.accent}10`, color: colors.accent }}
+                      style={{ background: `${accentColor}20`, color: accentColor }}
                     >
                       1
                     </span>
@@ -198,7 +218,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                   <li className="flex items-start gap-2">
                     <span
                       className="flex-shrink-0 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
-                      style={{ background: `${colors.accent}10`, color: colors.accent }}
+                      style={{ background: `${accentColor}20`, color: accentColor }}
                     >
                       2
                     </span>
@@ -207,7 +227,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                   <li className="flex items-start gap-2">
                     <span
                       className="flex-shrink-0 w-4 h-4 rounded-full text-[10px] font-medium flex items-center justify-center"
-                      style={{ background: `${colors.accent}10`, color: colors.accent }}
+                      style={{ background: `${accentColor}20`, color: accentColor }}
                     >
                       3
                     </span>
@@ -226,15 +246,15 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
             <div className="space-y-2">
               {users.map((user) => (
                 <div
-                  key={user.userId}
+                  key={user.uniqueId || String(user.userId)}
                   className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-center gap-3">
                     <div
                       className="w-10 h-10 rounded-full flex items-center justify-center"
-                      style={{ background: `linear-gradient(to bottom right, ${colors.from}30, ${colors.to}30)` }}
+                      style={{ background: `linear-gradient(to bottom right, ${accentColor}25, ${accentColor}35)` }}
                     >
-                      <User className="w-5 h-5" style={{ color: colors.accent }} />
+                      <User className="w-5 h-5" style={{ color: accentColor }} />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
