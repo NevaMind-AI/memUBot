@@ -411,6 +411,13 @@ export class DiscordBotService {
     console.log('[Discord] Message length:', userMessage.length)
     console.log('[Discord] Attachments count:', attachments.length)
 
+    // Check if agent is already processing a message
+    if (agentService.isProcessing()) {
+      console.log('[Discord] Agent is busy, ignoring message')
+      await originalMessage.reply('⏳ I\'m still processing the previous message. Please wait a moment and try again.')
+      return
+    }
+
     // Extract image URLs from attachments
     const imageUrls = attachments
       .filter(att => att.contentType?.startsWith('image/'))

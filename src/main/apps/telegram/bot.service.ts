@@ -361,6 +361,13 @@ export class TelegramBotService {
   private async processWithAgentAndReply(chatId: number, userMessage: string): Promise<void> {
     console.log('[Telegram] Sending to Agent:', userMessage)
 
+    // Check if agent is already processing a message
+    if (agentService.isProcessing()) {
+      console.log('[Telegram] Agent is busy, ignoring message')
+      await this.bot?.sendMessage(chatId, '⏳ I\'m still processing the previous message. Please wait a moment and try again.')
+      return
+    }
+
     // Set current chat ID for tool calls
     this.currentChatId = chatId
 
