@@ -30,7 +30,7 @@ const platformColors: Record<Platform, { from: string; to: string; accent: strin
 // Platform-specific bind commands
 const platformBindCommands: Record<Platform, string> = {
   telegram: '/bind <code>',
-  discord: '/bind <code>',
+  discord: '@bot /bind <code>',
   slack: '/bind <code>'
 }
 
