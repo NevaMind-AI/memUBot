@@ -19,6 +19,7 @@ import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
+import { slackStorage } from '../apps/slack/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
 
 /**
@@ -387,6 +388,12 @@ export class AgentService {
         }))
       } else if (platform === 'discord') {
         const storedMessages = await discordStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        messages = storedMessages.map(m => ({
+          text: m.text,
+          isFromBot: m.isFromBot
+        }))
+      } else if (platform === 'slack') {
+        const storedMessages = await slackStorage.getMessages(MAX_CONTEXT_MESSAGES)
         messages = storedMessages.map(m => ({
           text: m.text,
           isFromBot: m.isFromBot
