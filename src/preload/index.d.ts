@@ -287,6 +287,40 @@ interface StartupApi {
   onStatusChanged: (callback: (status: StartupStatus) => void) => () => void
 }
 
+// Local skill type
+interface LocalSkill {
+  id: string
+  name: string
+  description: string
+  path: string
+  enabled: boolean
+  source: 'local' | 'github'
+  installedAt?: string
+}
+
+// GitHub skill type
+interface GitHubSkill {
+  name: string
+  path: string
+  description?: string
+  readme?: string
+  category?: string
+}
+
+// Skills API interface
+interface SkillsApi {
+  getInstalled: () => Promise<IpcResponse<LocalSkill[]>>
+  setEnabled: (skillId: string, enabled: boolean) => Promise<IpcResponse>
+  delete: (skillId: string) => Promise<IpcResponse>
+  importFromDirectory: () => Promise<IpcResponse<LocalSkill>>
+  searchGitHub: (query: string) => Promise<IpcResponse<GitHubSkill[]>>
+  installFromGitHub: (skillPath: string) => Promise<IpcResponse<LocalSkill>>
+  getContent: (skillId: string) => Promise<IpcResponse<string | null>>
+  openDirectory: () => Promise<IpcResponse>
+  setGitHubToken: (token: string | undefined) => Promise<IpcResponse>
+  getGitHubToken: () => Promise<IpcResponse<string | undefined>>
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -303,5 +337,6 @@ declare global {
     security: SecurityApi
     llm: LLMApi
     startup: StartupApi
+    skills: SkillsApi
   }
 }

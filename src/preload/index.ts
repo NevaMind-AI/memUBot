@@ -171,6 +171,23 @@ const startupApi = {
   }
 }
 
+// Skills API
+const skillsApi = {
+  getInstalled: () => ipcRenderer.invoke('skills:getInstalled'),
+  setEnabled: (skillId: string, enabled: boolean) =>
+    ipcRenderer.invoke('skills:setEnabled', skillId, enabled),
+  delete: (skillId: string) => ipcRenderer.invoke('skills:delete', skillId),
+  importFromDirectory: () => ipcRenderer.invoke('skills:importFromDirectory'),
+  searchGitHub: (query: string) => ipcRenderer.invoke('skills:searchGitHub', query),
+  installFromGitHub: (skillPath: string) =>
+    ipcRenderer.invoke('skills:installFromGitHub', skillPath),
+  getContent: (skillId: string) => ipcRenderer.invoke('skills:getContent', skillId),
+  openDirectory: () => ipcRenderer.invoke('skills:openDirectory'),
+  setGitHubToken: (token: string | undefined) =>
+    ipcRenderer.invoke('skills:setGitHubToken', token),
+  getGitHubToken: () => ipcRenderer.invoke('skills:getGitHubToken')
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -188,6 +205,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('security', securityApi)
     contextBridge.exposeInMainWorld('llm', llmApi)
     contextBridge.exposeInMainWorld('startup', startupApi)
+    contextBridge.exposeInMainWorld('skills', skillsApi)
   } catch (error) {
     console.error(error)
   }
@@ -220,4 +238,6 @@ if (process.contextIsolated) {
   window.llm = llmApi
   // @ts-ignore (define in dts)
   window.startup = startupApi
+  // @ts-ignore (define in dts)
+  window.skills = skillsApi
 }

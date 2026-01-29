@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import { join } from 'path'
+import { mkdir } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { setupIpcHandlers } from './ipc/handlers'
 import { startTailscaleStatusPolling } from './ipc/tailscale.handlers'
@@ -141,6 +142,15 @@ async function initializeServicesAsync(): Promise<void> {
     message: 'Starting up...',
     progress: 10
   })
+
+  // Ensure agent output directory exists
+  const agentOutputDir = join(app.getPath('userData'), 'agent-output')
+  try {
+    await mkdir(agentOutputDir, { recursive: true })
+    console.log('[App] Agent output directory ready:', agentOutputDir)
+  } catch (error) {
+    console.error('[App] Failed to create agent output directory:', error)
+  }
 
   // Stage 2: MCP Service
   sendStartupStatus({

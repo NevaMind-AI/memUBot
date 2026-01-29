@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import path from 'path'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import fetch from 'node-fetch'
@@ -20,7 +21,9 @@ import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
+import { app } from 'electron'
 import { mcpService } from './mcp.service'
+import { skillsService } from './skills.service'
 import type { ConversationMessage, AgentResponse } from '../types'
 
 /**
@@ -284,31 +287,76 @@ function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
 }
 
 /**
+ * Get the default output directory for agent-generated files
+ */
+function getDefaultOutputDir(): string {
+  return path.join(app.getPath('userData'), 'agent-output')
+}
+
+/**
  * Get system prompt for a specific platform
  */
 async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<string> {
   const settings = await loadSettings()
+  const defaultOutputDir = getDefaultOutputDir()
   
-  // If user has custom system prompt, use it
+  // Get base system prompt
+  let basePrompt: string
   if (settings.systemPrompt) {
-    return settings.systemPrompt
+    basePrompt = settings.systemPrompt
+  } else {
+    switch (platform) {
+      case 'telegram':
+        basePrompt = TELEGRAM_SYSTEM_PROMPT
+        break
+      case 'discord':
+        basePrompt = DISCORD_SYSTEM_PROMPT
+        break
+      case 'whatsapp':
+        basePrompt = WHATSAPP_SYSTEM_PROMPT
+        break
+      case 'slack':
+        basePrompt = SLACK_SYSTEM_PROMPT
+        break
+      case 'line':
+        basePrompt = LINE_SYSTEM_PROMPT
+        break
+      case 'none':
+      default:
+        basePrompt = DEFAULT_SYSTEM_PROMPT
+    }
   }
   
-  switch (platform) {
-    case 'telegram':
-      return TELEGRAM_SYSTEM_PROMPT
-    case 'discord':
-      return DISCORD_SYSTEM_PROMPT
-    case 'whatsapp':
-      return WHATSAPP_SYSTEM_PROMPT
-    case 'slack':
-      return SLACK_SYSTEM_PROMPT
-    case 'line':
-      return LINE_SYSTEM_PROMPT
-    case 'none':
-    default:
-      return DEFAULT_SYSTEM_PROMPT
+  // Add default output directory instruction
+  const outputDirInstruction = `
+
+## Default Output Directory
+
+When creating or saving files (images, documents, code, etc.), use the following directory as the default location:
+\`${defaultOutputDir}\`
+
+Important rules:
+- Always use this directory for generated files unless the user explicitly specifies a different path
+- If the user mentions a specific location (e.g., "save to Desktop", "copy to ~/Downloads"), use that location instead
+- Create subdirectories within this path as needed to organize files (e.g., images/, documents/, code/)
+- When sending files to the user, always use absolute paths starting with this directory`
+
+  basePrompt += outputDirInstruction
+  
+  // Append enabled skills content
+  try {
+    const skillsContent = await skillsService.getEnabledSkillsContent()
+    if (skillsContent) {
+      console.log('[Agent] Loaded skills content, length:', skillsContent.length)
+      basePrompt += skillsContent
+    } else {
+      console.log('[Agent] No enabled skills to load')
+    }
+  } catch (error) {
+    console.error('[Agent] Failed to load skills:', error)
   }
+  
+  return basePrompt
 }
 
 /**

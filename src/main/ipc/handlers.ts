@@ -11,6 +11,7 @@ import { setupSettingsHandlers } from './settings.handlers'
 import { setupTailscaleHandlers } from './tailscale.handlers'
 import { setupSecurityHandlers } from './security.handlers'
 import { setupLLMHandlers } from './llm.handlers'
+import { registerSkillsHandlers } from './skills.handlers'
 import type { IpcResponse, FileInfo } from '../types'
 
 /**
@@ -29,6 +30,7 @@ export function setupIpcHandlers(): void {
   setupTailscaleHandlers()
   setupSecurityHandlers()
   setupLLMHandlers()
+  registerSkillsHandlers()
 }
 
 /**

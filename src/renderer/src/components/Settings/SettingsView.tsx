@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
-import { Globe, Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server } from 'lucide-react'
+import { Globe, Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles } from 'lucide-react'
 import { ProxySettings } from './ProxySettings'
 import { TailscaleStatus } from './TailscaleStatus'
 import { SecuritySettings } from './SecuritySettings'
 import { McpSettings } from './McpSettings'
+import { SkillsSettings } from './SkillsSettings'
 import { Slider } from '../Slider'
 
-type SettingsTab = 'general' | 'network' | 'security' | 'model' | 'mcp' | 'data' | 'about'
+type SettingsTab = 'general' | 'network' | 'security' | 'model' | 'skills' | 'mcp' | 'data' | 'about'
 
 interface AppSettings {
   claudeApiKey: string
@@ -32,6 +33,7 @@ export function SettingsView(): JSX.Element {
     { id: 'network' as const, icon: Globe, label: 'Network' },
     { id: 'security' as const, icon: Shield, label: 'Security' },
     { id: 'model' as const, icon: Bot, label: 'AI Model' },
+    { id: 'skills' as const, icon: Sparkles, label: 'Skills' },
     { id: 'mcp' as const, icon: Server, label: 'MCP' },
     { id: 'data' as const, icon: Database, label: 'Data' },
     { id: 'about' as const, icon: Info, label: 'About' }
@@ -71,6 +73,7 @@ export function SettingsView(): JSX.Element {
           {activeTab === 'network' && <NetworkSettings />}
           {activeTab === 'security' && <SecuritySettings />}
           {activeTab === 'model' && <ModelSettings />}
+          {activeTab === 'skills' && <SkillsSettings />}
           {activeTab === 'mcp' && <McpSettings />}
           {activeTab === 'data' && <DataSettings />}
           {activeTab === 'about' && <AboutSection />}
