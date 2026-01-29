@@ -8,36 +8,6 @@ type DiscordClient = import('discord.js').Client
 type Message = import('discord.js').Message
 
 import { discordStorage } from './storage'
-import { loadProxyConfig } from '../../config/proxy.config'
-
-/**
- * Set proxy environment variables for Discord.js (uses undici under the hood)
- */
-async function setupProxyEnv(): Promise<void> {
-  try {
-    const config = await loadProxyConfig()
-    if (config.enabled && config.host && config.port) {
-      let proxyUrl: string
-      if (config.type === 'socks5') {
-        // Discord.js/undici doesn't natively support SOCKS5, but we can try
-        // For SOCKS5, users may need to use a local HTTP proxy that tunnels to SOCKS5
-        proxyUrl = `socks5://${config.host}:${config.port}`
-        console.log('[Discord] Note: SOCKS5 proxy may not work directly with Discord.js')
-        console.log('[Discord] Consider using an HTTP proxy or a SOCKS5-to-HTTP bridge')
-      } else {
-        proxyUrl = config.username
-          ? `http://${config.username}:${config.password}@${config.host}:${config.port}`
-          : `http://${config.host}:${config.port}`
-      }
-      // Set environment variables for undici/fetch
-      process.env.HTTPS_PROXY = proxyUrl
-      process.env.HTTP_PROXY = proxyUrl
-      console.log(`[Discord] Proxy configured: ${config.type}://${config.host}:${config.port}`)
-    }
-  } catch (error) {
-    console.log('[Discord] No proxy configured or error loading proxy config')
-  }
-}
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { securityService } from '../../services/security.service'
@@ -63,9 +33,6 @@ export class DiscordBotService {
   async connect(): Promise<void> {
     try {
       console.log('[Discord] Starting connection...')
-
-      // Setup proxy environment variables
-      await setupProxyEnv()
 
       // Get bot token from settings
       const botToken = await getSetting('discordBotToken')
@@ -376,7 +343,7 @@ export class DiscordBotService {
       })
     }
 
-    // Build stored message object (but don't store yet - Agent will load history first)
+    // Store incoming message first
     const storedMsg: StoredDiscordMessage = {
       messageId: message.id,
       channelId: message.channelId,
@@ -389,24 +356,21 @@ export class DiscordBotService {
       date: Math.floor(message.createdTimestamp / 1000),
       isFromBot: false
     }
+    await discordStorage.storeMessage(storedMsg)
+    console.log('[Discord] Message stored:', storedMsg.messageId)
 
-    // Process with Agent FIRST (before storing), then store the message
-    // This prevents the message from appearing twice in Agent's context
+    // Emit event for new message
+    const appMessage = this.convertToAppMessage(storedMsg)
+    appEvents.emitDiscordNewMessage(appMessage)
+
+    // Process with Agent and reply (if there's content or attachments)
     if (content || storedAttachments.length > 0) {
-      // Emit event for new message (to update UI) - show immediately
-      const appMessage = this.convertToAppMessage(storedMsg)
-      appEvents.emitDiscordNewMessage(appMessage)
-
       console.log('[Discord] Sending to Agent, content:', content)
       console.log('[Discord] Attachments to send:', storedAttachments.length)
       await this.processWithAgentAndReply(message, content, storedAttachments)
     } else {
       console.log('[Discord] No text content or attachments, skipping Agent processing')
     }
-
-    // Store the message AFTER Agent processing
-    await discordStorage.storeMessage(storedMsg)
-    console.log('[Discord] Message stored:', storedMsg.messageId)
     console.log('[Discord] ========== Message processing complete ==========')
   }
 

@@ -1,11 +1,9 @@
 import TelegramBot from 'node-telegram-bot-api'
-import { SocksProxyAgent } from 'socks-proxy-agent'
 import { telegramStorage } from './storage'
 
 // Disable node-telegram-bot-api deprecation warning about content-type
 // We explicitly set contentType in all file sending methods
 process.env.NTBA_FIX_350 = '1'
-import { loadProxyConfig, buildProxyUrl } from '../../config/proxy.config'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { securityService } from '../../services/security.service'
@@ -45,22 +43,9 @@ export class TelegramBotService {
       await telegramStorage.initialize()
       console.log('[Telegram] Storage initialized')
 
-      // Load proxy config
-      const proxyConfig = await loadProxyConfig()
-      const proxyUrl = buildProxyUrl(proxyConfig)
-      console.log('[Telegram] Proxy config:', proxyConfig.enabled ? proxyUrl : 'disabled')
-
       // Create bot options - disable auto polling, we'll do manual polling
       const options: TelegramBot.ConstructorOptions = {
         polling: false
-      }
-
-      // Add proxy if enabled
-      if (proxyUrl) {
-        const agent = new SocksProxyAgent(proxyUrl)
-        // @ts-expect-error - node-telegram-bot-api accepts agent in request options
-        options.request = { agent }
-        console.log('[Telegram] Using proxy agent')
       }
 
       // Create bot instance
@@ -413,7 +398,7 @@ export class TelegramBotService {
       return
     }
 
-    // Build stored message object (but don't store yet - Agent will load history first)
+    // Store incoming message first
     const storedMsg: StoredTelegramMessage = {
       messageId: msg.message_id,
       chatId: msg.chat.id,
@@ -425,21 +410,17 @@ export class TelegramBotService {
       replyToMessageId: msg.reply_to_message?.message_id,
       isFromBot: false
     }
-
-    // Process with Agent FIRST (before storing), then store the message
-    // This prevents the message from appearing twice in Agent's context
-    if (msg.text && this.bot) {
-      // Emit event for new message (to update UI) - show immediately
-      const appMessage = this.convertToAppMessage(storedMsg)
-      appEvents.emitNewMessage(appMessage)
-
-      // Process with Agent (Agent loads history which doesn't include this message yet)
-      await this.processWithAgentAndReply(msg.chat.id, msg.text)
-    }
-
-    // Store the message AFTER Agent processing
     await telegramStorage.storeMessage(storedMsg)
     console.log('[Telegram] Message stored:', storedMsg.messageId)
+
+    // Emit event for new message (to update UI)
+    const appMessage = this.convertToAppMessage(storedMsg)
+    appEvents.emitNewMessage(appMessage)
+
+    // Process with Agent and reply (only if there's text)
+    if (msg.text && this.bot) {
+      await this.processWithAgentAndReply(msg.chat.id, msg.text)
+    }
   }
 
   /**

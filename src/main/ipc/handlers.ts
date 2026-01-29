@@ -6,9 +6,7 @@ import { setupDiscordHandlers } from './discord.handlers'
 import { setupWhatsAppHandlers } from './whatsapp.handlers'
 import { setupSlackHandlers } from './slack.handlers'
 import { setupLineHandlers } from './line.handlers'
-import { setupProxyHandlers } from './proxy.handlers'
 import { setupSettingsHandlers } from './settings.handlers'
-import { setupTailscaleHandlers } from './tailscale.handlers'
 import { setupSecurityHandlers } from './security.handlers'
 import { setupLLMHandlers } from './llm.handlers'
 import { registerSkillsHandlers } from './skills.handlers'
@@ -25,9 +23,7 @@ export function setupIpcHandlers(): void {
   setupWhatsAppHandlers()
   setupSlackHandlers()
   setupLineHandlers()
-  setupProxyHandlers()
   setupSettingsHandlers()
-  setupTailscaleHandlers()
   setupSecurityHandlers()
   setupLLMHandlers()
   registerSkillsHandlers()

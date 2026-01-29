@@ -35,12 +35,6 @@ const telegramApi = {
   }
 }
 
-// Proxy API
-const proxyApi = {
-  getConfig: () => ipcRenderer.invoke('proxy:get-config'),
-  saveConfig: (config: unknown) => ipcRenderer.invoke('proxy:save-config', config)
-}
-
 // Settings API
 const settingsApi = {
   get: () => ipcRenderer.invoke('settings:get'),
@@ -51,22 +45,10 @@ const settingsApi = {
   reloadMcp: () => ipcRenderer.invoke('settings:reload-mcp'),
   getStorageInfo: () => ipcRenderer.invoke('settings:get-storage-info'),
   openMessagesFolder: (platform?: string) => ipcRenderer.invoke('settings:open-messages-folder', platform),
-  clearCache: () => ipcRenderer.invoke('settings:clear-cache')
-}
-
-// Tailscale API
-const tailscaleApi = {
-  getStatus: () => ipcRenderer.invoke('tailscale:get-status'),
-  connect: () => ipcRenderer.invoke('tailscale:connect'),
-  disconnect: () => ipcRenderer.invoke('tailscale:disconnect'),
-  login: () => ipcRenderer.invoke('tailscale:login'),
-  logout: () => ipcRenderer.invoke('tailscale:logout'),
-  ping: (target: string) => ipcRenderer.invoke('tailscale:ping', target),
-  // Event listener for status changes
-  onStatusChanged: (callback: (status: unknown) => void) => {
-    ipcRenderer.on('tailscale:status-changed', (_event, status) => callback(status))
-    return () => ipcRenderer.removeAllListeners('tailscale:status-changed')
-  }
+  clearCache: () => ipcRenderer.invoke('settings:clear-cache'),
+  openDevTools: () => ipcRenderer.invoke('settings:open-devtools'),
+  getLogs: () => ipcRenderer.invoke('settings:get-logs'),
+  clearLogs: () => ipcRenderer.invoke('settings:clear-logs')
 }
 
 // Security API
@@ -202,9 +184,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('whatsapp', whatsappApi)
     contextBridge.exposeInMainWorld('slack', slackApi)
     contextBridge.exposeInMainWorld('line', lineApi)
-    contextBridge.exposeInMainWorld('proxy', proxyApi)
     contextBridge.exposeInMainWorld('settings', settingsApi)
-    contextBridge.exposeInMainWorld('tailscale', tailscaleApi)
     contextBridge.exposeInMainWorld('security', securityApi)
     contextBridge.exposeInMainWorld('llm', llmApi)
     contextBridge.exposeInMainWorld('startup', startupApi)
@@ -230,11 +210,7 @@ if (process.contextIsolated) {
   // @ts-ignore (define in dts)
   window.line = lineApi
   // @ts-ignore (define in dts)
-  window.proxy = proxyApi
-  // @ts-ignore (define in dts)
   window.settings = settingsApi
-  // @ts-ignore (define in dts)
-  window.tailscale = tailscaleApi
   // @ts-ignore (define in dts)
   window.security = securityApi
   // @ts-ignore (define in dts)

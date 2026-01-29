@@ -73,8 +73,6 @@
     "title": "设置",
     "tabs": {
       "general": "通用",
-      "network": "网络",
-      "proxy": "代理",
       "security": "安全",
       "model": "AI 模型",
       "mcp": "MCP",
@@ -128,26 +126,6 @@
         "channelAccessToken": "Channel Access Token",
         "channelSecret": "Channel Secret"
       }
-    },
-    "proxy": {
-      "title": "代理设置",
-      "description": "配置外部连接代理",
-      "enable": "启用代理",
-      "enableHint": "通过代理服务器转发流量",
-      "host": "主机",
-      "hostPlaceholder": "127.0.0.1",
-      "port": "端口",
-      "portPlaceholder": "1080",
-      "type": "代理类型",
-      "typeHint": "协议类型",
-      "username": "用户名",
-      "usernameHint": "可选",
-      "password": "密码",
-      "passwordHint": "可选",
-      "test": "测试连接",
-      "testing": "测试中...",
-      "testSuccess": "连接成功",
-      "testFailed": "连接失败"
     },
     "security": {
       "title": "安全",
@@ -386,25 +364,6 @@
       "discord": "@ 机器人并发送 @bot /bind <绑定码>，绑定码可在 设置 → 安全 中获取",
       "slack": "使用 /bind <绑定码> 命令，或发送 @bot /bind <绑定码>，绑定码可在 设置 → 安全 中获取"
     }
-  },
-  "tailscale": {
-    "title": "Tailscale VPN",
-    "description": "安全的 Mesh 网络，用于私有连接",
-    "status": "状态",
-    "notInstalled": "未安装",
-    "notRunning": "未运行",
-    "notLoggedIn": "未登录",
-    "connected": "已连接",
-    "disconnected": "已断开",
-    "hostname": "主机名",
-    "ipAddress": "IP 地址",
-    "tailnet": "Tailnet",
-    "peers": "网络节点",
-    "install": "安装 Tailscale",
-    "openingBrowser": "正在打开浏览器登录...",
-    "loginFailed": "登录失败",
-    "loggedOut": "已登出",
-    "logoutFailed": "登出失败"
   },
   "time": {
     "justNow": "刚刚",

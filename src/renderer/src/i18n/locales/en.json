@@ -73,8 +73,6 @@
     "title": "Settings",
     "tabs": {
       "general": "General",
-      "network": "Network",
-      "proxy": "Proxy",
       "security": "Security",
       "model": "AI Model",
       "mcp": "MCP",
@@ -128,26 +126,6 @@
         "channelAccessToken": "Channel Access Token",
         "channelSecret": "Channel Secret"
       }
-    },
-    "proxy": {
-      "title": "Proxy Settings",
-      "description": "Configure proxy for external connections",
-      "enable": "Enable Proxy",
-      "enableHint": "Route traffic through proxy server",
-      "host": "Host",
-      "hostPlaceholder": "127.0.0.1",
-      "port": "Port",
-      "portPlaceholder": "1080",
-      "type": "Proxy Type",
-      "typeHint": "Protocol type",
-      "username": "Username",
-      "usernameHint": "optional",
-      "password": "Password",
-      "passwordHint": "optional",
-      "test": "Test Connection",
-      "testing": "Testing...",
-      "testSuccess": "Connection successful",
-      "testFailed": "Connection failed"
     },
     "security": {
       "title": "Security",
@@ -388,25 +366,6 @@
       "discord": "Mention the bot with @bot /bind <code>. Get code from Settings → Security.",
       "slack": "Use /bind <code> command or send @bot /bind <code>. Get code from Settings → Security."
     }
-  },
-  "tailscale": {
-    "title": "Tailscale VPN",
-    "description": "Secure mesh network for private connectivity",
-    "status": "Status",
-    "notInstalled": "Not Installed",
-    "notRunning": "Not Running",
-    "notLoggedIn": "Not Logged In",
-    "connected": "Connected",
-    "disconnected": "Disconnected",
-    "hostname": "Hostname",
-    "ipAddress": "IP Address",
-    "tailnet": "Tailnet",
-    "peers": "Network Peers",
-    "install": "Install Tailscale",
-    "openingBrowser": "Opening browser for login...",
-    "loginFailed": "Login failed",
-    "loggedOut": "Logged out",
-    "logoutFailed": "Logout failed"
   },
   "time": {
     "justNow": "Just now",

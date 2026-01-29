@@ -58,16 +58,6 @@ interface BotStatus {
   error?: string
 }
 
-// Proxy config type
-interface ProxyConfig {
-  enabled: boolean
-  type: 'socks5' | 'http'
-  host: string
-  port: number
-  username?: string
-  password?: string
-}
-
 // App settings type
 interface AppSettings {
   claudeApiKey: string
@@ -158,12 +148,6 @@ interface LineApi {
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
 }
 
-// Proxy API interface
-interface ProxyApi {
-  getConfig: () => Promise<IpcResponse<ProxyConfig>>
-  saveConfig: (config: ProxyConfig) => Promise<IpcResponse>
-}
-
 // MCP Server Configuration
 interface McpServerConfig {
   [key: string]: {
@@ -192,6 +176,20 @@ interface SettingsApi {
   getStorageInfo: () => Promise<IpcResponse<StorageInfo>>
   openMessagesFolder: (platform?: string) => Promise<IpcResponse>
   clearCache: () => Promise<IpcResponse<number>>
+  openDevTools: () => Promise<IpcResponse>
+  getLogs: () => Promise<IpcResponse<LogsData>>
+  clearLogs: () => Promise<IpcResponse>
+}
+
+interface LogEntry {
+  timestamp: number
+  level: 'log' | 'info' | 'warn' | 'error'
+  message: string
+}
+
+interface LogsData {
+  logs: LogEntry[]
+  isProduction: boolean
 }
 
 // Storage info types
@@ -205,39 +203,6 @@ interface StorageFolder {
 interface StorageInfo {
   total: number
   folders: StorageFolder[]
-}
-
-// Tailscale peer type
-interface TailscalePeer {
-  id: string
-  hostname: string
-  ipAddress: string
-  online: boolean
-  os?: string
-  lastSeen?: string
-}
-
-// Tailscale status type
-interface TailscaleStatus {
-  installed: boolean
-  running: boolean
-  loggedIn: boolean
-  ipAddress?: string
-  hostname?: string
-  tailnetName?: string
-  peers?: TailscalePeer[]
-  error?: string
-}
-
-// Tailscale API interface
-interface TailscaleApi {
-  getStatus: () => Promise<IpcResponse<TailscaleStatus>>
-  connect: () => Promise<{ success: boolean; error?: string }>
-  disconnect: () => Promise<{ success: boolean; error?: string }>
-  login: () => Promise<{ success: boolean; error?: string }>
-  logout: () => Promise<{ success: boolean; error?: string }>
-  ping: (target: string) => Promise<{ success: boolean; latency?: number; error?: string }>
-  onStatusChanged: (callback: (status: TailscaleStatus) => void) => () => void
 }
 
 // Platform type
@@ -347,9 +312,7 @@ declare global {
     whatsapp: WhatsAppApi
     slack: SlackApi
     line: LineApi
-    proxy: ProxyApi
     settings: SettingsApi
-    tailscale: TailscaleApi
     security: SecurityApi
     llm: LLMApi
     startup: StartupApi

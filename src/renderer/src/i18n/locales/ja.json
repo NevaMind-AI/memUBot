@@ -73,8 +73,6 @@
     "title": "設定",
     "tabs": {
       "general": "一般",
-      "network": "ネットワーク",
-      "proxy": "プロキシ",
       "security": "セキュリティ",
       "model": "AI モデル",
       "mcp": "MCP",
@@ -128,26 +126,6 @@
         "channelAccessToken": "Channel Access Token",
         "channelSecret": "Channel Secret"
       }
-    },
-    "proxy": {
-      "title": "プロキシ設定",
-      "description": "外部接続のプロキシを設定",
-      "enable": "プロキシを有効にする",
-      "enableHint": "プロキシサーバー経由でトラフィックを転送",
-      "host": "ホスト",
-      "hostPlaceholder": "127.0.0.1",
-      "port": "ポート",
-      "portPlaceholder": "1080",
-      "type": "プロキシタイプ",
-      "typeHint": "プロトコルタイプ",
-      "username": "ユーザー名",
-      "usernameHint": "任意",
-      "password": "パスワード",
-      "passwordHint": "任意",
-      "test": "接続テスト",
-      "testing": "テスト中...",
-      "testSuccess": "接続成功",
-      "testFailed": "接続失敗"
     },
     "security": {
       "title": "セキュリティ",
@@ -386,25 +364,6 @@
       "discord": "@bot /bind <コード> でボットをメンション。コードは 設定 → セキュリティ で取得",
       "slack": "/bind <コード> コマンドを使用、または @bot /bind <コード> を送信。コードは 設定 → セキュリティ で取得"
     }
-  },
-  "tailscale": {
-    "title": "Tailscale VPN",
-    "description": "プライベート接続のためのセキュアメッシュネットワーク",
-    "status": "ステータス",
-    "notInstalled": "未インストール",
-    "notRunning": "停止中",
-    "notLoggedIn": "未ログイン",
-    "connected": "接続済み",
-    "disconnected": "切断済み",
-    "hostname": "ホスト名",
-    "ipAddress": "IP アドレス",
-    "tailnet": "Tailnet",
-    "peers": "ネットワークピア",
-    "install": "Tailscale をインストール",
-    "openingBrowser": "ログイン用のブラウザを開いています...",
-    "loginFailed": "ログインに失敗しました",
-    "loggedOut": "ログアウトしました",
-    "logoutFailed": "ログアウトに失敗しました"
   },
   "time": {
     "justNow": "たった今",

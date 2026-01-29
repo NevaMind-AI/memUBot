@@ -62,4 +62,4 @@ export interface IpcResponse<T = unknown> {
 }
 
 // Re-export app types
-export type { AppPlatform, AppMessage, ProxyConfig, BotStatus } from '../apps/types'
+export type { AppPlatform, AppMessage, BotStatus } from '../apps/types'

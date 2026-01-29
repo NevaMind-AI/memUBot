@@ -164,7 +164,36 @@ Available commands:
   }
 }
 
+// Web search tool - for searching the internet
+export const webSearchTool: Anthropic.Tool = {
+  name: 'web_search',
+  description: `Search the web using DuckDuckGo. Use this to find current information, look up facts, research topics, or find recent news.
+
+Returns a list of search results with titles, URLs, and snippets.
+
+Good for:
+- Finding current/recent information
+- Researching topics
+- Looking up facts, definitions, how-tos
+- Finding news and updates
+- Getting multiple perspectives on a topic`,
+  input_schema: {
+    type: 'object',
+    properties: {
+      query: {
+        type: 'string',
+        description: 'The search query'
+      },
+      max_results: {
+        type: 'number',
+        description: 'Maximum number of results to return (default: 5, max: 10)'
+      }
+    },
+    required: ['query']
+  }
+}
+
 // Export all computer use tools
 // Note: computerTool (screenshot, mouse, keyboard) is disabled for stability
-// Only bash, text editor, and download are available
-export const computerUseTools: Anthropic.Tool[] = [bashTool, textEditorTool, downloadFileTool]
+// Available: bash, text editor, download, and web search
+export const computerUseTools: Anthropic.Tool[] = [bashTool, textEditorTool, downloadFileTool, webSearchTool]

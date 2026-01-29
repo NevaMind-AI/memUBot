@@ -31,16 +31,6 @@ export interface AppMessage {
   metadata?: Record<string, unknown>
 }
 
-// Proxy configuration
-export interface ProxyConfig {
-  enabled: boolean
-  type: 'socks5' | 'http'
-  host: string
-  port: number
-  username?: string
-  password?: string
-}
-
 // Bot status
 export interface BotStatus {
   platform: AppPlatform

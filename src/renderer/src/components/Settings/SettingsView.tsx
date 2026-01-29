@@ -1,15 +1,13 @@
-import { useState, useEffect } from 'react'
-import { Globe, Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { ProxySettings } from './ProxySettings'
-import { TailscaleStatus } from './TailscaleStatus'
 import { SecuritySettings } from './SecuritySettings'
 import { McpSettings } from './McpSettings'
 import { SkillsSettings } from './SkillsSettings'
 import { Slider } from '../Slider'
 import { changeLanguage, languages } from '../../i18n'
 
-type SettingsTab = 'general' | 'network' | 'security' | 'model' | 'skills' | 'mcp' | 'data' | 'about'
+type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'mcp' | 'data' | 'about'
 
 interface AppSettings {
   claudeApiKey: string
@@ -33,7 +31,6 @@ export function SettingsView(): JSX.Element {
 
   const tabs = [
     { id: 'general' as const, icon: Key, labelKey: 'settings.tabs.general' },
-    { id: 'network' as const, icon: Globe, labelKey: 'settings.tabs.proxy' },
     { id: 'security' as const, icon: Shield, labelKey: 'settings.tabs.security' },
     { id: 'model' as const, icon: Bot, labelKey: 'settings.tabs.model' },
     { id: 'skills' as const, icon: Sparkles, labelKey: 'settings.tabs.skills' },
@@ -76,7 +73,6 @@ export function SettingsView(): JSX.Element {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-lg mx-auto py-6 px-5">
           {activeTab === 'general' && <GeneralSettings />}
-          {activeTab === 'network' && <NetworkSettings />}
           {activeTab === 'security' && <SecuritySettings />}
           {activeTab === 'model' && <ModelSettings />}
           {activeTab === 'skills' && <SkillsSettings />}
@@ -378,31 +374,6 @@ function GeneralSettings(): JSX.Element {
   )
 }
 
-function NetworkSettings(): JSX.Element {
-  const { t } = useTranslation()
-  return (
-    <div className="space-y-6">
-      {/* Proxy Section */}
-      <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.proxy.title')}</h3>
-        <p className="text-[12px] text-[var(--text-muted)] mt-0.5 mb-4">
-          {t('settings.proxy.description')}
-        </p>
-        <ProxySettings />
-      </div>
-
-      {/* Tailscale Section */}
-      <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('tailscale.title')}</h3>
-        <p className="text-[12px] text-[var(--text-muted)] mt-0.5 mb-4">
-          {t('tailscale.description')}
-        </p>
-        <TailscaleStatus />
-      </div>
-    </div>
-  )
-}
-
 function ModelSettings(): JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<Partial<AppSettings>>({})
@@ -584,7 +555,7 @@ function ModelSettings(): JSX.Element {
               <span>{t('common.saving')}</span>
             </>
           ) : (
-            <span>{t('settings.saveSettings')}</span>
+            <span>{t('common.save')}</span>
           )}
         </button>
       )}
@@ -828,8 +799,84 @@ function DataSettings(): JSX.Element {
   )
 }
 
+interface LogEntry {
+  timestamp: number
+  level: 'log' | 'info' | 'warn' | 'error'
+  message: string
+}
+
 function AboutSection(): JSX.Element {
   const { t } = useTranslation()
+  const [clickCount, setClickCount] = useState(0)
+  const [showLogs, setShowLogs] = useState(false)
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const logsEndRef = useRef<HTMLDivElement | null>(null)
+
+  const handleVersionClick = async (): Promise<void> => {
+    // Reset timeout on each click
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current)
+    }
+
+    const newCount = clickCount + 1
+    setClickCount(newCount)
+
+    if (newCount >= 3) {
+      setClickCount(0)
+      // Check if production - show logs viewer, otherwise open DevTools
+      const result = await window.settings.getLogs()
+      if (result.success && result.data) {
+        if (result.data.isProduction) {
+          setLogs(result.data.logs)
+          setShowLogs(true)
+        } else {
+          // Dev mode - open DevTools
+          window.settings.openDevTools()
+        }
+      }
+    } else {
+      // Reset count after 1 second of no clicks
+      clickTimeoutRef.current = setTimeout(() => {
+        setClickCount(0)
+      }, 1000)
+    }
+  }
+
+  const refreshLogs = async (): Promise<void> => {
+    const result = await window.settings.getLogs()
+    if (result.success && result.data) {
+      setLogs(result.data.logs)
+      // Scroll to bottom after update
+      setTimeout(() => {
+        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      }, 100)
+    }
+  }
+
+  const clearLogs = async (): Promise<void> => {
+    await window.settings.clearLogs()
+    setLogs([])
+  }
+
+  const formatTime = (timestamp: number): string => {
+    return new Date(timestamp).toLocaleTimeString('en-US', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
+  const getLevelColor = (level: LogEntry['level']): string => {
+    switch (level) {
+      case 'error': return 'text-red-500'
+      case 'warn': return 'text-amber-500'
+      case 'info': return 'text-blue-500'
+      default: return 'text-[var(--text-muted)]'
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div>
@@ -837,12 +884,60 @@ function AboutSection(): JSX.Element {
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{t('settings.about.description')}</p>
       </div>
 
+      {/* Log Viewer Panel (only shown when activated in production) */}
+      {showLogs && (
+        <div className="rounded-2xl bg-[#1a1a1a] border border-[var(--border-color)] overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2 bg-[#252525] border-b border-[var(--border-color)]">
+            <span className="text-[12px] font-medium text-[var(--text-primary)]">Console Logs</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshLogs}
+                className="px-2 py-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                Refresh
+              </button>
+              <button
+                onClick={clearLogs}
+                className="px-2 py-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={() => setShowLogs(false)}
+                className="px-2 py-1 text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+          <div className="h-64 overflow-y-auto p-2 font-mono text-[11px]">
+            {logs.length === 0 ? (
+              <div className="text-[var(--text-muted)] text-center py-8">No logs yet</div>
+            ) : (
+              logs.map((log, idx) => (
+                <div key={idx} className="flex gap-2 py-0.5 hover:bg-[#252525]">
+                  <span className="text-[#666] shrink-0">{formatTime(log.timestamp)}</span>
+                  <span className={`shrink-0 w-12 ${getLevelColor(log.level)}`}>[{log.level}]</span>
+                  <span className="text-[#ccc] whitespace-pre-wrap break-all">{log.message}</span>
+                </div>
+              ))
+            )}
+            <div ref={logsEndRef} />
+          </div>
+        </div>
+      )}
+
       <div className="p-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm text-center">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] flex items-center justify-center shadow-lg shadow-[#2596D1]/25">
           <span className="text-white text-2xl font-bold">M</span>
         </div>
         <h4 className="text-lg font-semibold text-[var(--text-primary)]">memU bot</h4>
-        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{t('settings.about.version')} 1.0.0</p>
+        <p 
+          className="text-[12px] text-[var(--text-muted)] mt-0.5 cursor-pointer select-none"
+          onClick={handleVersionClick}
+        >
+          {t('settings.about.version')} 1.0.0
+        </p>
         <div className="mt-4 pt-4 border-t border-[var(--border-color)] text-left space-y-2">
           <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
             {t('settings.about.tagline')}

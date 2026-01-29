@@ -1,21 +1,19 @@
 import Anthropic from '@anthropic-ai/sdk'
 import path from 'path'
-import { SocksProxyAgent } from 'socks-proxy-agent'
-import { HttpsProxyAgent } from 'https-proxy-agent'
-import fetch from 'node-fetch'
 import { computerUseTools } from '../tools/computer.definitions'
 import { telegramTools } from '../tools/telegram.definitions'
 import { discordTools } from '../tools/discord.definitions'
 import { whatsappTools } from '../tools/whatsapp.definitions'
 import { slackTools } from '../tools/slack.definitions'
 import { lineTools } from '../tools/line.definitions'
-import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool } from '../tools/computer.executor'
+import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
+import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
+import { executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
 import { executeTelegramTool } from '../tools/telegram.executor'
 import { executeDiscordTool } from '../tools/discord.executor'
 import { executeWhatsAppTool } from '../tools/whatsapp.executor'
 import { executeSlackTool } from '../tools/slack.executor'
 import { executeLineTool } from '../tools/line.executor'
-import { loadProxyConfig, buildProxyUrl } from '../config/proxy.config'
 import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
@@ -199,59 +197,18 @@ You are an expert assistant that can help with:
 - Any command-line task the user needs help with`
 
 /**
- * Create a custom fetch function with proxy support
- */
-async function createProxyFetch(): Promise<typeof globalThis.fetch | undefined> {
-  const proxyConfig = await loadProxyConfig()
-  const proxyUrl = buildProxyUrl(proxyConfig)
-
-  if (!proxyUrl) {
-    console.log('[Agent] No proxy configured, using default fetch')
-    return undefined
-  }
-
-  console.log('[Agent] Creating proxy fetch with:', proxyUrl)
-
-  // Create appropriate proxy agent based on type
-  const agent =
-    proxyConfig.type === 'socks5' ? new SocksProxyAgent(proxyUrl) : new HttpsProxyAgent(proxyUrl)
-
-  // Return custom fetch function with proxy agent
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const proxyFetch = async (url: any, init?: any): Promise<any> => {
-    const options = {
-      ...init,
-      agent
-    }
-    return fetch(url, options)
-  }
-
-  return proxyFetch as typeof globalThis.fetch
-}
-
-/**
  * Create Anthropic client with current settings
  */
 async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number }> {
   const settings = await loadSettings()
-  const customFetch = await createProxyFetch()
 
   if (!settings.claudeApiKey) {
     throw new Error('Claude API key not configured. Please set it in Settings.')
   }
 
-  const clientOptions: { apiKey: string; fetch?: typeof globalThis.fetch } = {
+  const client = new Anthropic({
     apiKey: settings.claudeApiKey
-  }
-
-  if (customFetch) {
-    console.log('[Agent] Using proxy-enabled fetch')
-    clientOptions.fetch = customFetch as unknown as typeof globalThis.fetch
-  } else {
-    console.log('[Agent] Using default Anthropic client')
-  }
-
-  const client = new Anthropic(clientOptions)
+  })
 
   return {
     client,
@@ -266,23 +223,26 @@ async function createClient(): Promise<{ client: Anthropic; model: string; maxTo
 function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
   const baseTools = [...computerUseTools]
   
+  // Add platform-specific tools (macOS mail, calendar, etc.)
+  const platformTools = getMacOSTools() // Returns empty array on non-macOS
+  
   // Add MCP tools to all platforms
   const mcpTools = mcpService.getTools()
   
   switch (platform) {
     case 'telegram':
-      return [...baseTools, ...telegramTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...telegramTools, ...mcpTools]
     case 'discord':
-      return [...baseTools, ...discordTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...discordTools, ...mcpTools]
     case 'whatsapp':
-      return [...baseTools, ...whatsappTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...whatsappTools, ...mcpTools]
     case 'slack':
-      return [...baseTools, ...slackTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...slackTools, ...mcpTools]
     case 'line':
-      return [...baseTools, ...lineTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...lineTools, ...mcpTools]
     case 'none':
     default:
-      return [...baseTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...mcpTools]
   }
 }
 
@@ -335,11 +295,31 @@ async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<st
 When creating or saving files (images, documents, code, etc.), use the following directory as the default location:
 \`${defaultOutputDir}\`
 
-Important rules:
-- Always use this directory for generated files unless the user explicitly specifies a different path
-- If the user mentions a specific location (e.g., "save to Desktop", "copy to ~/Downloads"), use that location instead
-- Create subdirectories within this path as needed to organize files (e.g., images/, documents/, code/)
-- When sending files to the user, always use absolute paths starting with this directory`
+**CRITICAL FILE HANDLING RULES:**
+
+1. **All generated/downloaded/new files MUST be saved to the private directory first**
+   - Generated files (images from MCP, created documents, etc.)
+   - Downloaded files (from URLs, APIs, etc.)
+   - Any new file that will be shared with the user
+   
+2. **Always use private directory paths in conversation history**
+   - Store and reference files using their path in \`${defaultOutputDir}\`
+   - This ensures files persist and are accessible later
+   
+3. **For user-specified destinations (Desktop, Downloads, etc.):**
+   - First save to private directory
+   - Then COPY (not move) to the user-requested location
+   - Report both paths to user if relevant
+   
+4. **Exception: Existing local files**
+   - If referencing a file that already exists on user's system, use its original path
+   - Only apply the above rules to NEW files
+
+5. **Subdirectory organization:**
+   - images/ - for generated/downloaded images
+   - downloads/ - for downloaded files
+   - documents/ - for created documents
+   - code/ - for generated code files`
 
   basePrompt += outputDirInstruction
   
@@ -518,41 +498,53 @@ export class AgentService {
       console.log(`[Agent] Image URLs:`, imageUrls.length > 0 ? imageUrls : 'none')
       this.setStatus('thinking')
 
-      // Build message content with images if present
-      if (imageUrls.length > 0) {
-        // Create multimodal content with images and text
-        const contentParts: Anthropic.ContentBlockParam[] = []
-        
-        // Add images first
-        for (const imageUrl of imageUrls) {
-          contentParts.push({
-            type: 'image',
-            source: {
-              type: 'url',
-              url: imageUrl
-            }
-          } as Anthropic.ImageBlockParam)
-        }
-        
-        // Add text if present
-        if (userMessage) {
-          contentParts.push({
-            type: 'text',
-            text: userMessage
+      // Check if the message is already in conversation history (loaded from storage)
+      // This happens when storage is updated before calling processMessage
+      const lastMessage = this.conversationHistory[this.conversationHistory.length - 1]
+      const isAlreadyInHistory = lastMessage && 
+        lastMessage.role === 'user' && 
+        typeof lastMessage.content === 'string' && 
+        lastMessage.content === userMessage
+
+      if (isAlreadyInHistory) {
+        console.log(`[Agent] Message already in history from storage, skipping duplicate add`)
+      } else {
+        // Build message content with images if present
+        if (imageUrls.length > 0) {
+          // Create multimodal content with images and text
+          const contentParts: Anthropic.ContentBlockParam[] = []
+          
+          // Add images first
+          for (const imageUrl of imageUrls) {
+            contentParts.push({
+              type: 'image',
+              source: {
+                type: 'url',
+                url: imageUrl
+              }
+            } as Anthropic.ImageBlockParam)
+          }
+          
+          // Add text if present
+          if (userMessage) {
+            contentParts.push({
+              type: 'text',
+              text: userMessage
+            })
+          }
+          
+          this.conversationHistory.push({
+            role: 'user',
+            content: contentParts
+          })
+          console.log(`[Agent] Added multimodal message with ${imageUrls.length} images`)
+        } else {
+          // Text-only message
+          this.conversationHistory.push({
+            role: 'user',
+            content: userMessage
           })
         }
-        
-        this.conversationHistory.push({
-          role: 'user',
-          content: contentParts
-        })
-        console.log(`[Agent] Added multimodal message with ${imageUrls.length} images`)
-      } else {
-        // Text-only message
-        this.conversationHistory.push({
-          role: 'user',
-          content: userMessage
-        })
       }
 
       // Run the agentic loop
@@ -607,6 +599,18 @@ export class AgentService {
       iterations++
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
       this.setStatus('thinking', undefined, iterations)
+
+      // Log conversation history being sent
+      // console.log(`[Agent] ===== Conversation History (${this.conversationHistory.length} messages) =====`)
+      // this.conversationHistory.forEach((msg, idx) => {
+      //   const contentPreview = typeof msg.content === 'string' 
+      //     ? msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '')
+      //     : Array.isArray(msg.content) 
+      //       ? `[${msg.content.length} content blocks]`
+      //       : JSON.stringify(msg.content).substring(0, 100)
+      //   console.log(`[Agent] [${idx}] ${msg.role}: ${contentPreview}`)
+      // })
+      // console.log(`[Agent] ===== End History =====`)
 
       // Call Claude API with platform-specific tools
       const response = await client.messages.create({
@@ -756,6 +760,21 @@ export class AgentService {
 
       case 'download_file':
         return await executeDownloadFileTool(input as Parameters<typeof executeDownloadFileTool>[0])
+
+      case 'web_search':
+        return await executeWebSearchTool(input as Parameters<typeof executeWebSearchTool>[0])
+    }
+
+    // macOS-specific tools
+    if (isMacOS()) {
+      switch (name) {
+        case 'macos_mail':
+          return await executeMacOSMailTool(input as Parameters<typeof executeMacOSMailTool>[0])
+        case 'macos_calendar':
+          return await executeMacOSCalendarTool(input as Parameters<typeof executeMacOSCalendarTool>[0])
+        case 'macos_contacts':
+          return await executeMacOSContactsTool(input as Parameters<typeof executeMacOSContactsTool>[0])
+      }
     }
 
     // Telegram tools

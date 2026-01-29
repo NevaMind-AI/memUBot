@@ -330,4 +330,56 @@ export function setupSettingsHandlers(): void {
       }
     }
   })
+
+  // Open DevTools (triggered by clicking version 3 times in dev mode)
+  ipcMain.handle('settings:open-devtools', async (): Promise<IpcResponse> => {
+    try {
+      const { BrowserWindow } = await import('electron')
+      const focusedWindow = BrowserWindow.getFocusedWindow()
+      if (focusedWindow) {
+        focusedWindow.webContents.openDevTools()
+        console.log('[Settings] DevTools opened')
+        return { success: true }
+      }
+      return { success: false, error: 'No focused window' }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  // Get logs (for in-app log viewer in production)
+  ipcMain.handle('settings:get-logs', async (): Promise<IpcResponse> => {
+    try {
+      const { loggerService } = await import('../services/logger.service')
+      return { 
+        success: true, 
+        data: {
+          logs: loggerService.getLogs(),
+          isProduction: loggerService.isProduction()
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
+
+  // Clear logs
+  ipcMain.handle('settings:clear-logs', async (): Promise<IpcResponse> => {
+    try {
+      const { loggerService } = await import('../services/logger.service')
+      loggerService.clearLogs()
+      return { success: true }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  })
 }

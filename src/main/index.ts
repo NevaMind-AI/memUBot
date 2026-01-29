@@ -3,12 +3,11 @@ import { join } from 'path'
 import { mkdir } from 'fs/promises'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { setupIpcHandlers } from './ipc/handlers'
-import { startTailscaleStatusPolling } from './ipc/tailscale.handlers'
 import { mcpService } from './services/mcp.service'
 import { autoConnectService } from './services/autoconnect.service'
+import { loggerService } from './services/logger.service'
 import { pathToFileURL } from 'url'
 
-let stopTailscalePolling: (() => void) | null = null
 let mainWindow: BrowserWindow | null = null
 
 // Startup status tracking
@@ -72,6 +71,25 @@ function createWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // Intercept navigation to external URLs (clicked links in markdown, etc.)
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    // Allow navigation to dev server or local files
+    const allowedOrigins = [
+      'http://localhost',
+      'file://'
+    ]
+    
+    const isAllowed = allowedOrigins.some(origin => url.startsWith(origin))
+    
+    if (!isAllowed) {
+      // External URL - open in default browser instead
+      event.preventDefault()
+      shell.openExternal(url).catch((err) => {
+        console.error('[App] Failed to open external URL:', err)
+      })
+    }
+  })
+
   // HMR for renderer base on electron-vite cli
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -84,6 +102,9 @@ function createWindow(): BrowserWindow {
 
 // Initialize app
 app.whenReady().then(async () => {
+  // Initialize logger service (captures console output in production)
+  loggerService.initialize()
+
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
 
@@ -110,20 +131,12 @@ app.whenReady().then(async () => {
   // Create main window FIRST for faster perceived startup
   mainWindow = createWindow()
 
-  // Start Tailscale status polling
-  stopTailscalePolling = startTailscaleStatusPolling(mainWindow)
-
   // Initialize services asynchronously after window is shown
   initializeServicesAsync()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {
       mainWindow = createWindow()
-      // Restart Tailscale polling for new window
-      if (stopTailscalePolling) {
-        stopTailscalePolling()
-      }
-      stopTailscalePolling = startTailscaleStatusPolling(mainWindow)
     }
   })
 })
@@ -200,10 +213,6 @@ app.on('window-all-closed', () => {
 
 // Cleanup on quit
 app.on('will-quit', async () => {
-  // Stop Tailscale polling
-  if (stopTailscalePolling) {
-    stopTailscalePolling()
-  }
   // Shutdown MCP servers
   await mcpService.shutdown()
 })
