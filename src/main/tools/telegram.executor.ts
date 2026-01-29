@@ -34,6 +34,8 @@ async function storeSentMessage(
   appEvents.emitNewMessage({
     id: `${msg.chat.id}-${msg.message_id}`,
     platform: 'telegram',
+    chatId: msg.chat.id.toString(),
+    senderId: msg.from?.id?.toString() || 'bot',
     senderName: msg.from?.first_name || 'Bot',
     content: text || msg.text || msg.caption || '',
     attachments: attachments?.map(att => ({
@@ -104,7 +106,7 @@ function extractAudioAttachment(msg: TelegramBot.Message, inputPath: string): St
   if (!msg.audio) return undefined
   return {
     id: msg.audio.file_id,
-    name: msg.audio.file_name || path.basename(inputPath),
+    name: msg.audio.title || path.basename(inputPath),
     url: inputPath,
     contentType: msg.audio.mime_type || 'audio/mpeg',
     size: msg.audio.file_size

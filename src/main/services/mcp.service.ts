@@ -123,6 +123,7 @@ class McpService {
 
   /**
    * Get the MCP output directory (for generated files like images)
+   * All MCP servers run with this as their working directory
    */
   getMcpOutputDir(): string {
     return path.join(app.getPath('userData'), 'mcp-output')
@@ -141,16 +142,19 @@ class McpService {
     // Merge environment variables with auto-injected ones
     const env = {
       ...process.env,
-      // Auto-inject output directory for MCP servers
+      // Auto-inject output directory for MCP servers (if they support it)
       MCP_OUTPUT_DIR: mcpOutputDir,
-      // Also provide as common alternatives
       OUTPUT_DIR: mcpOutputDir,
+      // Also set HOME-like vars so relative paths like ~/output work
       ...config.env // User config can override these
     }
 
-    // Spawn the server process
+    // Spawn the server process with cwd set to mcp-output directory
+    // This ensures any relative path outputs (like ./output, ./images) 
+    // will be created inside the app's data directory
     const proc = spawn(config.command, config.args || [], {
       env,
+      cwd: mcpOutputDir, // Key: set working directory to app's mcp-output folder
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: true
     })

@@ -1,6 +1,10 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { SocksProxyAgent } from 'socks-proxy-agent'
 import { telegramStorage } from './storage'
+
+// Disable node-telegram-bot-api deprecation warning about content-type
+// We explicitly set contentType in all file sending methods
+process.env.NTBA_FIX_350 = '1'
 import { loadProxyConfig, buildProxyUrl } from '../../config/proxy.config'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'

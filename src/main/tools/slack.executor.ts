@@ -46,6 +46,8 @@ async function storeSentMessage(
   appEvents.emitSlackNewMessage({
     id: messageId,
     platform: 'slack',
+    chatId: channelId,
+    senderId: 'bot',
     senderName: botInfo.botName || 'Bot',
     content: text || '',
     attachments: attachments?.map(att => ({

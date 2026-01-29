@@ -37,6 +37,8 @@ async function storeSentMessage(
   appEvents.emitDiscordNewMessage({
     id: messageId,
     platform: 'discord',
+    chatId: channelId,
+    senderId: 'bot',
     senderName: botInfo.botName || 'Bot',
     content: text || '',
     attachments: attachments?.map(att => ({
