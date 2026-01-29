@@ -8,12 +8,25 @@ import { LineView } from './components/Line'
 import { SettingsView } from './components/Settings'
 import { ToastContainer } from './components/Toast'
 import { useThemeStore, applyTheme } from './stores/themeStore'
+import appIcon from './assets/app-icon.png'
 
 type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'settings'
+
+interface StartupStatus {
+  stage: 'initializing' | 'mcp' | 'platforms' | 'ready'
+  message: string
+  progress: number
+}
 
 function App(): JSX.Element {
   const [activeNav, setActiveNav] = useState<NavItem>('telegram')
   const themeMode = useThemeStore((state) => state.mode)
+  const [isStartupComplete, setIsStartupComplete] = useState(false)
+  const [startupStatus, setStartupStatus] = useState<StartupStatus>({
+    stage: 'initializing',
+    message: 'Starting up...',
+    progress: 0
+  })
 
   // Apply theme on mount and when mode changes
   useEffect(() => {
@@ -30,6 +43,28 @@ function App(): JSX.Element {
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [themeMode])
+
+  // Listen to startup status
+  useEffect(() => {
+    // Check initial status
+    window.startup.getStatus().then((result) => {
+      if (result.ready) {
+        setIsStartupComplete(true)
+        setStartupStatus({ stage: 'ready', message: 'Ready', progress: 100 })
+      }
+    })
+
+    // Subscribe to status changes
+    const unsubscribe = window.startup.onStatusChanged((status: StartupStatus) => {
+      setStartupStatus(status)
+      if (status.stage === 'ready') {
+        // Small delay for smooth transition
+        setTimeout(() => setIsStartupComplete(true), 300)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const getHeaderInfo = () => {
     switch (activeNav) {
@@ -105,6 +140,45 @@ function App(): JSX.Element {
   }
 
   const headerInfo = getHeaderInfo()
+
+  // Show startup screen while initializing
+  if (!isStartupComplete) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[var(--bg-base)] via-[var(--bg-secondary)] to-[var(--bg-tertiary)]">
+        {/* App Icon */}
+        <div className="mb-8">
+          <img
+            src={appIcon}
+            alt="memU"
+            className="w-24 h-24 rounded-2xl shadow-lg"
+          />
+        </div>
+
+        {/* App Name */}
+        <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
+          memU
+        </h1>
+        <p className="text-sm text-[var(--text-muted)] mb-8">
+          AI Assistant for Messaging
+        </p>
+
+        {/* Progress Bar */}
+        <div className="w-64 mb-4">
+          <div className="h-1.5 bg-[var(--bg-input)] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${startupStatus.progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Status Message */}
+        <p className="text-xs text-[var(--text-muted)] animate-pulse">
+          {startupStatus.message}
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-gradient-to-b from-[var(--bg-base)] via-[var(--bg-secondary)] to-[var(--bg-tertiary)]">

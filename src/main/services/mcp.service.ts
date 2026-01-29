@@ -122,15 +122,30 @@ class McpService {
   }
 
   /**
+   * Get the MCP output directory (for generated files like images)
+   */
+  getMcpOutputDir(): string {
+    return path.join(app.getPath('userData'), 'mcp-output')
+  }
+
+  /**
    * Connect to a single MCP server
    */
   private async connectServer(name: string, config: McpServerConfig): Promise<void> {
     console.log(`[MCP] Connecting to server: ${name}`)
 
-    // Merge environment variables
+    // Ensure MCP output directory exists
+    const mcpOutputDir = this.getMcpOutputDir()
+    await fs.mkdir(mcpOutputDir, { recursive: true })
+
+    // Merge environment variables with auto-injected ones
     const env = {
       ...process.env,
-      ...config.env
+      // Auto-inject output directory for MCP servers
+      MCP_OUTPUT_DIR: mcpOutputDir,
+      // Also provide as common alternatives
+      OUTPUT_DIR: mcpOutputDir,
+      ...config.env // User config can override these
     }
 
     // Spawn the server process

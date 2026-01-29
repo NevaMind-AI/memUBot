@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, protocol, net } from 'electron'
+import { app, shell, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { setupIpcHandlers } from './ipc/handlers'
@@ -8,6 +8,20 @@ import { autoConnectService } from './services/autoconnect.service'
 import { pathToFileURL } from 'url'
 
 let stopTailscalePolling: (() => void) | null = null
+let mainWindow: BrowserWindow | null = null
+
+// Startup status tracking
+interface StartupStatus {
+  stage: 'initializing' | 'mcp' | 'platforms' | 'ready'
+  message: string
+  progress: number // 0-100
+}
+
+function sendStartupStatus(status: StartupStatus): void {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('startup-status', status)
+  }
+}
 
 // Register custom protocol for serving local files safely
 protocol.registerSchemesAsPrivileged([
@@ -87,7 +101,54 @@ app.whenReady().then(async () => {
   // Setup IPC handlers before creating window
   setupIpcHandlers()
 
-  // Initialize MCP service
+  // Setup startup status IPC handler
+  ipcMain.handle('get-startup-status', () => {
+    return { ready: startupComplete }
+  })
+
+  // Create main window FIRST for faster perceived startup
+  mainWindow = createWindow()
+
+  // Start Tailscale status polling
+  stopTailscalePolling = startTailscaleStatusPolling(mainWindow)
+
+  // Initialize services asynchronously after window is shown
+  initializeServicesAsync()
+
+  app.on('activate', function () {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createWindow()
+      // Restart Tailscale polling for new window
+      if (stopTailscalePolling) {
+        stopTailscalePolling()
+      }
+      stopTailscalePolling = startTailscaleStatusPolling(mainWindow)
+    }
+  })
+})
+
+// Track if startup is complete
+let startupComplete = false
+
+// Initialize services asynchronously
+async function initializeServicesAsync(): Promise<void> {
+  // Small delay to ensure window is rendered
+  await new Promise((resolve) => setTimeout(resolve, 100))
+
+  // Stage 1: Initializing
+  sendStartupStatus({
+    stage: 'initializing',
+    message: 'Starting up...',
+    progress: 10
+  })
+
+  // Stage 2: MCP Service
+  sendStartupStatus({
+    stage: 'mcp',
+    message: 'Loading MCP servers...',
+    progress: 30
+  })
+
   try {
     await mcpService.initialize()
     console.log('[App] MCP service initialized')
@@ -95,7 +156,13 @@ app.whenReady().then(async () => {
     console.error('[App] Failed to initialize MCP service:', error)
   }
 
-  // Auto-connect configured messaging platforms
+  // Stage 3: Auto-connect platforms
+  sendStartupStatus({
+    stage: 'platforms',
+    message: 'Connecting to messaging platforms...',
+    progress: 60
+  })
+
   try {
     await autoConnectService.connectConfiguredPlatforms()
     console.log('[App] Auto-connect completed')
@@ -103,23 +170,16 @@ app.whenReady().then(async () => {
     console.error('[App] Auto-connect failed:', error)
   }
 
-  // Create main window
-  const mainWindow = createWindow()
-
-  // Start Tailscale status polling
-  stopTailscalePolling = startTailscaleStatusPolling(mainWindow)
-
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) {
-      const newWindow = createWindow()
-      // Restart Tailscale polling for new window
-      if (stopTailscalePolling) {
-        stopTailscalePolling()
-      }
-      stopTailscalePolling = startTailscaleStatusPolling(newWindow)
-    }
+  // Stage 4: Ready
+  sendStartupStatus({
+    stage: 'ready',
+    message: 'Ready',
+    progress: 100
   })
-})
+
+  startupComplete = true
+  console.log('[App] Startup complete')
+}
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {

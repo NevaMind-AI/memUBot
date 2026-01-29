@@ -36,3 +36,4 @@ config.local.json
 # Build artifacts
 build/*.icns
 build/*.ico
+nanobanana-output/

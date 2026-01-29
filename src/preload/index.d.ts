@@ -274,6 +274,19 @@ interface LLMApi {
   onStatusChanged: (callback: (status: LLMStatusInfo) => void) => () => void
 }
 
+// Startup status type
+interface StartupStatus {
+  stage: 'initializing' | 'mcp' | 'platforms' | 'ready'
+  message: string
+  progress: number
+}
+
+// Startup API interface
+interface StartupApi {
+  getStatus: () => Promise<{ ready: boolean }>
+  onStatusChanged: (callback: (status: StartupStatus) => void) => () => void
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -289,5 +302,6 @@ declare global {
     tailscale: TailscaleApi
     security: SecurityApi
     llm: LLMApi
+    startup: StartupApi
   }
 }

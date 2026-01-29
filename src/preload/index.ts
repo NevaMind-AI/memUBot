@@ -161,6 +161,16 @@ const llmApi = {
   }
 }
 
+// Startup API
+const startupApi = {
+  getStatus: () => ipcRenderer.invoke('get-startup-status'),
+  // Event listener for startup status changes
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('startup-status', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('startup-status')
+  }
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -177,6 +187,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('tailscale', tailscaleApi)
     contextBridge.exposeInMainWorld('security', securityApi)
     contextBridge.exposeInMainWorld('llm', llmApi)
+    contextBridge.exposeInMainWorld('startup', startupApi)
   } catch (error) {
     console.error(error)
   }
@@ -207,4 +218,6 @@ if (process.contextIsolated) {
   window.security = securityApi
   // @ts-ignore (define in dts)
   window.llm = llmApi
+  // @ts-ignore (define in dts)
+  window.startup = startupApi
 }
