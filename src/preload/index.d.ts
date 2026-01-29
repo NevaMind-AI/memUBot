@@ -189,6 +189,22 @@ interface SettingsApi {
   saveMcpConfig: (config: McpServerConfig) => Promise<IpcResponse>
   getMcpStatus: () => Promise<IpcResponse<McpServerStatus[]>>
   reloadMcp: () => Promise<IpcResponse>
+  getStorageInfo: () => Promise<IpcResponse<StorageInfo>>
+  openMessagesFolder: (platform?: string) => Promise<IpcResponse>
+  clearCache: () => Promise<IpcResponse<number>>
+}
+
+// Storage info types
+interface StorageFolder {
+  name: string
+  key: string
+  size: number
+  color: string
+}
+
+interface StorageInfo {
+  total: number
+  folders: StorageFolder[]
 }
 
 // Tailscale peer type

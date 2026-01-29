@@ -48,7 +48,10 @@ const settingsApi = {
   getMcpConfig: () => ipcRenderer.invoke('settings:get-mcp-config'),
   saveMcpConfig: (config: unknown) => ipcRenderer.invoke('settings:save-mcp-config', config),
   getMcpStatus: () => ipcRenderer.invoke('settings:get-mcp-status'),
-  reloadMcp: () => ipcRenderer.invoke('settings:reload-mcp')
+  reloadMcp: () => ipcRenderer.invoke('settings:reload-mcp'),
+  getStorageInfo: () => ipcRenderer.invoke('settings:get-storage-info'),
+  openMessagesFolder: (platform?: string) => ipcRenderer.invoke('settings:open-messages-folder', platform),
+  clearCache: () => ipcRenderer.invoke('settings:clear-cache')
 }
 
 // Tailscale API
