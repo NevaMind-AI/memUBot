@@ -31,7 +31,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
   const isSettingsActive = activeNav === 'settings'
 
   return (
-    <aside className="w-16 flex flex-col bg-[var(--glass-bg)] backdrop-blur-xl">
+    <aside className="w-16 flex flex-col bg-[var(--glass-bg)] backdrop-blur-xl border-r border-[var(--glass-border)]">
       {/* App Icon - Same height as header */}
       <div className="h-14 flex translate-y-0.5 items-center justify-center">
         <img src={appIcon} alt="memU bot" className="w-10 h-10 rounded-lg" />
