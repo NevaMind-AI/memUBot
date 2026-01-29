@@ -376,7 +376,7 @@ export class DiscordBotService {
       })
     }
 
-    // Store incoming message
+    // Build stored message object (but don't store yet - Agent will load history first)
     const storedMsg: StoredDiscordMessage = {
       messageId: message.id,
       channelId: message.channelId,
@@ -389,21 +389,24 @@ export class DiscordBotService {
       date: Math.floor(message.createdTimestamp / 1000),
       isFromBot: false
     }
-    await discordStorage.storeMessage(storedMsg)
-    console.log('[Discord] Message stored:', storedMsg.messageId)
 
-    // Emit event for new message
-    const appMessage = this.convertToAppMessage(storedMsg)
-    appEvents.emitDiscordNewMessage(appMessage)
-
-    // Process with Agent and reply (if there's content or attachments)
+    // Process with Agent FIRST (before storing), then store the message
+    // This prevents the message from appearing twice in Agent's context
     if (content || storedAttachments.length > 0) {
+      // Emit event for new message (to update UI) - show immediately
+      const appMessage = this.convertToAppMessage(storedMsg)
+      appEvents.emitDiscordNewMessage(appMessage)
+
       console.log('[Discord] Sending to Agent, content:', content)
       console.log('[Discord] Attachments to send:', storedAttachments.length)
       await this.processWithAgentAndReply(message, content, storedAttachments)
     } else {
       console.log('[Discord] No text content or attachments, skipping Agent processing')
     }
+
+    // Store the message AFTER Agent processing
+    await discordStorage.storeMessage(storedMsg)
+    console.log('[Discord] Message stored:', storedMsg.messageId)
     console.log('[Discord] ========== Message processing complete ==========')
   }
 

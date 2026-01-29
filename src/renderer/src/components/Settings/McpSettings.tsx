@@ -141,11 +141,33 @@ export function McpSettings(): JSX.Element {
       return
     }
     
-    const updatedServers = [...servers, { ...newServer }]
+    // Auto-add any pending args input before saving (supports space-separated args)
+    let finalArgs = [...newServer.args]
+    if (newArgsInput.trim()) {
+      // Split by space to support multiple args at once
+      const pendingArgs = newArgsInput.trim().split(/\s+/).filter(Boolean)
+      finalArgs = [...finalArgs, ...pendingArgs]
+    }
+    
+    // Auto-add any pending env input before saving
+    let finalEnv = { ...newServer.env }
+    if (newEnvKey.trim()) {
+      finalEnv = { ...finalEnv, [newEnvKey.trim()]: newEnvValue }
+    }
+    
+    const serverToAdd = {
+      ...newServer,
+      args: finalArgs,
+      env: finalEnv
+    }
+    
+    const updatedServers = [...servers, serverToAdd]
     setServers(updatedServers)
     saveMcpConfig(updatedServers)
     setNewServer({ name: '', command: 'npx', args: [], env: {}, enabled: true })
     setNewArgsInput('')
+    setNewEnvKey('')
+    setNewEnvValue('')
     setShowAddForm(false)
   }
 

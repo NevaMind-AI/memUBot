@@ -276,7 +276,7 @@ export class SlackBotService {
       return
     }
 
-    // Store incoming message
+    // Build stored message object (but don't store yet - Agent will load history first)
     const storedMsg: StoredSlackMessage = {
       messageId: messageTs,
       channelId,
@@ -288,20 +288,23 @@ export class SlackBotService {
       date: Math.floor(parseFloat(messageTs)),
       isFromBot: false
     }
-    await slackStorage.storeMessage(storedMsg)
-    console.log('[Slack] Message stored:', storedMsg.messageId)
 
-    // Emit event for new message
-    const appMessage = this.convertToAppMessage(storedMsg)
-    appEvents.emitSlackNewMessage(appMessage)
-
-    // Process with Agent and reply
+    // Process with Agent FIRST (before storing), then store the message
+    // This prevents the message from appearing twice in Agent's context
     if (cleanText) {
+      // Emit event for new message (to update UI) - show immediately
+      const appMessage = this.convertToAppMessage(storedMsg)
+      appEvents.emitSlackNewMessage(appMessage)
+
       // In DMs: only use thread if user is already in one, otherwise reply directly
       // In channels: always reply in thread
       const replyThreadTs = isDM ? threadTs : (threadTs || messageTs)
       await this.processWithAgentAndReply(channelId, cleanText, replyThreadTs, say)
     }
+
+    // Store the message AFTER Agent processing
+    await slackStorage.storeMessage(storedMsg)
+    console.log('[Slack] Message stored:', storedMsg.messageId)
   }
 
   /**

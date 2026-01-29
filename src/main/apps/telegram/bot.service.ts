@@ -413,7 +413,7 @@ export class TelegramBotService {
       return
     }
 
-    // Store incoming message
+    // Build stored message object (but don't store yet - Agent will load history first)
     const storedMsg: StoredTelegramMessage = {
       messageId: msg.message_id,
       chatId: msg.chat.id,
@@ -425,17 +425,21 @@ export class TelegramBotService {
       replyToMessageId: msg.reply_to_message?.message_id,
       isFromBot: false
     }
-    await telegramStorage.storeMessage(storedMsg)
-    console.log('[Telegram] Message stored:', storedMsg.messageId)
 
-    // Emit event for new message (to update UI)
-    const appMessage = this.convertToAppMessage(storedMsg)
-    appEvents.emitNewMessage(appMessage)
-
-    // Process with Agent and reply (only if there's text)
+    // Process with Agent FIRST (before storing), then store the message
+    // This prevents the message from appearing twice in Agent's context
     if (msg.text && this.bot) {
+      // Emit event for new message (to update UI) - show immediately
+      const appMessage = this.convertToAppMessage(storedMsg)
+      appEvents.emitNewMessage(appMessage)
+
+      // Process with Agent (Agent loads history which doesn't include this message yet)
       await this.processWithAgentAndReply(msg.chat.id, msg.text)
     }
+
+    // Store the message AFTER Agent processing
+    await telegramStorage.storeMessage(storedMsg)
+    console.log('[Telegram] Message stored:', storedMsg.messageId)
   }
 
   /**
