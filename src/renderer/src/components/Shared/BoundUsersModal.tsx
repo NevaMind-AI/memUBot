@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { X, User, Trash2, Loader2, Shield, AlertTriangle } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from '../../stores/toastStore'
 
 interface BoundUser {
@@ -47,6 +48,7 @@ const platformNames: Record<Platform, string> = {
  * Displays bound accounts for any messaging platform with platform-specific theming
  */
 export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: BoundUsersModalProps): JSX.Element | null {
+  const { t } = useTranslation()
   const [users, setUsers] = useState<BoundUser[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -126,12 +128,12 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
       
       if (result.success) {
         setUsers((prev) => prev.filter((u) => (u.uniqueId || String(u.userId)) !== identifier))
-        toast.success(`Removed @${user.username}`)
+        toast.success(`${t('common.removed')} @${user.username}`)
       } else {
-        toast.error(result.error || 'Failed to remove user')
+        toast.error(result.error || t('errors.deleteFailed'))
       }
     } catch (error) {
-      toast.error('Failed to remove user')
+      toast.error(t('errors.deleteFailed'))
     }
     setDeletingId(null)
   }
@@ -174,7 +176,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
               <Shield className="w-4 h-4" style={{ color: accentColor }} />
             </div>
             <h2 className="text-[15px] font-semibold text-slate-900 dark:text-white">
-              {platformName} Bound Accounts
+              {platformName} {t('boundUsers.title')}
             </h2>
           </div>
           <button
@@ -195,16 +197,16 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
             <div className="text-center py-6">
               <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
               <p className="text-[13px] text-slate-900 dark:text-white font-medium">
-                No bound accounts yet
+                {t('boundUsers.empty')}
               </p>
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 mb-4">
-                Bind your {platformName} account to use this bot
+                {t('boundUsers.emptyHint')}
               </p>
 
               {/* Binding Instructions */}
               <div className="text-left p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <h4 className="text-[12px] font-medium text-slate-900 dark:text-white mb-2">
-                  How to bind ({platformName})
+                  {platformName}
                 </h4>
                 <ol className="space-y-1.5 text-[11px] text-slate-600 dark:text-slate-400">
                   <li className="flex items-start gap-2">
@@ -214,7 +216,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                     >
                       1
                     </span>
-                    <span>Go to Settings → Security</span>
+                    <span>{t('nav.settings')} → {t('settings.tabs.security')}</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span
@@ -223,7 +225,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                     >
                       2
                     </span>
-                    <span>Generate a security code</span>
+                    <span>{t('settings.security.generate')}</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span
@@ -233,11 +235,9 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                       3
                     </span>
                     <span>
-                      Send{' '}
                       <code className="px-1 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-[10px] text-slate-700 dark:text-slate-300">
                         {bindCommand}
-                      </code>{' '}
-                      to your bot
+                      </code>
                     </span>
                   </li>
                 </ol>
@@ -283,7 +283,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                         )}
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        Bound {formatDate(user.boundAt)}
+                        {t('boundUsers.boundAt')} {formatDate(user.boundAt)}
                       </p>
                     </div>
                   </div>
@@ -304,8 +304,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
               {/* Binding Instructions for existing users */}
               <div className="mt-4 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
                 <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                  <strong className="text-slate-700 dark:text-slate-300">Add more accounts:</strong>{' '}
-                  Go to Settings → Security to generate a new binding code
+                  {t(`boundUsers.bindHint.${platform}`)}
                 </p>
               </div>
             </div>
@@ -316,7 +315,7 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
         {users.length > 0 && (
           <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
             <p className="text-[11px] text-slate-500 dark:text-slate-400 text-center">
-              {users.length} account{users.length > 1 ? 's' : ''} can access this bot
+              {t('boundUsers.accessCount', { count: users.length })}
             </p>
           </div>
         )}

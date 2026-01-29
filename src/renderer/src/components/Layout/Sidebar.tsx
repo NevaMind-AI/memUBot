@@ -1,4 +1,5 @@
 import { Settings, Sun, Moon, Monitor } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import appIcon from '../../assets/app-icon.png'
 import { TelegramIcon, DiscordIcon, WhatsAppIcon, SlackIcon, LineIcon } from '../Icons/AppIcons'
@@ -11,12 +12,13 @@ interface SidebarProps {
 }
 
 export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
+  const { t } = useTranslation()
   const { mode, setMode } = useThemeStore()
 
-  const themeOptions: { mode: ThemeMode; icon: typeof Sun; label: string }[] = [
-    { mode: 'light', icon: Sun, label: 'Light' },
-    { mode: 'dark', icon: Moon, label: 'Dark' },
-    { mode: 'system', icon: Monitor, label: 'System' }
+  const themeOptions: { mode: ThemeMode; icon: typeof Sun; labelKey: string }[] = [
+    { mode: 'light', icon: Sun, labelKey: 'settings.general.themeLight' },
+    { mode: 'dark', icon: Moon, labelKey: 'settings.general.themeDark' },
+    { mode: 'system', icon: Monitor, labelKey: 'settings.general.themeSystem' }
   ]
 
   const cycleTheme = () => {
@@ -25,7 +27,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
     setMode(themeOptions[nextIndex].mode)
   }
 
-  const currentTheme = themeOptions.find((t) => t.mode === mode)
+  const currentTheme = themeOptions.find((opt) => opt.mode === mode)
   const ThemeIcon = currentTheme?.icon || Monitor
 
   const isSettingsActive = activeNav === 'settings'
@@ -34,7 +36,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
     <aside className="w-16 flex flex-col bg-[var(--glass-bg)] backdrop-blur-xl border-r border-[var(--glass-border)]">
       {/* App Icon - Same height as header */}
       <div className="h-14 flex translate-y-0.5 items-center justify-center">
-        <img src={appIcon} alt="memU bot" className="w-10 h-10 rounded-lg" />
+        <img src={appIcon} alt={t('app.name')} className="w-10 h-10 rounded-lg" />
       </div>
 
       {/* Main Navigation */}
@@ -42,7 +44,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
         {/* Telegram */}
         <button
           onClick={() => onNavChange('telegram')}
-          title="Telegram"
+          title={t('nav.telegram')}
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             activeNav === 'telegram'
               ? 'bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25'
@@ -55,7 +57,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
         {/* Discord */}
         <button
           onClick={() => onNavChange('discord')}
-          title="Discord"
+          title={t('nav.discord')}
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             activeNav === 'discord'
               ? 'bg-gradient-to-br from-[#5865F2] to-[#7289DA] text-white shadow-lg shadow-[#5865F2]/25'
@@ -81,7 +83,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
         {/* Slack */}
         <button
           onClick={() => onNavChange('slack')}
-          title="Slack"
+          title={t('nav.slack')}
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             activeNav === 'slack'
               ? 'bg-gradient-to-br from-[#4A154B] to-[#611F69] text-white shadow-lg shadow-[#4A154B]/25'
@@ -110,7 +112,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
         {/* Settings */}
         <button
           onClick={() => onNavChange('settings')}
-          title="Settings"
+          title={t('nav.settings')}
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             isSettingsActive
               ? 'bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25'
@@ -123,7 +125,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
         {/* Theme Toggle */}
         <button
           onClick={cycleTheme}
-          title={`Theme: ${currentTheme?.label}`}
+          title={`${t('settings.general.theme')}: ${currentTheme ? t(currentTheme.labelKey) : ''}`}
           className="w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--bg-card-solid)] hover:shadow-md"
         >
           <ThemeIcon className="w-[18px] h-[18px]" />

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Power, Loader2, Circle, Users, Square, Brain, Wrench } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from '../Toast'
 import { BoundUsersModal } from '../Shared'
 import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
@@ -85,6 +86,7 @@ interface LLMStatusInfo {
 }
 
 export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus }: HeaderProps): JSX.Element {
+  const { t } = useTranslation()
   const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
   const [discordStatus, setDiscordStatus] = useState<BotStatus | null>(null)
   const [slackStatus, setSlackStatus] = useState<BotStatus | null>(null)
@@ -200,32 +202,32 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
         const result = await window.telegram.connect()
         if (!result.success) {
           setTelegramStatus({ platform: 'telegram', isConnected: false, error: result.error })
-          toast.error(result.error || 'Failed to connect Telegram bot')
+          toast.error(result.error || t('errors.connectionFailed'))
         } else {
-          toast.success('Telegram bot connected successfully')
+          toast.success(`Telegram ${t('common.connected').toLowerCase()}`)
         }
         await checkTelegramStatus()
       } else if (showDiscordStatus) {
         const result = await window.discord.connect()
         if (!result.success) {
           setDiscordStatus({ platform: 'discord', isConnected: false, error: result.error })
-          toast.error(result.error || 'Failed to connect Discord bot')
+          toast.error(result.error || t('errors.connectionFailed'))
         } else {
-          toast.success('Discord bot connected successfully')
+          toast.success(`Discord ${t('common.connected').toLowerCase()}`)
         }
         await checkDiscordStatus()
       } else if (showSlackStatus) {
         const result = await window.slack.connect()
         if (!result.success) {
           setSlackStatus({ platform: 'slack', isConnected: false, error: result.error })
-          toast.error(result.error || 'Failed to connect Slack bot')
+          toast.error(result.error || t('errors.connectionFailed'))
         } else {
-          toast.success('Slack bot connected successfully')
+          toast.success(`Slack ${t('common.connected').toLowerCase()}`)
         }
         await checkSlackStatus()
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Connection failed'
+      const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
       toast.error(errorMessage)
     }
     setConnecting(false)
@@ -235,19 +237,19 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     try {
       if (showTelegramStatus) {
         await window.telegram.disconnect()
-        toast.info('Telegram bot disconnected')
+        toast.info(`Telegram ${t('common.disconnected').toLowerCase()}`)
         await checkTelegramStatus()
       } else if (showDiscordStatus) {
         await window.discord.disconnect()
-        toast.info('Discord bot disconnected')
+        toast.info(`Discord ${t('common.disconnected').toLowerCase()}`)
         await checkDiscordStatus()
       } else if (showSlackStatus) {
         await window.slack.disconnect()
-        toast.info('Slack bot disconnected')
+        toast.info(`Slack ${t('common.disconnected').toLowerCase()}`)
         await checkSlackStatus()
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Disconnect failed'
+      const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
       toast.error(errorMessage)
       console.error('Disconnect failed:', error)
     }
@@ -256,7 +258,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   const handleAbortLLM = async () => {
     try {
       await window.llm.abort()
-      toast.info('Processing stopped')
+      toast.info(t('common.stop'))
     } catch (error) {
       console.error('Failed to abort LLM:', error)
     }
@@ -267,16 +269,16 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus
 
   // Get display info based on connection status
-  const platformName = platform === 'discord' ? 'Discord' : platform === 'slack' ? 'Slack' : 'Telegram'
+  const platformName = platform ? t(`nav.${platform}`) : ''
   const displayName = showStatus
     ? isConnected
-      ? status?.botName || status?.username || 'Bot'
+      ? status?.botName || status?.username || t('messages.bot')
       : platformName
     : title
   const displaySubtitle = showStatus
     ? isConnected
       ? status?.username ? `@${status.username}` : ''
-      : 'AI Assistant'
+      : t('header.aiAssistant')
     : subtitle
   const avatarUrl = status?.avatarUrl
 
@@ -313,7 +315,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
             <button
               onClick={() => setShowBoundUsers(true)}
               className="p-1.5 rounded-lg hover:bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all"
-              title="Bound Accounts"
+              title={t('settings.security.boundUsers')}
             >
               <Users className="w-4 h-4" />
             </button>
@@ -336,15 +338,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
                   )}
                   <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                     {llmStatus.status === 'thinking'
-                      ? `Thinking${llmStatus.iteration ? ` (${llmStatus.iteration})` : ''}...`
-                      : llmStatus.currentTool || 'Executing...'}
+                      ? `${t('messages.thinking')}${llmStatus.iteration ? ` (${llmStatus.iteration})` : ''}`
+                      : llmStatus.currentTool || t('messages.generating')}
                   </span>
                 </div>
                 {/* Stop Button */}
                 <button
                   onClick={handleAbortLLM}
                   className="p-1 rounded-md bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all flex-shrink-0"
-                  title="Stop processing"
+                  title={t('common.stop')}
                 >
                   <Square className="w-3 h-3 fill-current" />
                 </button>
@@ -355,7 +357,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
             <button
               onClick={isConnected ? handleDisconnect : handleConnect}
               disabled={connecting}
-              title={connecting ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+              title={connecting ? t('common.connecting') : isConnected ? t('common.disconnect') : t('common.connect')}
               className={`p-2 rounded-lg transition-all duration-200 ${
                 isConnected
                   ? 'bg-red-500/10 dark:bg-red-500/20 backdrop-blur-sm border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20 hover:shadow-md'

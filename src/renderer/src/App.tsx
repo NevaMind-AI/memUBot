@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Sidebar, Header } from './components/Layout'
 import { TelegramView } from './components/Telegram'
 import { DiscordView } from './components/Discord'
@@ -11,6 +12,19 @@ import { useThemeStore, applyTheme } from './stores/themeStore'
 import appIcon from './assets/app-icon.png'
 
 type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'settings'
+type AppNavItem = Exclude<NavItem, 'settings'>
+
+const LAST_APP_TAB_KEY = 'memu-last-app-tab'
+
+// Get saved tab or default to telegram
+function getSavedAppTab(): AppNavItem {
+  const saved = localStorage.getItem(LAST_APP_TAB_KEY)
+  const validTabs: AppNavItem[] = ['telegram', 'discord', 'whatsapp', 'slack', 'line']
+  if (saved && validTabs.includes(saved as AppNavItem)) {
+    return saved as AppNavItem
+  }
+  return 'telegram'
+}
 
 interface StartupStatus {
   stage: 'initializing' | 'mcp' | 'platforms' | 'ready'
@@ -19,12 +33,13 @@ interface StartupStatus {
 }
 
 function App(): JSX.Element {
-  const [activeNav, setActiveNav] = useState<NavItem>('telegram')
+  const { t } = useTranslation()
+  const [activeNav, setActiveNav] = useState<NavItem>(getSavedAppTab)
   const themeMode = useThemeStore((state) => state.mode)
   const [isStartupComplete, setIsStartupComplete] = useState(false)
   const [startupStatus, setStartupStatus] = useState<StartupStatus>({
     stage: 'initializing',
-    message: 'Starting up...',
+    message: '',
     progress: 0
   })
 
@@ -65,6 +80,15 @@ function App(): JSX.Element {
 
     return () => unsubscribe()
   }, [])
+
+  // Handle nav change and save last app tab
+  const handleNavChange = (nav: NavItem) => {
+    setActiveNav(nav)
+    // Only save app tabs, not settings
+    if (nav !== 'settings') {
+      localStorage.setItem(LAST_APP_TAB_KEY, nav)
+    }
+  }
 
   const getHeaderInfo = () => {
     switch (activeNav) {
@@ -120,7 +144,7 @@ function App(): JSX.Element {
         }
       case 'settings':
         return {
-          title: 'Settings',
+          title: t('nav.settings'),
           showTelegramStatus: false,
           showDiscordStatus: false,
           showWhatsAppStatus: false,
@@ -156,10 +180,10 @@ function App(): JSX.Element {
 
         {/* App Name */}
         <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
-          memU
+          {t('app.name')}
         </h1>
         <p className="text-sm text-[var(--text-muted)] mb-8">
-          AI Assistant for Messaging
+          {t('app.tagline')}
         </p>
 
         {/* Progress Bar */}
@@ -174,7 +198,7 @@ function App(): JSX.Element {
 
         {/* Status Message */}
         <p className="text-xs text-[var(--text-muted)] animate-pulse">
-          {startupStatus.message}
+          {t(`app.startup.${startupStatus.stage}`, startupStatus.message)}
         </p>
       </div>
     )
@@ -186,7 +210,7 @@ function App(): JSX.Element {
       <ToastContainer />
 
       {/* Sidebar */}
-      <Sidebar activeNav={activeNav} onNavChange={setActiveNav} />
+      <Sidebar activeNav={activeNav} onNavChange={handleNavChange} />
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">

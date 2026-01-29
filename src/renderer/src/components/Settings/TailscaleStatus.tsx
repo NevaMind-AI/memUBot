@@ -12,6 +12,7 @@ import {
   XCircle,
   AlertTriangle
 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from '../../stores/toastStore'
 
 interface TailscalePeer {
@@ -35,6 +36,7 @@ interface TailscaleStatus {
 }
 
 export function TailscaleStatus(): JSX.Element {
+  const { t } = useTranslation()
   const [status, setStatus] = useState<TailscaleStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -70,13 +72,13 @@ export function TailscaleStatus(): JSX.Element {
     try {
       const result = await window.tailscale.connect()
       if (result.success) {
-        toast.success('Tailscale connected')
+        toast.success(t('tailscale.connected'))
         await loadStatus()
       } else {
-        toast.error(result.error || 'Failed to connect')
+        toast.error(result.error || t('errors.connectionFailed'))
       }
     } catch (error) {
-      toast.error('Failed to connect to Tailscale')
+      toast.error(t('errors.connectionFailed'))
     }
     setActionLoading(null)
   }
@@ -86,13 +88,13 @@ export function TailscaleStatus(): JSX.Element {
     try {
       const result = await window.tailscale.disconnect()
       if (result.success) {
-        toast.success('Tailscale disconnected')
+        toast.success(t('tailscale.disconnected'))
         await loadStatus()
       } else {
-        toast.error(result.error || 'Failed to disconnect')
+        toast.error(result.error || t('errors.connectionFailed'))
       }
     } catch (error) {
-      toast.error('Failed to disconnect from Tailscale')
+      toast.error(t('errors.connectionFailed'))
     }
     setActionLoading(null)
   }
@@ -102,12 +104,12 @@ export function TailscaleStatus(): JSX.Element {
     try {
       const result = await window.tailscale.login()
       if (result.success) {
-        toast.info('Opening browser for Tailscale login...')
+        toast.info(t('tailscale.openingBrowser'))
       } else {
-        toast.error(result.error || 'Failed to initiate login')
+        toast.error(result.error || t('tailscale.loginFailed'))
       }
     } catch (error) {
-      toast.error('Failed to initiate Tailscale login')
+      toast.error(t('tailscale.loginFailed'))
     }
     setActionLoading(null)
   }
@@ -117,13 +119,13 @@ export function TailscaleStatus(): JSX.Element {
     try {
       const result = await window.tailscale.logout()
       if (result.success) {
-        toast.success('Logged out from Tailscale')
+        toast.success(t('tailscale.loggedOut'))
         await loadStatus()
       } else {
-        toast.error(result.error || 'Failed to logout')
+        toast.error(result.error || t('tailscale.logoutFailed'))
       }
     } catch (error) {
-      toast.error('Failed to logout from Tailscale')
+      toast.error(t('tailscale.logoutFailed'))
     }
     setActionLoading(null)
   }
@@ -151,10 +153,10 @@ export function TailscaleStatus(): JSX.Element {
   }
 
   const getStatusText = () => {
-    if (!status?.installed) return 'Not Installed'
-    if (!status.running) return 'Not Running'
-    if (status.loggedIn) return 'Connected'
-    return 'Not Logged In'
+    if (!status?.installed) return t('tailscale.notInstalled')
+    if (!status.running) return t('tailscale.notRunning')
+    if (status.loggedIn) return t('tailscale.connected')
+    return t('tailscale.notLoggedIn')
   }
 
   const getStatusColor = () => {
@@ -202,7 +204,7 @@ export function TailscaleStatus(): JSX.Element {
           <div className="space-y-2 mb-4">
             {status.ipAddress && (
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-input)]">
-                <span className="text-[12px] text-[var(--text-muted)]">IP Address</span>
+                <span className="text-[12px] text-[var(--text-muted)]">{t('tailscale.ipAddress')}</span>
                 <span className="text-[12px] text-[var(--text-primary)] font-mono">
                   {status.ipAddress}
                 </span>
@@ -210,7 +212,7 @@ export function TailscaleStatus(): JSX.Element {
             )}
             {status.hostname && (
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-input)]">
-                <span className="text-[12px] text-[var(--text-muted)]">Hostname</span>
+                <span className="text-[12px] text-[var(--text-muted)]">{t('tailscale.hostname')}</span>
                 <span className="text-[12px] text-[var(--text-primary)] font-medium">
                   {status.hostname}
                 </span>
@@ -218,7 +220,7 @@ export function TailscaleStatus(): JSX.Element {
             )}
             {status.tailnetName && (
               <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-input)]">
-                <span className="text-[12px] text-[var(--text-muted)]">Tailnet</span>
+                <span className="text-[12px] text-[var(--text-muted)]">{t('tailscale.tailnet')}</span>
                 <span className="text-[12px] text-[var(--text-primary)] font-medium">
                   {status.tailnetName}
                 </span>
@@ -236,7 +238,7 @@ export function TailscaleStatus(): JSX.Element {
               rel="noopener noreferrer"
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white text-[13px] font-medium shadow-lg shadow-[#2596D1]/25 hover:shadow-xl hover:shadow-[#2596D1]/30 transition-all"
             >
-              Install Tailscale
+              {t('tailscale.install')}
             </a>
           )}
 
@@ -251,7 +253,7 @@ export function TailscaleStatus(): JSX.Element {
               ) : (
                 <Wifi className="w-4 h-4" />
               )}
-              <span>Connect</span>
+              <span>{t('common.connect')}</span>
             </button>
           )}
 
@@ -266,7 +268,7 @@ export function TailscaleStatus(): JSX.Element {
               ) : (
                 <LogIn className="w-4 h-4" />
               )}
-              <span>Login</span>
+              <span>{t('common.login')}</span>
             </button>
           )}
 
@@ -282,7 +284,7 @@ export function TailscaleStatus(): JSX.Element {
                 ) : (
                   <WifiOff className="w-4 h-4" />
                 )}
-                <span>Disconnect</span>
+                <span>{t('common.disconnect')}</span>
               </button>
               <button
                 onClick={handleLogout}
@@ -304,7 +306,7 @@ export function TailscaleStatus(): JSX.Element {
       {status?.loggedIn && status.peers && status.peers.length > 0 && (
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <h4 className="text-[13px] font-medium text-[var(--text-primary)] mb-3">
-            Network Peers ({status.peers.length})
+            {t('tailscale.peers')} ({status.peers.length})
           </h4>
           <div className="space-y-2 max-h-[200px] overflow-y-auto">
             {status.peers.map((peer) => (

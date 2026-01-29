@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Plus, Trash2, Loader2, Check, AlertCircle, Server, Play, Square, ChevronDown, ChevronUp, RefreshCw, Zap } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface McpServer {
   name: string
@@ -25,6 +26,7 @@ interface McpServerStatus {
 }
 
 export function McpSettings(): JSX.Element {
+  const { t } = useTranslation()
   const [servers, setServers] = useState<McpServer[]>([])
   const [serverStatus, setServerStatus] = useState<McpServerStatus[]>([])
   const [loading, setLoading] = useState(true)
@@ -88,13 +90,13 @@ export function McpSettings(): JSX.Element {
       const result = await window.settings.reloadMcp()
       if (result.success) {
         await loadMcpStatus()
-        setMessage({ type: 'success', text: 'MCP servers reloaded' })
+        setMessage({ type: 'success', text: t('settings.mcp.reloaded') })
         setTimeout(() => setMessage(null), 3000)
       } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to reload' })
+        setMessage({ type: 'error', text: result.error || t('settings.mcp.reloadFailed') })
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to reload MCP servers' })
+      setMessage({ type: 'error', text: t('settings.mcp.reloadFailed') })
     }
     setReloading(false)
   }
@@ -118,24 +120,24 @@ export function McpSettings(): JSX.Element {
       }
       const result = await window.settings.saveMcpConfig(config)
       if (result.success) {
-        setMessage({ type: 'success', text: 'MCP configuration saved' })
+        setMessage({ type: 'success', text: t('settings.mcp.saved') })
         setTimeout(() => setMessage(null), 3000)
       } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to save' })
+        setMessage({ type: 'error', text: result.error || t('settings.mcp.saveFailed') })
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save MCP configuration' })
+      setMessage({ type: 'error', text: t('settings.mcp.saveFailed') })
     }
     setSaving(false)
   }
 
   const handleAddServer = () => {
     if (!newServer.name.trim()) {
-      setMessage({ type: 'error', text: 'Server name is required' })
+      setMessage({ type: 'error', text: t('settings.mcp.nameRequired') })
       return
     }
     if (servers.some(s => s.name === newServer.name)) {
-      setMessage({ type: 'error', text: 'Server name already exists' })
+      setMessage({ type: 'error', text: t('settings.mcp.nameExists') })
       return
     }
     
@@ -206,9 +208,9 @@ export function McpSettings(): JSX.Element {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">MCP Servers</h3>
+          <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.mcp.title')}</h3>
           <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-            Model Context Protocol servers for extended AI capabilities
+            {t('settings.mcp.description')}
           </p>
         </div>
         {servers.length > 0 && (
@@ -216,10 +218,10 @@ export function McpSettings(): JSX.Element {
             onClick={handleReloadMcp}
             disabled={reloading}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[12px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"
-            title="Reload MCP servers"
+            title={t('settings.mcp.reload')}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${reloading ? 'animate-spin' : ''}`} />
-            <span>Reload</span>
+            <span>{t('settings.mcp.reload')}</span>
           </button>
         )}
       </div>
@@ -229,9 +231,9 @@ export function McpSettings(): JSX.Element {
         {servers.length === 0 && !showAddForm ? (
           <div className="p-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm text-center">
             <Server className="w-10 h-10 text-[var(--text-muted)] mx-auto mb-3 opacity-50" />
-            <p className="text-[13px] text-[var(--text-muted)]">No MCP servers configured</p>
+            <p className="text-[13px] text-[var(--text-muted)]">{t('settings.mcp.noServers')}</p>
             <p className="text-[11px] text-[var(--text-muted)] mt-1">
-              Add an MCP server to extend AI capabilities
+              {t('settings.mcp.addHint')}
             </p>
           </div>
         ) : (
@@ -272,7 +274,7 @@ export function McpSettings(): JSX.Element {
                           return (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-500/10 text-[10px] text-emerald-500">
                               <Zap className="w-3 h-3" />
-                              {status.toolCount} tool{status.toolCount !== 1 ? 's' : ''}
+                              {t('settings.mcp.toolCount', { count: status.toolCount })}
                             </span>
                           )
                         }
@@ -295,7 +297,7 @@ export function McpSettings(): JSX.Element {
                         ? 'bg-amber-500/20 text-amber-500 hover:bg-amber-500/30'
                         : 'bg-emerald-500/20 text-emerald-500 hover:bg-emerald-500/30'
                     }`}
-                    title={server.enabled ? 'Stop server' : 'Start server'}
+                    title={server.enabled ? t('settings.mcp.stopServer') : t('settings.mcp.startServer')}
                   >
                     {server.enabled ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   </button>
@@ -305,7 +307,7 @@ export function McpSettings(): JSX.Element {
                       handleRemoveServer(server.name)
                     }}
                     className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"
-                    title="Remove"
+                    title={t('common.remove')}
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -321,14 +323,14 @@ export function McpSettings(): JSX.Element {
               {expandedServer === server.name && (
                 <div className="px-4 pb-4 pt-2 border-t border-[var(--border-color)] space-y-3">
                   <div>
-                    <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Command</label>
+                    <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.command')}</label>
                     <code className="block px-3 py-2 rounded-lg bg-[var(--bg-input)] text-[12px] text-[var(--text-primary)] font-mono">
                       {server.command}
                     </code>
                   </div>
                   {server.args.length > 0 && (
                     <div>
-                      <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Arguments</label>
+                      <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.arguments')}</label>
                       <div className="flex flex-wrap gap-1">
                         {server.args.map((arg, i) => (
                           <span
@@ -343,7 +345,7 @@ export function McpSettings(): JSX.Element {
                   )}
                   {Object.keys(server.env).length > 0 && (
                     <div>
-                      <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Environment Variables</label>
+                      <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.envVars')}</label>
                       <div className="space-y-1">
                         {Object.entries(server.env).map(([key, value]) => (
                           <div
@@ -370,7 +372,7 @@ export function McpSettings(): JSX.Element {
         {showAddForm ? (
           <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--primary)]/30 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Add MCP Server</h4>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.mcp.addServer')}</h4>
               <button
                 onClick={() => {
                   setShowAddForm(false)
@@ -378,13 +380,13 @@ export function McpSettings(): JSX.Element {
                 }}
                 className="text-[var(--text-muted)] hover:text-[var(--text-primary)]"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
 
             {/* Server Name */}
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Server Name *</label>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.mcp.serverName')} *</label>
               <input
                 type="text"
                 placeholder="e.g., nanobanana"
@@ -396,7 +398,7 @@ export function McpSettings(): JSX.Element {
 
             {/* Command */}
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Command *</label>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.mcp.command')} *</label>
               <input
                 type="text"
                 placeholder="e.g., npx"
@@ -408,7 +410,7 @@ export function McpSettings(): JSX.Element {
 
             {/* Arguments */}
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Arguments</label>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.mcp.arguments')}</label>
               <div className="flex gap-2">
                 <input
                   type="text"
@@ -447,18 +449,18 @@ export function McpSettings(): JSX.Element {
 
             {/* Environment Variables */}
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Environment Variables</label>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.mcp.envVars')}</label>
               <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Key"
+                  placeholder={t('settings.mcp.envKey')}
                   value={newEnvKey}
                   onChange={(e) => setNewEnvKey(e.target.value)}
                   className="w-1/3 px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
                 />
                 <input
                   type="password"
-                  placeholder="Value"
+                  placeholder={t('settings.mcp.envValue')}
                   value={newEnvValue}
                   onChange={(e) => setNewEnvValue(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleAddEnv()}
@@ -506,12 +508,12 @@ export function McpSettings(): JSX.Element {
               {saving ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Adding...</span>
+                  <span>{t('settings.mcp.adding')}</span>
                 </>
               ) : (
                 <>
                   <Plus className="w-4 h-4" />
-                  <span>Add Server</span>
+                  <span>{t('settings.mcp.addServer')}</span>
                 </>
               )}
             </button>
@@ -522,7 +524,7 @@ export function McpSettings(): JSX.Element {
             className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl border-2 border-dashed border-[var(--border-color)] text-[var(--text-muted)] hover:border-[var(--primary)]/50 hover:text-[var(--primary)] transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span className="text-[13px] font-medium">Add MCP Server</span>
+            <span className="text-[13px] font-medium">{t('settings.mcp.addServer')}</span>
           </button>
         )}
       </div>
@@ -548,9 +550,7 @@ export function McpSettings(): JSX.Element {
       {/* Help Text */}
       <div className="p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)]">
         <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-          <strong className="text-[var(--text-primary)]">Note:</strong> MCP servers extend AI capabilities 
-          with custom tools. Common examples include image generation, web search, and database access. 
-          Changes require app restart to take effect.
+          <strong className="text-[var(--text-primary)]">{t('settings.mcp.noteTitle')}</strong> {t('settings.mcp.noteContent')}
         </p>
       </div>
     </div>

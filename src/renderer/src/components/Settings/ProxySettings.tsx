@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Check, AlertCircle, Loader2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 interface ProxyConfig {
   enabled: boolean
@@ -11,6 +12,7 @@ interface ProxyConfig {
 }
 
 export function ProxySettings(): JSX.Element {
+  const { t } = useTranslation()
   const [config, setConfig] = useState<ProxyConfig>({
     enabled: false,
     type: 'socks5',
@@ -61,13 +63,13 @@ export function ProxySettings(): JSX.Element {
       const result = await window.proxy.saveConfig(config)
       if (result.success) {
         setOriginalConfig({ ...config })
-        setMessage({ type: 'success', text: 'Settings saved' })
+        setMessage({ type: 'success', text: t('settings.saved') })
         setTimeout(() => setMessage(null), 3000)
       } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to save' })
+        setMessage({ type: 'error', text: result.error || t('settings.saveError') })
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save settings' })
+      setMessage({ type: 'error', text: t('settings.saveError') })
     }
 
     setSaving(false)
@@ -88,9 +90,9 @@ export function ProxySettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Enable Proxy</h4>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.proxy.enable')}</h4>
               <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                Route through proxy server
+                {t('settings.proxy.enableHint')}
               </p>
             </div>
             <button
@@ -114,8 +116,8 @@ export function ProxySettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Proxy Type</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Protocol type</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.proxy.type')}</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.proxy.typeHint')}</p>
             </div>
             <div className="flex gap-2">
               {(['socks5', 'http'] as const).map((type) => (
@@ -141,7 +143,7 @@ export function ProxySettings(): JSX.Element {
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
-                Host
+                {t('settings.proxy.host')}
               </label>
               <input
                 type="text"
@@ -154,7 +156,7 @@ export function ProxySettings(): JSX.Element {
             </div>
             <div>
               <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
-                Port
+                {t('settings.proxy.port')}
               </label>
               <input
                 type="number"
@@ -170,20 +172,20 @@ export function ProxySettings(): JSX.Element {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
-                Username <span className="text-[var(--text-placeholder)]">(optional)</span>
+                {t('settings.proxy.username')} <span className="text-[var(--text-placeholder)]">({t('common.optional')})</span>
               </label>
               <input
                 type="text"
                 value={config.username || ''}
                 onChange={(e) => setConfig({ ...config, username: e.target.value || undefined })}
                 disabled={!config.enabled}
-                placeholder="username"
+                placeholder={t('settings.proxy.username').toLowerCase()}
                 className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-40"
               />
             </div>
             <div>
               <label className="block text-[11px] font-medium text-[var(--text-muted)] mb-2">
-                Password <span className="text-[var(--text-placeholder)]">(optional)</span>
+                {t('settings.proxy.password')} <span className="text-[var(--text-placeholder)]">({t('common.optional')})</span>
               </label>
               <input
                 type="password"
@@ -226,10 +228,10 @@ export function ProxySettings(): JSX.Element {
           {saving ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Saving...</span>
+              <span>{t('common.saving')}</span>
             </>
           ) : (
-            <span>Save Settings</span>
+            <span>{t('settings.saveSettings')}</span>
           )}
         </button>
       )}

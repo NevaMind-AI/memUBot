@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Shield, Key, Copy, RefreshCw, Loader2, Check } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from '../../stores/toastStore'
 
 interface SecurityCodeInfo {
@@ -9,6 +10,7 @@ interface SecurityCodeInfo {
 }
 
 export function SecuritySettings(): JSX.Element {
+  const { t } = useTranslation()
   const [codeInfo, setCodeInfo] = useState<SecurityCodeInfo | null>(null)
   const [currentCode, setCurrentCode] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -48,12 +50,12 @@ export function SecuritySettings(): JSX.Element {
           active: true,
           remainingSeconds: 180 // 3 minutes
         })
-        toast.success('Security code generated')
+        toast.success(t('settings.security.codeGenerated'))
       } else {
-        toast.error(result.error || 'Failed to generate code')
+        toast.error(result.error || t('settings.security.generateFailed'))
       }
     } catch (error) {
-      toast.error('Failed to generate security code')
+      toast.error(t('settings.security.generateFailed'))
     }
     setLoading(false)
   }
@@ -63,10 +65,10 @@ export function SecuritySettings(): JSX.Element {
     try {
       await navigator.clipboard.writeText(currentCode)
       setCopied(true)
-      toast.success('Code copied to clipboard')
+      toast.success(t('common.copied'))
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('Failed to copy code')
+      toast.error(t('errors.copyFailed'))
     }
   }
 
@@ -79,9 +81,9 @@ export function SecuritySettings(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">Security</h3>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.security.title')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-          Manage device binding and access control
+          {t('settings.security.description')}
         </p>
       </div>
 
@@ -93,9 +95,9 @@ export function SecuritySettings(): JSX.Element {
               <Key className="w-5 h-5 text-[var(--primary)]" />
             </div>
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Security Code</h4>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.security.securityCode')}</h4>
               <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                Generate a code to bind Telegram accounts
+                {t('settings.security.securityCodeHint')}
               </p>
             </div>
           </div>
@@ -120,21 +122,21 @@ export function SecuritySettings(): JSX.Element {
                   </button>
                 </div>
                 <div className="text-right">
-                  <span className="text-[12px] text-[var(--text-muted)]">Expires in</span>
+                  <span className="text-[12px] text-[var(--text-muted)]">{t('settings.security.expiresIn')}</span>
                   <div className="text-[14px] font-mono font-medium text-amber-500">
                     {formatTime(codeInfo.remainingSeconds || 0)}
                   </div>
                 </div>
               </div>
               <p className="text-[11px] text-[var(--text-muted)] mt-2 text-center">
-                Send <code className="px-1 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)]">/bind {currentCode}</code> to your bot in Telegram
+                {t('settings.security.sendCommand')} <code className="px-1 py-0.5 rounded bg-[var(--bg-input)] text-[var(--text-secondary)]">/bind {currentCode}</code>
               </p>
             </div>
           ) : (
             <div className="mb-4 p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-center">
               <Shield className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
               <p className="text-[12px] text-[var(--text-muted)]">
-                Generate a security code to bind a new Telegram account
+                {t('settings.security.noCodeYet')}
               </p>
             </div>
           )}
@@ -148,17 +150,17 @@ export function SecuritySettings(): JSX.Element {
             {loading ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Generating...</span>
+                <span>{t('settings.security.generating')}</span>
               </>
             ) : currentCode && codeInfo?.active ? (
               <>
                 <RefreshCw className="w-4 h-4" />
-                <span>Generate New Code</span>
+                <span>{t('settings.security.regenerate')}</span>
               </>
             ) : (
               <>
                 <Key className="w-4 h-4" />
-                <span>Generate Security Code</span>
+                <span>{t('settings.security.generate')}</span>
               </>
             )}
           </button>
@@ -167,8 +169,7 @@ export function SecuritySettings(): JSX.Element {
         {/* Security Notes */}
         <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
           <p className="text-[11px] text-amber-600 dark:text-amber-400">
-            <strong>Note:</strong> Security codes expire after 3 minutes and can only be used once.
-            Only bound accounts can interact with your bot.
+            <strong>{t('common.note')}:</strong> {t('settings.security.note')}
           </p>
         </div>
       </div>

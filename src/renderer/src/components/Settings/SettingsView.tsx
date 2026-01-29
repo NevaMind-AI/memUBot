@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
 import { Globe, Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { ProxySettings } from './ProxySettings'
 import { TailscaleStatus } from './TailscaleStatus'
 import { SecuritySettings } from './SecuritySettings'
 import { McpSettings } from './McpSettings'
 import { SkillsSettings } from './SkillsSettings'
 import { Slider } from '../Slider'
+import { changeLanguage, languages } from '../../i18n'
 
 type SettingsTab = 'general' | 'network' | 'security' | 'model' | 'skills' | 'mcp' | 'data' | 'about'
 
@@ -26,17 +28,18 @@ interface AppSettings {
 }
 
 export function SettingsView(): JSX.Element {
+  const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
 
   const tabs = [
-    { id: 'general' as const, icon: Key, label: 'General' },
-    { id: 'network' as const, icon: Globe, label: 'Network' },
-    { id: 'security' as const, icon: Shield, label: 'Security' },
-    { id: 'model' as const, icon: Bot, label: 'AI Model' },
-    { id: 'skills' as const, icon: Sparkles, label: 'Skills' },
-    { id: 'mcp' as const, icon: Server, label: 'MCP' },
-    { id: 'data' as const, icon: Database, label: 'Data' },
-    { id: 'about' as const, icon: Info, label: 'About' }
+    { id: 'general' as const, icon: Key, labelKey: 'settings.tabs.general' },
+    { id: 'network' as const, icon: Globe, labelKey: 'settings.tabs.proxy' },
+    { id: 'security' as const, icon: Shield, labelKey: 'settings.tabs.security' },
+    { id: 'model' as const, icon: Bot, labelKey: 'settings.tabs.model' },
+    { id: 'skills' as const, icon: Sparkles, labelKey: 'settings.tabs.skills' },
+    { id: 'mcp' as const, icon: Server, labelKey: 'settings.tabs.mcp' },
+    { id: 'data' as const, icon: Database, labelKey: 'settings.tabs.data' },
+    { id: 'about' as const, icon: Info, labelKey: 'settings.tabs.about' }
   ]
 
   return (
@@ -47,6 +50,9 @@ export function SettingsView(): JSX.Element {
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
+
+            // Check if labelKey is a translation key or plain text
+            const label = tab.labelKey.includes('.') ? t(tab.labelKey) : tab.labelKey
 
             return (
               <button
@@ -59,7 +65,7 @@ export function SettingsView(): JSX.Element {
                 }`}
               >
                 <Icon className="w-4 h-4" />
-                <span className="text-[13px] font-medium">{tab.label}</span>
+                <span className="text-[13px] font-medium">{label}</span>
               </button>
             )
           })}
@@ -84,6 +90,7 @@ export function SettingsView(): JSX.Element {
 }
 
 function GeneralSettings(): JSX.Element {
+  const { t } = useTranslation()
   const [settings, setSettings] = useState<Partial<AppSettings>>({})
   const [originalSettings, setOriginalSettings] = useState<Partial<AppSettings>>({})
   const [loading, setLoading] = useState(true)
@@ -136,13 +143,13 @@ function GeneralSettings(): JSX.Element {
       })
       if (result.success) {
         setOriginalSettings({ ...originalSettings, ...settings })
-        setMessage({ type: 'success', text: 'Settings saved' })
+        setMessage({ type: 'success', text: t('settings.saved') })
         setTimeout(() => setMessage(null), 3000)
       } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to save' })
+        setMessage({ type: 'error', text: result.error || t('settings.saveError') })
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save settings' })
+      setMessage({ type: 'error', text: t('settings.saveError') })
     }
     setSaving(false)
   }
@@ -158,20 +165,20 @@ function GeneralSettings(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">General</h3>
-        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Basic application settings</p>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.tabs.general')}</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{t('settings.general.title')}</p>
       </div>
 
       <div className="space-y-3">
         {/* API Key */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="mb-3">
-            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Claude API Key</h4>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Your Anthropic API key</p>
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Claude {t('settings.general.apiKey')}</h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.general.apiKeyHint')}</p>
           </div>
           <input
             type="password"
-            placeholder="sk-ant-api03-..."
+            placeholder={t('settings.general.apiKeyPlaceholder')}
             value={settings.claudeApiKey || ''}
             onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
@@ -189,7 +196,7 @@ function GeneralSettings(): JSX.Element {
                 Telegram
               </h4>
             </div>
-            <p className="text-[11px] text-[var(--text-muted)] mt-1">Token from @BotFather</p>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">{t('settings.platforms.telegram.botTokenHint')}</p>
           </div>
           <input
             type="password"
@@ -211,7 +218,7 @@ function GeneralSettings(): JSX.Element {
                 Discord
               </h4>
             </div>
-            <p className="text-[11px] text-[var(--text-muted)] mt-1">Token from Discord Developer Portal</p>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">{t('settings.platforms.discord.botTokenHint')}</p>
           </div>
           <input
             type="password"
@@ -251,7 +258,7 @@ function GeneralSettings(): JSX.Element {
         </div> */}
 
         {/* Slack Tokens */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#4A154B]/30 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#611F69]/40 dark:border-[#E0B3E6]/30 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#4A154B] to-[#611F69] flex items-center justify-center">
@@ -262,12 +269,12 @@ function GeneralSettings(): JSX.Element {
               </h4>
             </div>
             <p className="text-[11px] text-[var(--text-muted)] mt-1">
-              Tokens from Slack API Dashboard
+              {t('settings.platforms.slack.tokensHint')}
             </p>
           </div>
           <div className="space-y-3">
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">Bot Token</label>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.platforms.slack.botToken')}</label>
               <input
                 type="password"
                 placeholder="xoxb-..."
@@ -277,7 +284,7 @@ function GeneralSettings(): JSX.Element {
               />
             </div>
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">App Token (Socket Mode)</label>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.platforms.slack.appToken')}</label>
               <input
                 type="password"
                 placeholder="xapp-..."
@@ -329,22 +336,7 @@ function GeneralSettings(): JSX.Element {
         </div> */}
 
         {/* Language */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Language</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Display language</p>
-            </div>
-            <select
-              value={settings.language || 'en'}
-              onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-              className="w-auto min-w-[100px] px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/50"
-            >
-              <option value="en">English</option>
-              <option value="zh">中文</option>
-            </select>
-          </div>
-        </div>
+        <LanguageSelector />
       </div>
 
       {/* Message */}
@@ -387,22 +379,23 @@ function GeneralSettings(): JSX.Element {
 }
 
 function NetworkSettings(): JSX.Element {
+  const { t } = useTranslation()
   return (
     <div className="space-y-6">
       {/* Proxy Section */}
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">Proxy Settings</h3>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.proxy.title')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5 mb-4">
-          Configure proxy for external connections
+          {t('settings.proxy.description')}
         </p>
         <ProxySettings />
       </div>
 
       {/* Tailscale Section */}
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">Tailscale VPN</h3>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('tailscale.title')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5 mb-4">
-          Secure mesh network for private connectivity
+          {t('tailscale.description')}
         </p>
         <TailscaleStatus />
       </div>
@@ -411,6 +404,7 @@ function NetworkSettings(): JSX.Element {
 }
 
 function ModelSettings(): JSX.Element {
+  const { t } = useTranslation()
   const [settings, setSettings] = useState<Partial<AppSettings>>({})
   const [originalSettings, setOriginalSettings] = useState<Partial<AppSettings>>({})
   const [loading, setLoading] = useState(true)
@@ -453,13 +447,13 @@ function ModelSettings(): JSX.Element {
       })
       if (result.success) {
         setOriginalSettings({ ...originalSettings, ...settings })
-        setMessage({ type: 'success', text: 'Settings saved' })
+        setMessage({ type: 'success', text: t('settings.saved') })
         setTimeout(() => setMessage(null), 3000)
       } else {
-        setMessage({ type: 'error', text: result.error || 'Failed to save' })
+        setMessage({ type: 'error', text: result.error || t('settings.saveError') })
       }
     } catch (error) {
-      setMessage({ type: 'error', text: 'Failed to save settings' })
+      setMessage({ type: 'error', text: t('settings.saveError') })
     }
     setSaving(false)
   }
@@ -475,9 +469,9 @@ function ModelSettings(): JSX.Element {
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">AI Model</h3>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.model.title')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-          Configure AI model parameters
+          {t('settings.model.description')}
         </p>
       </div>
 
@@ -486,8 +480,8 @@ function ModelSettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Model</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Claude model version</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.model.model')}</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.model.modelHint')}</p>
             </div>
             <select
               value={settings.claudeModel || 'claude-sonnet-4-5'}
@@ -505,8 +499,8 @@ function ModelSettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Max Tokens</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Maximum response length</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.model.maxTokens')}</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.model.maxTokensHint')}</p>
             </div>
             <span className="text-[13px] text-[var(--primary)] font-medium tabular-nums">
               {settings.maxTokens || 8192}
@@ -525,8 +519,8 @@ function ModelSettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Temperature</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Creativity level (0-1)</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.model.temperature')}</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.model.temperatureHint')}</p>
             </div>
             <span className="text-[13px] text-[var(--primary)] font-medium tabular-nums">
               {(settings.temperature || 0.7).toFixed(1)}
@@ -544,14 +538,14 @@ function ModelSettings(): JSX.Element {
         {/* System Prompt */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="mb-3">
-            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">System Prompt</h4>
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.model.systemPrompt')}</h4>
             <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-              Custom instructions (leave empty for default)
+              {t('settings.model.systemPromptHint')}
             </p>
           </div>
           <textarea
             rows={4}
-            placeholder="You are a helpful assistant..."
+            placeholder={t('settings.model.systemPromptPlaceholder')}
             value={settings.systemPrompt || ''}
             onChange={(e) => setSettings({ ...settings, systemPrompt: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all resize-none"
@@ -587,10 +581,10 @@ function ModelSettings(): JSX.Element {
           {saving ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Saving...</span>
+              <span>{t('common.saving')}</span>
             </>
           ) : (
-            <span>Save Settings</span>
+            <span>{t('settings.saveSettings')}</span>
           )}
         </button>
       )}
@@ -599,12 +593,13 @@ function ModelSettings(): JSX.Element {
 }
 
 function DataSettings(): JSX.Element {
+  const { t } = useTranslation()
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">Data</h3>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.data.title')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
-          Manage your data and storage
+          {t('settings.data.description')}
         </p>
       </div>
 
@@ -613,8 +608,8 @@ function DataSettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Storage Used</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Local message storage</p>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.data.storageUsed')}</h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.data.storageHint')}</p>
             </div>
             <span className="text-[13px] text-[var(--text-primary)] font-medium tabular-nums">
               --
@@ -629,13 +624,13 @@ function DataSettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Export Data</h4>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.data.export')}</h4>
               <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                Download all messages as JSON
+                {t('settings.data.exportHint')}
               </p>
             </div>
             <button className="px-4 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] font-medium hover:bg-[var(--bg-card-solid)] hover:shadow-md transition-all">
-              Export
+              {t('settings.data.exportButton')}
             </button>
           </div>
         </div>
@@ -644,13 +639,13 @@ function DataSettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between">
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Clear All Data</h4>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.data.clearAll')}</h4>
               <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                Delete all stored messages
+                {t('settings.data.clearHint')}
               </p>
             </div>
             <button className="px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-[13px] text-red-600 dark:text-red-400 font-medium hover:bg-red-500/20 transition-all">
-              Clear
+              {t('common.clear')}
             </button>
           </div>
         </div>
@@ -660,11 +655,12 @@ function DataSettings(): JSX.Element {
 }
 
 function AboutSection(): JSX.Element {
+  const { t } = useTranslation()
   return (
     <div className="space-y-5">
       <div>
-        <h3 className="text-base font-semibold text-[var(--text-primary)]">About</h3>
-        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Application information</p>
+        <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.about.title')}</h3>
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{t('settings.about.description')}</p>
       </div>
 
       <div className="p-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm text-center">
@@ -672,13 +668,29 @@ function AboutSection(): JSX.Element {
           <span className="text-white text-2xl font-bold">M</span>
         </div>
         <h4 className="text-lg font-semibold text-[var(--text-primary)]">memU bot</h4>
-        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">Version 1.0.0</p>
-        <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+        <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{t('settings.about.version')} 1.0.0</p>
+        <div className="mt-4 pt-4 border-t border-[var(--border-color)] text-left space-y-2">
           <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
-            A local AI assistant with Computer Use.
-            <br />
-            Powered by Claude AI.
+            {t('settings.about.tagline')}
           </p>
+          <ul className="text-[12px] text-[var(--text-muted)] leading-relaxed space-y-1.5">
+            <li className="flex items-start gap-2">
+              <span className="text-[var(--primary)]">•</span>
+              <span>{t('settings.about.feature1')}</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[var(--primary)]">•</span>
+              <span>{t('settings.about.feature2')}</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[var(--primary)]">•</span>
+              <span>{t('settings.about.feature3')}</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[var(--primary)]">•</span>
+              <span>{t('settings.about.feature4')}</span>
+            </li>
+          </ul>
         </div>
       </div>
 
@@ -707,6 +719,45 @@ function AboutSection(): JSX.Element {
             </span>
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Language Selector Component
+ */
+function LanguageSelector(): JSX.Element {
+  const { t, i18n } = useTranslation()
+  const currentLang = i18n.language
+
+  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value
+    changeLanguage(newLang)
+  }
+
+  return (
+    <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+            {t('settings.general.language')}
+          </h4>
+          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+            {t('settings.general.languageHint')}
+          </p>
+        </div>
+        <select
+          value={currentLang}
+          onChange={handleLanguageChange}
+          className="w-auto min-w-[120px] px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/50"
+        >
+          {languages.map((lang) => (
+            <option key={lang.code} value={lang.code}>
+              {lang.nativeName}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   )
