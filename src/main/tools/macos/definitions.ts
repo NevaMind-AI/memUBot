@@ -13,23 +13,27 @@ export function isMacOS(): boolean {
  */
 export const mailTool: Anthropic.Tool = {
   name: 'macos_mail',
-  description: `Interact with Apple Mail app on macOS. Can read emails, send emails, and search mailboxes.
+  description: `Interact with Apple Mail app on macOS. Can read emails, send emails with attachments, and search mailboxes.
 
 Available actions:
 - list_accounts: List all email accounts configured in Mail
 - list_mailboxes: List all available mailboxes/folders
 - list_emails: List emails from a mailbox (default: INBOX)
-- read_email: Read a specific email by index
-- send_email: Send a new email (can specify which account to send from)
+- read_email: Read a specific email by index (includes attachment info)
+- send_email: Send a new email with optional attachments (can specify which account to send from)
 - search_emails: Search emails by subject or sender
+- download_attachment: Download an attachment from an email to local storage
 
-IMPORTANT: Use list_accounts first to see available accounts, then specify the account name when sending emails.`,
+IMPORTANT: 
+- Use list_accounts first to see available accounts, then specify the account name when sending emails.
+- When reading emails, attachment info will be shown. Use download_attachment to save attachments locally.
+- When sending emails, use the attachments parameter with file paths to attach files.`,
   input_schema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['list_accounts', 'list_mailboxes', 'list_emails', 'read_email', 'send_email', 'search_emails'],
+        enum: ['list_accounts', 'list_mailboxes', 'list_emails', 'read_email', 'send_email', 'search_emails', 'download_attachment'],
         description: 'The action to perform'
       },
       account: {
@@ -38,11 +42,11 @@ IMPORTANT: Use list_accounts first to see available accounts, then specify the a
       },
       mailbox: {
         type: 'string',
-        description: 'Mailbox name (default: INBOX). Use for list_emails, read_email, search_emails'
+        description: 'Mailbox name (default: INBOX). Use for list_emails, read_email, search_emails, download_attachment'
       },
       index: {
         type: 'number',
-        description: 'Email index (1-based) for read_email action'
+        description: 'Email index (1-based) for read_email and download_attachment actions'
       },
       count: {
         type: 'number',
@@ -63,6 +67,15 @@ IMPORTANT: Use list_accounts first to see available accounts, then specify the a
       query: {
         type: 'string',
         description: 'Search query for search_emails (searches subject and sender)'
+      },
+      attachments: {
+        type: 'array',
+        items: { type: 'string' },
+        description: 'Array of file paths to attach when sending email (for send_email action)'
+      },
+      attachment_index: {
+        type: 'number',
+        description: 'Attachment index (1-based) for download_attachment action. If not specified, downloads all attachments.'
       }
     },
     required: ['action']

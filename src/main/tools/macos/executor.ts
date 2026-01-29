@@ -92,7 +92,7 @@ async function ensureAppRunning(appName: string, maxRetries = 3): Promise<{ read
 // ============================================================================
 
 interface MailInput {
-  action: 'list_accounts' | 'list_mailboxes' | 'list_emails' | 'read_email' | 'send_email' | 'search_emails'
+  action: 'list_accounts' | 'list_mailboxes' | 'list_emails' | 'read_email' | 'send_email' | 'search_emails' | 'download_attachment'
   account?: string
   mailbox?: string
   index?: number
@@ -101,6 +101,8 @@ interface MailInput {
   subject?: string
   body?: string
   query?: string
+  attachments?: string[]  // File paths to attach when sending
+  attachment_index?: number  // Which attachment to download (1-based)
 }
 
 /**
@@ -130,12 +132,17 @@ export async function executeMacOSMailTool(input: MailInput): Promise<ToolResult
         if (!input.to || !input.subject || !input.body) {
           return { success: false, error: 'to, subject, and body are required for send_email action' }
         }
-        return await sendEmail(input.to, input.subject, input.body, input.account)
+        return await sendEmail(input.to, input.subject, input.body, input.account, input.attachments)
       case 'search_emails':
         if (!input.query) {
           return { success: false, error: 'query is required for search_emails action' }
         }
         return await searchEmails(input.mailbox || 'INBOX', input.query, input.count || 10)
+      case 'download_attachment':
+        if (!input.index) {
+          return { success: false, error: 'index is required for download_attachment action' }
+        }
+        return await downloadAttachment(input.mailbox || 'INBOX', input.index, input.attachment_index)
       default:
         return { success: false, error: `Unknown action: ${input.action}` }
     }
@@ -250,13 +257,41 @@ tell application "Mail"
   set msgContent to msgContent & "To: " & (address of to recipient 1 of msg) & return
   set msgContent to msgContent & "Subject: " & (subject of msg) & return
   set msgContent to msgContent & "Date: " & (date received of msg as string) & return
+  
+  -- Get attachment info
+  set attachmentList to mail attachments of msg
+  set attachmentCount to count of attachmentList
+  if attachmentCount > 0 then
+    set msgContent to msgContent & return & "--- Attachments (" & attachmentCount & ") ---" & return
+    set attIndex to 1
+    repeat with att in attachmentList
+      try
+        set attName to name of att
+        set attSize to file size of att
+        -- Convert bytes to human readable
+        if attSize < 1024 then
+          set sizeStr to (attSize as string) & " B"
+        else if attSize < 1048576 then
+          set sizeStr to (round (attSize / 1024) rounding half up) & " KB"
+        else
+          set sizeStr to (round (attSize / 1048576 * 10) rounding half up) / 10 & " MB"
+        end if
+        set msgContent to msgContent & "  [" & attIndex & "] " & attName & " (" & sizeStr & ")" & return
+      on error
+        set msgContent to msgContent & "  [" & attIndex & "] (unable to read attachment info)" & return
+      end try
+      set attIndex to attIndex + 1
+    end repeat
+    set msgContent to msgContent & return & "Use download_attachment action with attachment_index to save attachments." & return
+  end if
+  
   set msgContent to msgContent & return & "--- Content ---" & return
   set msgContent to msgContent & (content of msg)
   
   return msgContent
 end tell`
   
-  const result = await runAppleScriptMultiline(script)
+  const result = await runAppleScriptMultiline(script, 45000)
   
   return {
     success: true,
@@ -268,7 +303,7 @@ end tell`
   }
 }
 
-async function sendEmail(to: string, subject: string, body: string, accountName?: string): Promise<ToolResult> {
+async function sendEmail(to: string, subject: string, body: string, accountName?: string, attachments?: string[]): Promise<ToolResult> {
   // Escape special characters
   const escapedBody = body.replace(/"/g, '\\"').replace(/\n/g, '\\n')
   const escapedSubject = subject.replace(/"/g, '\\"')
@@ -280,18 +315,37 @@ async function sendEmail(to: string, subject: string, body: string, accountName?
        set sender of newMessage to (email addresses of senderAccount as string)`
     : ''
   
+  // Build attachment commands
+  let attachmentCommands = ''
+  const attachedFiles: string[] = []
+  if (attachments && attachments.length > 0) {
+    for (const filePath of attachments) {
+      // Expand ~ to home directory and escape for AppleScript
+      const expandedPath = filePath.replace(/^~/, process.env.HOME || '')
+      const escapedPath = expandedPath.replace(/"/g, '\\"')
+      attachmentCommands += `
+      try
+        make new attachment with properties {file name:POSIX file "${escapedPath}"} at after last paragraph
+      on error errMsg
+        error "Failed to attach file: ${escapedPath} - " & errMsg
+      end try`
+      attachedFiles.push(expandedPath)
+    }
+  }
+  
   const script = `
 tell application "Mail"
   set newMessage to make new outgoing message with properties {subject:"${escapedSubject}", content:"${escapedBody}", visible:true}
   ${accountSelection}
   tell newMessage
     make new to recipient at end of to recipients with properties {address:"${to}"}
+    ${attachmentCommands}
   end tell
   send newMessage
 end tell
 return "Email sent successfully"`
   
-  await runAppleScriptMultiline(script, 30000)
+  await runAppleScriptMultiline(script, 60000) // Longer timeout for attachments
   
   return {
     success: true,
@@ -299,7 +353,10 @@ return "Email sent successfully"`
       to,
       subject,
       account: accountName || 'default',
-      message: 'Email sent successfully'
+      attachments: attachedFiles.length > 0 ? attachedFiles : undefined,
+      message: attachedFiles.length > 0 
+        ? `Email sent successfully with ${attachedFiles.length} attachment(s)`
+        : 'Email sent successfully'
     }
   }
 }
@@ -343,6 +400,123 @@ end tell`
       mailbox,
       query,
       results: result || 'No matching emails found'
+    }
+  }
+}
+
+async function downloadAttachment(mailbox: string, emailIndex: number, attachmentIndex?: number): Promise<ToolResult> {
+  // Get app data directory for saving attachments
+  const { app } = await import('electron')
+  const path = await import('path')
+  const fs = await import('fs/promises')
+  
+  const attachmentsDir = path.join(app.getPath('userData'), 'mail-attachments')
+  
+  // Ensure directory exists
+  try {
+    await fs.mkdir(attachmentsDir, { recursive: true })
+  } catch {
+    // Directory may already exist
+  }
+  
+  // First, get attachment info
+  const infoScript = `
+tell application "Mail"
+  set targetMailbox to mailbox "${mailbox}" of account 1
+  set msg to message ${emailIndex} of targetMailbox
+  set attachmentList to mail attachments of msg
+  set attachmentCount to count of attachmentList
+  
+  if attachmentCount = 0 then
+    return "NO_ATTACHMENTS"
+  end if
+  
+  set output to ""
+  repeat with i from 1 to attachmentCount
+    set att to item i of attachmentList
+    try
+      set attName to name of att
+      set output to output & i & "|" & attName & return
+    on error
+      set output to output & i & "|unknown" & return
+    end try
+  end repeat
+  
+  return output
+end tell`
+  
+  const infoResult = await runAppleScriptMultiline(infoScript, 30000)
+  
+  if (infoResult === 'NO_ATTACHMENTS') {
+    return { success: false, error: 'This email has no attachments' }
+  }
+  
+  // Parse attachment info
+  const attachmentLines = infoResult.trim().split('\n').filter(l => l.length > 0)
+  const attachments = attachmentLines.map(line => {
+    const [idx, name] = line.split('|')
+    return { index: parseInt(idx), name: name || 'unknown' }
+  })
+  
+  // Determine which attachments to download
+  const toDownload = attachmentIndex 
+    ? attachments.filter(a => a.index === attachmentIndex)
+    : attachments
+  
+  if (toDownload.length === 0) {
+    return { 
+      success: false, 
+      error: `Attachment index ${attachmentIndex} not found. Available attachments: ${attachments.map(a => `[${a.index}] ${a.name}`).join(', ')}`
+    }
+  }
+  
+  const savedFiles: string[] = []
+  const errors: string[] = []
+  
+  for (const att of toDownload) {
+    // Generate unique filename
+    const timestamp = Date.now()
+    const safeName = att.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+    const savePath = path.join(attachmentsDir, `${timestamp}_${safeName}`)
+    const posixSavePath = savePath.replace(/\\/g, '/')
+    
+    const saveScript = `
+tell application "Mail"
+  set targetMailbox to mailbox "${mailbox}" of account 1
+  set msg to message ${emailIndex} of targetMailbox
+  set att to item ${att.index} of mail attachments of msg
+  
+  set saveFile to POSIX file "${posixSavePath}"
+  save att in saveFile
+  
+  return "SAVED"
+end tell`
+    
+    try {
+      await runAppleScriptMultiline(saveScript, 60000)
+      savedFiles.push(savePath)
+    } catch (error) {
+      errors.push(`Failed to save ${att.name}: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+  
+  if (savedFiles.length === 0) {
+    return { 
+      success: false, 
+      error: `Failed to download attachments: ${errors.join('; ')}`
+    }
+  }
+  
+  return {
+    success: true,
+    data: {
+      mailbox,
+      emailIndex,
+      downloadedFiles: savedFiles,
+      totalAttachments: attachments.length,
+      downloadedCount: savedFiles.length,
+      errors: errors.length > 0 ? errors : undefined,
+      note: 'Attachments saved to app data directory'
     }
   }
 }
