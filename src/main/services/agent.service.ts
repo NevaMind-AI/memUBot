@@ -9,7 +9,7 @@ import { discordTools } from '../tools/discord.definitions'
 import { whatsappTools } from '../tools/whatsapp.definitions'
 import { slackTools } from '../tools/slack.definitions'
 import { lineTools } from '../tools/line.definitions'
-import { executeComputerTool, executeBashTool, executeTextEditorTool } from '../tools/computer.executor'
+import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool } from '../tools/computer.executor'
 import { executeTelegramTool } from '../tools/telegram.executor'
 import { executeDiscordTool } from '../tools/discord.executor'
 import { executeWhatsAppTool } from '../tools/whatsapp.executor'
@@ -753,6 +753,9 @@ export class AgentService {
 
       case 'str_replace_editor':
         return await executeTextEditorTool(input as Parameters<typeof executeTextEditorTool>[0])
+
+      case 'download_file':
+        return await executeDownloadFileTool(input as Parameters<typeof executeDownloadFileTool>[0])
     }
 
     // Telegram tools

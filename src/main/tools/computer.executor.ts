@@ -2,6 +2,8 @@ import { exec } from 'child_process'
 import { promisify } from 'util'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import * as https from 'https'
+import * as http from 'http'
 import { app, screen } from 'electron'
 import screenshot from 'screenshot-desktop'
 
@@ -407,4 +409,163 @@ export async function executeTextEditorTool(input: {
     console.error('[TextEditor] Error:', error)
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
+}
+
+/**
+ * Get default output directory for downloaded files
+ */
+function getDefaultOutputDir(): string {
+  return path.join(app.getPath('userData'), 'agent-output', 'downloads')
+}
+
+/**
+ * Extract filename from URL or Content-Disposition header
+ */
+function extractFilename(url: string, contentDisposition?: string): string {
+  // Try Content-Disposition header first
+  if (contentDisposition) {
+    const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+    if (match && match[1]) {
+      return match[1].replace(/['"]/g, '')
+    }
+  }
+
+  // Extract from URL
+  try {
+    const urlObj = new URL(url)
+    const pathname = urlObj.pathname
+    const filename = path.basename(pathname)
+    if (filename && filename.includes('.')) {
+      return filename
+    }
+  } catch {
+    // Ignore URL parsing errors
+  }
+
+  // Generate default filename with timestamp
+  const timestamp = Date.now()
+  return `download_${timestamp}`
+}
+
+/**
+ * Download a file from URL
+ */
+export async function executeDownloadFileTool(input: {
+  url: string
+  filename?: string
+  output_dir?: string
+}): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  try {
+    const url = input.url
+    console.log('[Download] Downloading from:', url)
+
+    // Determine output directory
+    const outputDir = input.output_dir || getDefaultOutputDir()
+    await fs.mkdir(outputDir, { recursive: true })
+
+    // Download the file
+    const result = await downloadFile(url)
+    if (!result.success || !result.buffer) {
+      return { success: false, error: result.error || 'Download failed' }
+    }
+
+    // Determine filename
+    const filename = input.filename || extractFilename(url, result.contentDisposition)
+    const filePath = path.join(outputDir, filename)
+
+    // Write to file
+    await fs.writeFile(filePath, result.buffer)
+    
+    const fileSize = result.buffer.length
+    const fileSizeStr = fileSize > 1024 * 1024 
+      ? `${(fileSize / (1024 * 1024)).toFixed(2)} MB`
+      : `${(fileSize / 1024).toFixed(2)} KB`
+
+    console.log('[Download] Saved to:', filePath, `(${fileSizeStr})`)
+
+    return {
+      success: true,
+      data: {
+        path: filePath,
+        filename,
+        size: fileSize,
+        sizeFormatted: fileSizeStr,
+        contentType: result.contentType
+      }
+    }
+  } catch (error) {
+    console.error('[Download] Error:', error)
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/**
+ * Download file from URL and return buffer
+ */
+function downloadFile(url: string, maxRedirects = 5): Promise<{
+  success: boolean
+  buffer?: Buffer
+  contentType?: string
+  contentDisposition?: string
+  error?: string
+}> {
+  return new Promise((resolve) => {
+    const protocol = url.startsWith('https') ? https : http
+
+    const request = protocol.get(url, { 
+      timeout: 60000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
+      }
+    }, (response) => {
+      // Handle redirects
+      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+        if (maxRedirects <= 0) {
+          resolve({ success: false, error: 'Too many redirects' })
+          return
+        }
+        const redirectUrl = response.headers.location.startsWith('http') 
+          ? response.headers.location 
+          : new URL(response.headers.location, url).href
+        console.log('[Download] Redirecting to:', redirectUrl)
+        downloadFile(redirectUrl, maxRedirects - 1).then(resolve)
+        return
+      }
+
+      // Check for successful response
+      if (response.statusCode && (response.statusCode < 200 || response.statusCode >= 300)) {
+        resolve({ success: false, error: `HTTP ${response.statusCode}` })
+        return
+      }
+
+      const chunks: Buffer[] = []
+      
+      response.on('data', (chunk: Buffer) => {
+        chunks.push(chunk)
+      })
+
+      response.on('end', () => {
+        const buffer = Buffer.concat(chunks)
+        resolve({
+          success: true,
+          buffer,
+          contentType: response.headers['content-type'],
+          contentDisposition: response.headers['content-disposition']
+        })
+      })
+
+      response.on('error', (error) => {
+        resolve({ success: false, error: error.message })
+      })
+    })
+
+    request.on('error', (error) => {
+      resolve({ success: false, error: error.message })
+    })
+
+    request.on('timeout', () => {
+      request.destroy()
+      resolve({ success: false, error: 'Request timeout' })
+    })
+  })
 }

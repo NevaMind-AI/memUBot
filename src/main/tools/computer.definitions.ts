@@ -85,6 +85,37 @@ Important notes:
   }
 }
 
+// Download file tool - for downloading files from URLs
+export const downloadFileTool: Anthropic.Tool = {
+  name: 'download_file',
+  description: `Download a file from a URL to local storage. Use this for downloading images, documents, or other files from the internet.
+
+Important notes:
+- Supports HTTP/HTTPS URLs
+- Automatically detects filename from URL or Content-Disposition header
+- Files are saved to the agent's output directory by default
+- Returns the local file path after successful download
+- Useful for: downloading images, PDFs, media files, etc.`,
+  input_schema: {
+    type: 'object',
+    properties: {
+      url: {
+        type: 'string',
+        description: 'The URL of the file to download'
+      },
+      filename: {
+        type: 'string',
+        description: 'Optional: Custom filename to save as (if not provided, will be extracted from URL)'
+      },
+      output_dir: {
+        type: 'string',
+        description: 'Optional: Custom output directory (defaults to agent output directory)'
+      }
+    },
+    required: ['url']
+  }
+}
+
 // Text editor tool - for viewing and editing files
 export const textEditorTool: Anthropic.Tool = {
   name: 'str_replace_editor',
@@ -135,5 +166,5 @@ Available commands:
 
 // Export all computer use tools
 // Note: computerTool (screenshot, mouse, keyboard) is disabled for stability
-// Only bash and text editor are available
-export const computerUseTools: Anthropic.Tool[] = [bashTool, textEditorTool]
+// Only bash, text editor, and download are available
+export const computerUseTools: Anthropic.Tool[] = [bashTool, textEditorTool, downloadFileTool]
