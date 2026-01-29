@@ -99,6 +99,11 @@ export class SlackBotService {
 
       appEvents.emitSlackStatusChanged(this.status)
       console.log('[Slack] Connected successfully')
+
+      // Update avatars for all bound users on startup
+      this.updateBoundUsersAvatars().catch((err) => {
+        console.error('[Slack] Error updating bound users avatars:', err)
+      })
     } catch (error) {
       console.error('[Slack] Connection error:', error)
       this.status = {
@@ -147,11 +152,19 @@ export class SlackBotService {
       )
 
       if (bindResult.success) {
+        // Try to get user avatar after successful bind
+        const avatarUrl = await this.getUserAvatarUrl(userId)
+        if (avatarUrl) {
+          await securityService.updateUserAvatar(userId, 'slack', avatarUrl)
+          console.log(`[Slack] User ${username} (${userId}) bound with avatar: ${avatarUrl}`)
+        } else {
+          console.log(`[Slack] User ${username} (${userId}) bound successfully (no avatar)`)
+        }
+
         await respond({
           response_type: 'ephemeral',
           text: `✅ Successfully bound! Welcome, ${username}. You can now chat with me.`
         })
-        console.log(`[Slack] User ${username} (${userId}) bound successfully`)
       } else {
         await respond({
           response_type: 'ephemeral',
@@ -321,8 +334,16 @@ export class SlackBotService {
     )
 
     if (bindResult.success) {
+      // Try to get user avatar after successful bind
+      const avatarUrl = await this.getUserAvatarUrl(userId)
+      if (avatarUrl) {
+        await securityService.updateUserAvatar(userId, 'slack', avatarUrl)
+        console.log(`[Slack] User ${username} (${userId}) bound with avatar: ${avatarUrl}`)
+      } else {
+        console.log(`[Slack] User ${username} (${userId}) bound successfully (no avatar)`)
+      }
+
       await say(`✅ Successfully bound! Welcome, ${username}. You can now chat with me.`)
-      console.log(`[Slack] User ${username} (${userId}) bound successfully`)
     } else {
       await say(`❌ ${bindResult.error}`)
     }
@@ -445,6 +466,15 @@ export class SlackBotService {
    * Convert stored message to AppMessage
    */
   private convertToAppMessage(msg: StoredSlackMessage): AppMessage {
+    // Convert stored attachments to MessageAttachment format
+    const attachments = msg.attachments?.map(att => ({
+      id: att.id,
+      name: att.name,
+      url: att.url,
+      contentType: att.mimetype,
+      size: att.size || 0
+    }))
+
     return {
       id: msg.messageId,
       platform: 'slack',
@@ -452,6 +482,7 @@ export class SlackBotService {
       senderId: msg.fromId,
       senderName: msg.fromDisplayName || msg.fromUsername,
       content: msg.text || '',
+      attachments,
       timestamp: new Date(msg.date * 1000),
       isFromBot: msg.isFromBot,
       replyToId: msg.replyToMessageId
@@ -630,6 +661,53 @@ export class SlackBotService {
     } catch (error) {
       console.error('[Slack] Error sending ephemeral:', error)
       return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Get user avatar URL from Slack
+   */
+  private async getUserAvatarUrl(userId: string): Promise<string | undefined> {
+    if (!this.app) return undefined
+
+    try {
+      const userInfo = await this.app.client.users.info({ user: userId })
+      if (userInfo.user?.profile) {
+        // Prefer larger images, fall back to smaller ones
+        return (
+          userInfo.user.profile.image_192 ||
+          userInfo.user.profile.image_72 ||
+          userInfo.user.profile.image_48 ||
+          userInfo.user.profile.image_32 ||
+          userInfo.user.profile.image_24
+        )
+      }
+    } catch (error) {
+      console.log(`[Slack] Could not get avatar for user ${userId}:`, error)
+    }
+    return undefined
+  }
+
+  /**
+   * Update avatars for all bound Slack users
+   * Called on startup to refresh avatar URLs
+   */
+  private async updateBoundUsersAvatars(): Promise<void> {
+    if (!this.app) return
+
+    const boundUsers = await securityService.getBoundUsers('slack')
+    console.log(`[Slack] Updating avatars for ${boundUsers.length} bound users`)
+
+    for (const user of boundUsers) {
+      try {
+        const avatarUrl = await this.getUserAvatarUrl(user.uniqueId)
+        if (avatarUrl) {
+          await securityService.updateUserAvatar(user.uniqueId, 'slack', avatarUrl)
+          console.log(`[Slack] Updated avatar for ${user.username}: ${avatarUrl}`)
+        }
+      } catch (error) {
+        console.error(`[Slack] Failed to update avatar for ${user.username}:`, error)
+      }
     }
   }
 }

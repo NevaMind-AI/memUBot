@@ -23,6 +23,7 @@ interface BoundUser {
   username: string
   firstName?: string
   lastName?: string
+  avatarUrl?: string // User's profile avatar URL
   boundAt: number
 }
 
@@ -392,6 +393,71 @@ class SecurityService {
       if (platformMap.size > 0) return true
     }
     return false
+  }
+
+  /**
+   * Update a bound user's avatar URL
+   */
+  async updateUserAvatar(
+    uniqueId: string,
+    platform: Platform,
+    avatarUrl: string
+  ): Promise<boolean> {
+    await this.ensureInitialized()
+
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    if (!platformMap) return false
+
+    const user = platformMap.get(uniqueId)
+    if (!user) return false
+
+    // Only update if avatar has changed
+    if (user.avatarUrl === avatarUrl) return true
+
+    user.avatarUrl = avatarUrl
+    platformMap.set(uniqueId, user)
+    await this.saveBoundUsersToDisk()
+
+    console.log(`[Security] Updated avatar for user ${user.username} on ${platform}`)
+    return true
+  }
+
+  /**
+   * Get a specific bound user by ID
+   */
+  async getBoundUser(uniqueId: string, platform: Platform): Promise<BoundUser | null> {
+    await this.ensureInitialized()
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    return platformMap?.get(uniqueId) || null
+  }
+
+  /**
+   * Update a bound user's username
+   * Used to fix "unknown" usernames when firstName is available
+   */
+  async updateUsername(
+    uniqueId: string,
+    platform: Platform,
+    newUsername: string
+  ): Promise<boolean> {
+    await this.ensureInitialized()
+
+    const platformMap = this.boundUsersByPlatform.get(platform)
+    if (!platformMap) return false
+
+    const user = platformMap.get(uniqueId)
+    if (!user) return false
+
+    // Only update if username has changed
+    if (user.username === newUsername) return true
+
+    const oldUsername = user.username
+    user.username = newUsername
+    platformMap.set(uniqueId, user)
+    await this.saveBoundUsersToDisk()
+
+    console.log(`[Security] Updated username for user ${oldUsername} -> ${newUsername} on ${platform}`)
+    return true
   }
 }
 

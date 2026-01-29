@@ -17,6 +17,7 @@ interface UnifiedMessageListProps {
   emptyTitle: string
   emptyDescription: string
   pageSize?: number
+  platform?: 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line'
 }
 
 /**
@@ -54,7 +55,8 @@ export function UnifiedMessageList({
   emptyIcon: EmptyIcon,
   emptyTitle,
   emptyDescription,
-  pageSize = 20
+  pageSize = 20,
+  platform
 }: UnifiedMessageListProps): JSX.Element {
   const {
     messages,
@@ -62,12 +64,14 @@ export function UnifiedMessageList({
     loadingMore,
     hasMore,
     botAvatarUrl,
+    userAvatars,
     containerRef,
     messagesEndRef,
     handleScroll
   } = useMessageList({
     api,
-    pageSize
+    pageSize,
+    platform
   })
 
   // Cast messages to include attachments
@@ -168,6 +172,7 @@ export function UnifiedMessageList({
               key={msg.id}
               message={{
                 id: msg.id,
+                senderId: msg.senderId,
                 senderName: msg.senderName,
                 content: msg.content,
                 timestamp: msg.timestamp,
@@ -175,6 +180,7 @@ export function UnifiedMessageList({
                 attachments: msg.attachments
               }}
               botAvatarUrl={botAvatarUrl}
+              userAvatarUrl={msg.senderId ? userAvatars[msg.senderId] : undefined}
               colors={colors}
             />
           ))}

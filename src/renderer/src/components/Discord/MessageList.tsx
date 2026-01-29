@@ -13,6 +13,7 @@ export function DiscordMessageList(): JSX.Element {
       emptyIcon={User}
       emptyTitle="No messages yet"
       emptyDescription="@mention the bot in your Discord server to start chatting"
+      platform="discord"
     />
   )
 }

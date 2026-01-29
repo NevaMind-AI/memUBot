@@ -138,6 +138,11 @@ export class DiscordBotService {
       }
 
       appEvents.emitDiscordStatusChanged(this.status)
+
+      // Update avatars for all bound users on startup
+      this.updateBoundUsersAvatars().catch((err) => {
+        console.error('[Discord] Error updating bound users avatars:', err)
+      })
     } catch (error) {
       console.error('[Discord] Connection error:', error)
       this.status = {
@@ -247,6 +252,8 @@ export class DiscordBotService {
     const userId = message.author.id
     const username = message.author.username
     const displayName = message.author.displayName || username
+    // Get user avatar URL
+    const avatarUrl = message.author.displayAvatarURL({ size: 128 })
 
     // Check if already bound on Discord platform
     const isAlreadyBound = await securityService.isAuthorizedByStringId(userId, 'discord')
@@ -280,7 +287,9 @@ export class DiscordBotService {
     )
 
     if (result.success) {
-      console.log(`[Discord] User ${username} (${userId}) successfully bound`)
+      // Save user avatar after successful bind
+      await securityService.updateUserAvatar(userId, 'discord', avatarUrl)
+      console.log(`[Discord] User ${username} (${userId}) successfully bound with avatar: ${avatarUrl}`)
       await message.reply(
         `✅ Success! Your account **${username}** is now bound to this device.\n\n` +
           'You can now @mention the bot to interact with the AI assistant.'
@@ -711,6 +720,31 @@ export class DiscordBotService {
       return { success: true }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Update avatars for all bound Discord users
+   * Called on startup to refresh avatar URLs
+   */
+  private async updateBoundUsersAvatars(): Promise<void> {
+    if (!this.client) return
+
+    const boundUsers = await securityService.getBoundUsers('discord')
+    console.log(`[Discord] Updating avatars for ${boundUsers.length} bound users`)
+
+    for (const user of boundUsers) {
+      try {
+        // Fetch user from Discord to get current avatar
+        const discordUser = await this.client.users.fetch(user.uniqueId)
+        if (discordUser) {
+          const avatarUrl = discordUser.displayAvatarURL({ size: 128 })
+          await securityService.updateUserAvatar(user.uniqueId, 'discord', avatarUrl)
+          console.log(`[Discord] Updated avatar for ${user.username}: ${avatarUrl}`)
+        }
+      } catch (error) {
+        console.error(`[Discord] Failed to update avatar for ${user.username}:`, error)
+      }
     }
   }
 }

@@ -13,6 +13,7 @@ export function SlackMessageList(): JSX.Element {
       emptyIcon={MessageSquare}
       emptyTitle="No messages yet"
       emptyDescription="Message the bot in Slack to start chatting"
+      platform="slack"
     />
   )
 }

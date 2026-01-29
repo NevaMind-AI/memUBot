@@ -20,6 +20,7 @@ import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
+import { mcpService } from './mcp.service'
 import type { ConversationMessage, AgentResponse } from '../types'
 
 /**
@@ -262,20 +263,23 @@ async function createClient(): Promise<{ client: Anthropic; model: string; maxTo
 function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
   const baseTools = [...computerUseTools]
   
+  // Add MCP tools to all platforms
+  const mcpTools = mcpService.getTools()
+  
   switch (platform) {
     case 'telegram':
-      return [...baseTools, ...telegramTools]
+      return [...baseTools, ...telegramTools, ...mcpTools]
     case 'discord':
-      return [...baseTools, ...discordTools]
+      return [...baseTools, ...discordTools, ...mcpTools]
     case 'whatsapp':
-      return [...baseTools, ...whatsappTools]
+      return [...baseTools, ...whatsappTools, ...mcpTools]
     case 'slack':
-      return [...baseTools, ...slackTools]
+      return [...baseTools, ...slackTools, ...mcpTools]
     case 'line':
-      return [...baseTools, ...lineTools]
+      return [...baseTools, ...lineTools, ...mcpTools]
     case 'none':
     default:
-      return baseTools
+      return [...baseTools, ...mcpTools]
   }
 }
 
@@ -741,6 +745,11 @@ export class AgentService {
         return { success: false, error: `Line tools are not available in ${this.currentPlatform} context` }
       }
       return await executeLineTool(name, input)
+    }
+
+    // MCP tools
+    if (mcpService.isMcpTool(name)) {
+      return await mcpService.executeTool(name, input)
     }
 
     return { success: false, error: `Unknown tool: ${name}` }

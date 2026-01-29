@@ -26,6 +26,7 @@ export interface MessageAttachment {
 
 export interface MessageData {
   id: string
+  senderId?: string
   senderName: string
   content: string
   timestamp: Date
@@ -36,6 +37,7 @@ export interface MessageData {
 interface MessageBubbleProps {
   message: MessageData
   botAvatarUrl?: string | null
+  userAvatarUrl?: string | null
   colors: ThemeColors
 }
 
@@ -52,14 +54,38 @@ function formatFileSize(bytes: number): string {
  * Check if attachment is an image
  */
 function isImage(attachment: MessageAttachment): boolean {
-  return attachment.contentType?.startsWith('image/') ?? false
+  // Check contentType first
+  if (attachment.contentType?.startsWith('image/')) return true
+  // Fallback: check file extension
+  const ext = attachment.name?.toLowerCase().split('.').pop()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext || '')
 }
 
 /**
  * Check if attachment is a video
  */
 function isVideo(attachment: MessageAttachment): boolean {
-  return attachment.contentType?.startsWith('video/') ?? false
+  // Check contentType first
+  if (attachment.contentType?.startsWith('video/')) return true
+  // Fallback: check file extension
+  const ext = attachment.name?.toLowerCase().split('.').pop()
+  return ['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext || '')
+}
+
+/**
+ * Get displayable URL for attachment (convert local paths to local-file:// protocol)
+ */
+function getDisplayUrl(url: string): string {
+  // If already a URL (http/https/file/local-file), return as is
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('file://') || url.startsWith('local-file://')) {
+    return url
+  }
+  // If it's an absolute path, convert to local-file:// URL (custom Electron protocol)
+  if (url.startsWith('/')) {
+    return `local-file://${url}`
+  }
+  // Otherwise return as is
+  return url
 }
 
 /**
@@ -76,7 +102,7 @@ function formatTime(date: Date): string {
 /**
  * Shared Message Bubble Component - Discord style
  */
-export function MessageBubble({ message, botAvatarUrl, colors }: MessageBubbleProps): JSX.Element {
+export function MessageBubble({ message, botAvatarUrl, userAvatarUrl, colors }: MessageBubbleProps): JSX.Element {
   const { primary, primaryLight, primaryDark, secondary, secondaryDark } = colors
 
   // Generate CSS class for bot/user colors
@@ -104,9 +130,23 @@ export function MessageBubble({ message, botAvatarUrl, colors }: MessageBubblePr
             <Bot className="w-4 h-4 text-white" />
           </div>
         )
-      ) : (
+      ) : userAvatarUrl ? (
+        <img
+          src={userAvatarUrl}
+          alt={message.senderName}
+          className="w-8 h-8 rounded-full flex-shrink-0 object-cover border-2"
+          style={{ borderColor: secondary }}
+          onError={(e) => {
+            // Hide on error, show fallback
+            e.currentTarget.style.display = 'none'
+            e.currentTarget.nextElementSibling?.classList.remove('hidden')
+          }}
+        />
+      ) : null}
+      {/* User fallback icon - shown when no avatar or avatar fails to load */}
+      {!message.isFromBot && (
         <div
-          className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center"
+          className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center ${userAvatarUrl ? 'hidden' : ''}`}
           style={{ background: `linear-gradient(to bottom right, ${secondary}, ${primary})` }}
         >
           <User className="w-4 h-4 text-white" />
@@ -141,51 +181,60 @@ export function MessageBubble({ message, botAvatarUrl, colors }: MessageBubblePr
         {/* Attachments */}
         {message.attachments && message.attachments.length > 0 && (
           <div className="mb-2 space-y-2">
-            {message.attachments.map((att) => (
-              <div key={att.id}>
-                {isImage(att) ? (
-                  <a
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block"
-                  >
-                    <img
-                      src={att.url}
-                      alt={att.name}
-                      className="max-w-full max-h-[300px] rounded-lg object-contain"
-                      style={{
-                        width: att.width ? Math.min(att.width, 400) : 'auto',
-                        height: att.height ? Math.min(att.height, 300) : 'auto'
-                      }}
+            {message.attachments.map((att) => {
+              const displayUrl = getDisplayUrl(att.url)
+              return (
+                <div key={att.id}>
+                  {isImage(att) ? (
+                    <a
+                      href={displayUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img
+                        src={displayUrl}
+                        alt={att.name}
+                        className="max-w-full max-h-[300px] rounded-lg object-contain"
+                        style={{
+                          width: att.width ? Math.min(att.width, 400) : 'auto',
+                          height: att.height ? Math.min(att.height, 300) : 'auto'
+                        }}
+                        onError={(e) => {
+                          // If image fails to load, show placeholder
+                          const target = e.target as HTMLImageElement
+                          target.style.display = 'none'
+                          target.parentElement?.classList.add('hidden')
+                        }}
+                      />
+                    </a>
+                  ) : isVideo(att) ? (
+                    <video
+                      src={displayUrl}
+                      controls
+                      className="max-w-full max-h-[300px] rounded-lg"
+                      style={{ width: att.width ? Math.min(att.width, 400) : 'auto' }}
                     />
-                  </a>
-                ) : isVideo(att) ? (
-                  <video
-                    src={att.url}
-                    controls
-                    className="max-w-full max-h-[300px] rounded-lg"
-                    style={{ width: att.width ? Math.min(att.width, 400) : 'auto' }}
-                  />
-                ) : (
-                  <a
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-input)] hover:opacity-80 transition-opacity"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[12px] text-[var(--text-primary)] truncate">
-                        {att.name}
-                      </p>
-                      <p className="text-[10px] text-[var(--text-muted)]">
-                        {formatFileSize(att.size)}
-                      </p>
-                    </div>
-                  </a>
-                )}
-              </div>
-            ))}
+                  ) : (
+                    <a
+                      href={displayUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-2 rounded-lg bg-[var(--bg-input)] hover:opacity-80 transition-opacity"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] text-[var(--text-primary)] truncate">
+                          {att.name}
+                        </p>
+                        <p className="text-[10px] text-[var(--text-muted)]">
+                          {formatFileSize(att.size)}
+                        </p>
+                      </div>
+                    </a>
+                  )}
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -273,6 +322,17 @@ export function MessageBubble({ message, botAvatarUrl, colors }: MessageBubblePr
                     <td className="px-3 py-2 text-[var(--text-primary)]">
                       {children}
                     </td>
+                  ),
+                  // Horizontal rule (divider) style
+                  hr: () => (
+                    <div className="my-3 flex items-center gap-2">
+                      <div
+                        className="flex-1 h-px"
+                        style={{
+                          background: `linear-gradient(to right, transparent, ${primaryDark || primary}40, transparent)`
+                        }}
+                      />
+                    </div>
                   )
                 }}
               >

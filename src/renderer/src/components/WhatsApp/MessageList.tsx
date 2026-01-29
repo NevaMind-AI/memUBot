@@ -13,6 +13,7 @@ export function WhatsAppMessageList(): JSX.Element {
       emptyIcon={MessageSquare}
       emptyTitle="No Messages Yet"
       emptyDescription="Connect to WhatsApp to start chatting."
+      platform="whatsapp"
     />
   )
 }

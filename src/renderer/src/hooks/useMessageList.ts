@@ -21,6 +21,9 @@ export interface BotStatus {
   avatarUrl?: string
 }
 
+// Map of senderId -> avatarUrl
+export type UserAvatarMap = Record<string, string>
+
 interface MessageApi {
   getMessages: (limit?: number) => Promise<{ success: boolean; data?: BaseMessage[] }>
   getStatus: () => Promise<{ success: boolean; data?: BotStatus }>
@@ -31,6 +34,7 @@ interface MessageApi {
 interface UseMessageListOptions {
   api: MessageApi
   pageSize?: number
+  platform?: 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line'
 }
 
 interface UseMessageListReturn {
@@ -39,6 +43,7 @@ interface UseMessageListReturn {
   loadingMore: boolean
   hasMore: boolean
   botAvatarUrl: string | null
+  userAvatars: UserAvatarMap
   containerRef: React.RefObject<HTMLDivElement>
   messagesEndRef: React.RefObject<HTMLDivElement>
   handleScroll: () => void
@@ -49,12 +54,13 @@ const DEFAULT_PAGE_SIZE = 20
 /**
  * Custom hook for message list with pagination and auto-scroll
  */
-export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE }: UseMessageListOptions): UseMessageListReturn {
+export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: UseMessageListOptions): UseMessageListReturn {
   const [messages, setMessages] = useState<BaseMessage[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
+  const [userAvatars, setUserAvatars] = useState<UserAvatarMap>({})
   
   const containerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -129,6 +135,30 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE }: UseMessage
     }
   }, [api])
 
+  // Load bound users' avatars
+  const loadUserAvatars = useCallback(async () => {
+    if (!platform) return
+    try {
+      const result = await window.security.getBoundUsers(platform)
+      if (result.success && result.data) {
+        const avatarMap: UserAvatarMap = {}
+        for (const user of result.data) {
+          if (user.avatarUrl) {
+            // Use uniqueId as key (matches senderId in messages)
+            avatarMap[user.uniqueId] = user.avatarUrl
+            // Also add by numeric userId for backwards compatibility
+            if (user.userId) {
+              avatarMap[String(user.userId)] = user.avatarUrl
+            }
+          }
+        }
+        setUserAvatars(avatarMap)
+      }
+    } catch (error) {
+      console.error('Failed to load user avatars:', error)
+    }
+  }, [platform])
+
   // Handle scroll event
   const handleScroll = useCallback(() => {
     const container = containerRef.current
@@ -144,7 +174,8 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE }: UseMessage
   useEffect(() => {
     loadInitialMessages()
     loadBotStatus()
-  }, [loadInitialMessages, loadBotStatus])
+    loadUserAvatars()
+  }, [loadInitialMessages, loadBotStatus, loadUserAvatars])
 
   // Subscribe to new messages and status changes
   useEffect(() => {
@@ -199,6 +230,7 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE }: UseMessage
     loadingMore,
     hasMore,
     botAvatarUrl,
+    userAvatars,
     containerRef,
     messagesEndRef,
     handleScroll

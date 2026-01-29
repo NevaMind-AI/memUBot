@@ -100,6 +100,11 @@ export class TelegramBotService {
       // Emit status changed event
       appEvents.emitTelegramStatusChanged(this.status)
 
+      // Update avatars for all bound users on startup
+      this.updateBoundUsersAvatars().catch((err) => {
+        console.error('[Telegram] Error updating bound users avatars:', err)
+      })
+
       // Start manual polling
       this.startManualPolling()
     } catch (error) {
@@ -220,10 +225,19 @@ export class TelegramBotService {
    */
   private async handleBindCommand(msg: TelegramMessage): Promise<void> {
     const userId = msg.from?.id
-    const username = msg.from?.username || 'unknown'
     const firstName = msg.from?.first_name
     const lastName = msg.from?.last_name
     const chatId = msg.chat.id
+
+    // Use username if available, otherwise use firstName (+ lastName)
+    const telegramUsername = msg.from?.username
+    const displayName = firstName
+      ? lastName
+        ? `${firstName} ${lastName}`
+        : firstName
+      : 'User'
+    // For storage, use username if available, otherwise use displayName
+    const username = telegramUsername || displayName
 
     if (!userId) {
       await this.bot?.sendMessage(chatId, '❌ Unable to identify your account.')
@@ -263,15 +277,80 @@ export class TelegramBotService {
     )
 
     if (result.success) {
-      console.log(`[Telegram] User ${username} (${userId}) successfully bound`)
+      // Try to get user avatar after successful bind
+      const avatarUrl = await this.getUserAvatarUrl(userId)
+      if (avatarUrl) {
+        await securityService.updateUserAvatar(String(userId), 'telegram', avatarUrl)
+        console.log(`[Telegram] User ${username} (${userId}) bound with avatar: ${avatarUrl}`)
+      } else {
+        console.log(`[Telegram] User ${username} (${userId}) successfully bound (no avatar)`)
+      }
+      // Show @username if available, otherwise show display name
+      const accountDisplay = telegramUsername ? `@${telegramUsername}` : `**${displayName}**`
       await this.bot?.sendMessage(
         chatId,
-        `✅ Success! Your account @${username} is now bound to this device.\n\n` +
-          'You can now send messages to interact with the AI assistant.'
+        `✅ Success! Your account ${accountDisplay} is now bound to this device.\n\n` +
+          'You can now send messages to interact with the AI assistant.',
+        { parse_mode: 'Markdown' }
       )
     } else {
       console.log(`[Telegram] Bind failed for ${username}: ${result.error}`)
       await this.bot?.sendMessage(chatId, `❌ ${result.error}`)
+    }
+  }
+
+  /**
+   * Get user avatar URL from Telegram
+   */
+  private async getUserAvatarUrl(userId: number): Promise<string | undefined> {
+    if (!this.bot) return undefined
+
+    try {
+      const photos = await this.bot.getUserProfilePhotos(userId, { limit: 1 })
+      if (photos.total_count > 0 && photos.photos[0]?.length > 0) {
+        // Get the smallest photo (last in array) for efficiency
+        const photo = photos.photos[0][photos.photos[0].length - 1]
+        return await this.bot.getFileLink(photo.file_id)
+      }
+    } catch (error) {
+      console.log(`[Telegram] Could not get avatar for user ${userId}:`, error)
+    }
+    return undefined
+  }
+
+  /**
+   * Update avatars and fix usernames for all bound Telegram users
+   * Called on startup to refresh avatar URLs and fix "unknown" usernames
+   */
+  private async updateBoundUsersAvatars(): Promise<void> {
+    if (!this.bot) return
+
+    const boundUsers = await securityService.getBoundUsers('telegram')
+    console.log(`[Telegram] Updating info for ${boundUsers.length} bound users`)
+
+    for (const user of boundUsers) {
+      try {
+        const userId = user.userId || parseInt(user.uniqueId, 10)
+        if (!userId || isNaN(userId)) continue
+
+        // Fix "unknown" username if firstName is available
+        if (user.username === 'unknown' && user.firstName) {
+          const newUsername = user.lastName
+            ? `${user.firstName} ${user.lastName}`
+            : user.firstName
+          await securityService.updateUsername(user.uniqueId, 'telegram', newUsername)
+          console.log(`[Telegram] Fixed username: unknown -> ${newUsername}`)
+        }
+
+        // Update avatar
+        const avatarUrl = await this.getUserAvatarUrl(userId)
+        if (avatarUrl) {
+          await securityService.updateUserAvatar(user.uniqueId, 'telegram', avatarUrl)
+          console.log(`[Telegram] Updated avatar for ${user.firstName || user.username}: ${avatarUrl}`)
+        }
+      } catch (error) {
+        console.error(`[Telegram] Failed to update info for ${user.username}:`, error)
+      }
     }
   }
 
@@ -435,6 +514,15 @@ export class TelegramBotService {
       senderId: msg.fromId?.toString() || 'unknown',
       senderName: msg.fromFirstName || msg.fromUsername || 'Unknown',
       content: msg.text || '',
+      attachments: msg.attachments?.map(att => ({
+        id: att.id,
+        name: att.name,
+        url: att.url,
+        contentType: att.contentType,
+        size: att.size || 0,
+        width: att.width,
+        height: att.height
+      })),
       timestamp: new Date(msg.date * 1000),
       isFromBot: msg.isFromBot,
       replyToId: msg.replyToMessageId?.toString()
@@ -464,13 +552,13 @@ export class TelegramBotService {
     chatId: number,
     text: string,
     options?: { parse_mode?: 'Markdown' | 'HTML'; reply_to_message_id?: number }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
       const msg = await this.bot.sendMessage(chatId, text, options)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -483,7 +571,7 @@ export class TelegramBotService {
     chatId: number,
     photo: string | Buffer,
     options?: { caption?: string; parse_mode?: 'Markdown' | 'HTML'; filename?: string }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
@@ -491,10 +579,19 @@ export class TelegramBotService {
       const sendOptions: TelegramBot.SendPhotoOptions = {}
       if (options?.caption) sendOptions.caption = options.caption
       if (options?.parse_mode) sendOptions.parse_mode = options.parse_mode
-      const fileOptions: TelegramBot.FileOptions = {}
-      if (options?.filename) fileOptions.filename = options.filename
+      const fileOptions: TelegramBot.FileOptions = {
+        contentType: 'image/png' // Default to PNG, covers most cases
+      }
+      if (options?.filename) {
+        fileOptions.filename = options.filename
+        // Detect content type from filename
+        const ext = options.filename.toLowerCase().split('.').pop()
+        if (ext === 'jpg' || ext === 'jpeg') fileOptions.contentType = 'image/jpeg'
+        else if (ext === 'gif') fileOptions.contentType = 'image/gif'
+        else if (ext === 'webp') fileOptions.contentType = 'image/webp'
+      }
       const msg = await this.bot.sendPhoto(chatId, photo, sendOptions, fileOptions)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -507,17 +604,19 @@ export class TelegramBotService {
     chatId: number,
     document: string | Buffer,
     options?: { caption?: string; filename?: string }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
       const sendOptions: TelegramBot.SendDocumentOptions = {}
       if (options?.caption) sendOptions.caption = options.caption
-      const fileOptions: TelegramBot.FileOptions = {}
+      const fileOptions: TelegramBot.FileOptions = {
+        contentType: 'application/octet-stream'
+      }
       if (options?.filename) fileOptions.filename = options.filename
       const msg = await this.bot.sendDocument(chatId, document, sendOptions, fileOptions)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -530,7 +629,7 @@ export class TelegramBotService {
     chatId: number,
     video: string | Buffer,
     options?: { caption?: string; duration?: number; width?: number; height?: number; filename?: string }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
@@ -540,10 +639,12 @@ export class TelegramBotService {
       if (options?.duration) sendOptions.duration = options.duration
       if (options?.width) sendOptions.width = options.width
       if (options?.height) sendOptions.height = options.height
-      const fileOptions: TelegramBot.FileOptions = {}
+      const fileOptions: TelegramBot.FileOptions = {
+        contentType: 'video/mp4'
+      }
       if (options?.filename) fileOptions.filename = options.filename
       const msg = await this.bot.sendVideo(chatId, video, sendOptions, fileOptions)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -556,7 +657,7 @@ export class TelegramBotService {
     chatId: number,
     audio: string | Buffer,
     options?: { caption?: string; duration?: number; performer?: string; title?: string; filename?: string }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
@@ -566,10 +667,19 @@ export class TelegramBotService {
       if (options?.duration) sendOptions.duration = options.duration
       if (options?.performer) sendOptions.performer = options.performer
       if (options?.title) sendOptions.title = options.title
-      const fileOptions: TelegramBot.FileOptions = {}
-      if (options?.filename) fileOptions.filename = options.filename
+      const fileOptions: TelegramBot.FileOptions = {
+        contentType: 'audio/mpeg'
+      }
+      if (options?.filename) {
+        fileOptions.filename = options.filename
+        const ext = options.filename.toLowerCase().split('.').pop()
+        if (ext === 'ogg' || ext === 'oga') fileOptions.contentType = 'audio/ogg'
+        else if (ext === 'wav') fileOptions.contentType = 'audio/wav'
+        else if (ext === 'flac') fileOptions.contentType = 'audio/flac'
+        else if (ext === 'm4a') fileOptions.contentType = 'audio/mp4'
+      }
       const msg = await this.bot.sendAudio(chatId, audio, sendOptions, fileOptions)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -582,7 +692,7 @@ export class TelegramBotService {
     chatId: number,
     voice: string | Buffer,
     options?: { caption?: string; duration?: number; filename?: string }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
@@ -590,10 +700,12 @@ export class TelegramBotService {
       const sendOptions: TelegramBot.SendVoiceOptions = {}
       if (options?.caption) sendOptions.caption = options.caption
       if (options?.duration) sendOptions.duration = options.duration
-      const fileOptions: TelegramBot.FileOptions = {}
+      const fileOptions: TelegramBot.FileOptions = {
+        contentType: 'audio/ogg'
+      }
       if (options?.filename) fileOptions.filename = options.filename
       const msg = await this.bot.sendVoice(chatId, voice, sendOptions, fileOptions)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -606,16 +718,24 @@ export class TelegramBotService {
     chatId: number,
     sticker: string | Buffer,
     options?: { filename?: string }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
       const sendOptions: TelegramBot.SendStickerOptions = {}
-      const fileOptions: TelegramBot.FileOptions = {}
-      if (options?.filename) fileOptions.filename = options.filename
+      const fileOptions: TelegramBot.FileOptions = {
+        contentType: 'application/octet-stream'
+      }
+      if (options?.filename) {
+        fileOptions.filename = options.filename
+        const ext = options.filename.toLowerCase().split('.').pop()
+        if (ext === 'webp') fileOptions.contentType = 'image/webp'
+        else if (ext === 'png') fileOptions.contentType = 'image/png'
+        else if (ext === 'tgs') fileOptions.contentType = 'application/x-tgsticker'
+      }
       const msg = await this.bot.sendSticker(chatId, sticker, sendOptions, fileOptions)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -628,13 +748,13 @@ export class TelegramBotService {
     chatId: number,
     latitude: number,
     longitude: number
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
       const msg = await this.bot.sendLocation(chatId, latitude, longitude)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -648,13 +768,13 @@ export class TelegramBotService {
     phoneNumber: string,
     firstName: string,
     options?: { last_name?: string }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
       const msg = await this.bot.sendContact(chatId, phoneNumber, firstName, options)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -668,13 +788,13 @@ export class TelegramBotService {
     question: string,
     pollOptions: string[],
     options?: { is_anonymous?: boolean; allows_multiple_answers?: boolean }
-  ): Promise<{ success: boolean; messageId?: number; error?: string }> {
+  ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
       const msg = await this.bot.sendPoll(chatId, question, pollOptions, options)
-      return { success: true, messageId: msg.message_id }
+      return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }

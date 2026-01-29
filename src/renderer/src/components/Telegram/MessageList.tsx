@@ -13,6 +13,7 @@ export function MessageList(): JSX.Element {
       emptyIcon={MessageSquare}
       emptyTitle="No Messages Yet"
       emptyDescription="Connect your bot and start chatting on Telegram."
+      platform="telegram"
     />
   )
 }

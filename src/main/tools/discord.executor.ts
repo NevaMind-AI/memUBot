@@ -1,8 +1,57 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { discordBotService } from '../apps/discord/bot.service'
+import { discordStorage } from '../apps/discord/storage'
+import { appEvents } from '../events'
+import type { StoredDiscordMessage, StoredAttachment } from '../apps/discord/types'
 
 type ToolResult = { success: boolean; data?: unknown; error?: string }
+
+/**
+ * Store a sent message and emit event to update UI
+ */
+async function storeSentMessage(
+  messageId: string,
+  channelId: string,
+  text?: string,
+  attachments?: StoredAttachment[]
+): Promise<void> {
+  const botInfo = discordBotService.getStatus()
+  const now = Math.floor(Date.now() / 1000)
+
+  const storedMessage: StoredDiscordMessage = {
+    messageId,
+    channelId,
+    fromId: 'bot',
+    fromUsername: botInfo.username || 'Bot',
+    fromDisplayName: botInfo.botName || 'Bot',
+    text,
+    attachments,
+    date: now,
+    isFromBot: true
+  }
+
+  await discordStorage.storeMessage(storedMessage)
+
+  // Emit event to update UI (include attachments for immediate display)
+  appEvents.emitDiscordNewMessage({
+    id: messageId,
+    platform: 'discord',
+    senderName: botInfo.botName || 'Bot',
+    content: text || '',
+    attachments: attachments?.map(att => ({
+      id: att.id,
+      name: att.name,
+      url: att.url,
+      contentType: att.contentType,
+      size: att.size,
+      width: att.width,
+      height: att.height
+    })),
+    timestamp: new Date(now * 1000),
+    isFromBot: true
+  })
+}
 
 /**
  * Get the current channel ID, or return null if not available
@@ -46,7 +95,8 @@ export async function executeDiscordSendText(input: SendTextInput): Promise<Tool
 
   const result = await discordBotService.sendText(channelId, input.text)
 
-  if (result.success) {
+  if (result.success && result.messageId) {
+    await storeSentMessage(result.messageId, channelId, input.text)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -71,7 +121,15 @@ export async function executeDiscordSendEmbed(input: SendEmbedInput): Promise<To
 
   const result = await discordBotService.sendEmbed(channelId, input)
 
-  if (result.success) {
+  if (result.success && result.messageId) {
+    // Build text representation of embed
+    const parts: string[] = []
+    if (input.title) parts.push(`**${input.title}**`)
+    if (input.description) parts.push(input.description)
+    if (input.fields) {
+      input.fields.forEach(f => parts.push(`**${f.name}:** ${f.value}`))
+    }
+    await storeSentMessage(result.messageId, channelId, parts.join('\n') || '[Embed]')
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -96,7 +154,15 @@ export async function executeDiscordSendFile(input: SendFileInput): Promise<Tool
       description: input.description
     })
 
-    if (result.success) {
+    if (result.success && result.messageId) {
+      const filename = input.filename || path.basename(absolutePath)
+      const attachment: StoredAttachment = {
+        id: result.messageId,
+        name: filename,
+        url: absolutePath,
+        size: fs.statSync(absolutePath).size
+      }
+      await storeSentMessage(result.messageId, channelId, input.description, [attachment])
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
@@ -119,12 +185,23 @@ export async function executeDiscordSendImage(input: SendImageInput): Promise<To
 
   try {
     const imagePath = resolveFilePath(input.image)
+    const filename = input.filename || path.basename(imagePath)
     const result = await discordBotService.sendFile(channelId, imagePath, {
-      filename: input.filename || path.basename(imagePath),
+      filename,
       description: input.description
     })
 
-    if (result.success) {
+    if (result.success && result.messageId) {
+      const ext = path.extname(filename).toLowerCase()
+      const contentType = ext === '.png' ? 'image/png' : ext === '.gif' ? 'image/gif' : 'image/jpeg'
+      const attachment: StoredAttachment = {
+        id: result.messageId,
+        name: filename,
+        url: imagePath,
+        contentType,
+        size: fs.statSync(imagePath).size
+      }
+      await storeSentMessage(result.messageId, channelId, input.description, [attachment])
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
@@ -146,7 +223,8 @@ export async function executeDiscordReply(input: ReplyInput): Promise<ToolResult
 
   const result = await discordBotService.reply(channelId, input.message_id, input.text)
 
-  if (result.success) {
+  if (result.success && result.messageId) {
+    await storeSentMessage(result.messageId, channelId, input.text)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }

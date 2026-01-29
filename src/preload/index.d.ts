@@ -23,14 +23,26 @@ interface FileInfo {
   createdAt: Date
 }
 
+// Message attachment type
+interface MessageAttachment {
+  id: string
+  name: string
+  url: string
+  contentType?: string
+  size: number
+  width?: number
+  height?: number
+}
+
 // App message type
 interface AppMessage {
   id: string
   platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line'
-  chatId: string
-  senderId: string
+  chatId?: string
+  senderId?: string
   senderName: string
   content: string
+  attachments?: MessageAttachment[]
   timestamp: Date
   isFromBot: boolean
   replyToId?: string
@@ -152,10 +164,31 @@ interface ProxyApi {
   saveConfig: (config: ProxyConfig) => Promise<IpcResponse>
 }
 
+// MCP Server Configuration
+interface McpServerConfig {
+  [key: string]: {
+    command: string
+    args?: string[]
+    env?: Record<string, string>
+    disabled?: boolean
+  }
+}
+
+// MCP Server Status
+interface McpServerStatus {
+  name: string
+  toolCount: number
+  connected: boolean
+}
+
 // Settings API interface
 interface SettingsApi {
   get: () => Promise<IpcResponse<AppSettings>>
   save: (settings: Partial<AppSettings>) => Promise<IpcResponse>
+  getMcpConfig: () => Promise<IpcResponse<McpServerConfig>>
+  saveMcpConfig: (config: McpServerConfig) => Promise<IpcResponse>
+  getMcpStatus: () => Promise<IpcResponse<McpServerStatus[]>>
+  reloadMcp: () => Promise<IpcResponse>
 }
 
 // Tailscale peer type
@@ -202,6 +235,7 @@ interface BoundUser {
   username: string
   firstName?: string
   lastName?: string
+  avatarUrl?: string
   boundAt: number
 }
 

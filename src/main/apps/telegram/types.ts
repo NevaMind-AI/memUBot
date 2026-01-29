@@ -19,6 +19,17 @@ export type TelegramChat = TelegramBot.Chat
 // Telegram user from API
 export type TelegramUser = TelegramBot.User
 
+// Attachment type for stored messages
+export interface StoredTelegramAttachment {
+  id: string
+  name: string
+  url: string
+  contentType?: string
+  size?: number
+  width?: number
+  height?: number
+}
+
 // Stored telegram message (simplified for single-user mode)
 export interface StoredTelegramMessage {
   messageId: number
@@ -27,6 +38,7 @@ export interface StoredTelegramMessage {
   fromUsername?: string
   fromFirstName?: string
   text?: string
+  attachments?: StoredTelegramAttachment[]
   date: number
   replyToMessageId?: number
   isFromBot: boolean

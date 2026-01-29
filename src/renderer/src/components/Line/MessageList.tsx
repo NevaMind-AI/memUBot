@@ -13,6 +13,7 @@ export function LineMessageList(): JSX.Element {
       emptyIcon={MessageCircle}
       emptyTitle="No Messages Yet"
       emptyDescription="Connect your Line bot to start chatting."
+      platform="line"
     />
   )
 }

@@ -44,7 +44,11 @@ const proxyApi = {
 // Settings API
 const settingsApi = {
   get: () => ipcRenderer.invoke('settings:get'),
-  save: (settings: unknown) => ipcRenderer.invoke('settings:save', settings)
+  save: (settings: unknown) => ipcRenderer.invoke('settings:save', settings),
+  getMcpConfig: () => ipcRenderer.invoke('settings:get-mcp-config'),
+  saveMcpConfig: (config: unknown) => ipcRenderer.invoke('settings:save-mcp-config', config),
+  getMcpStatus: () => ipcRenderer.invoke('settings:get-mcp-status'),
+  reloadMcp: () => ipcRenderer.invoke('settings:reload-mcp')
 }
 
 // Tailscale API

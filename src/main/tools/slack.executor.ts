@@ -1,4 +1,9 @@
+import * as fs from 'fs'
+import * as path from 'path'
 import { slackBotService } from '../apps/slack/bot.service'
+import { slackStorage } from '../apps/slack/storage'
+import { appEvents } from '../events'
+import type { StoredSlackMessage, StoredAttachment } from '../apps/slack/types'
 
 type ToolResult = { success: boolean; data?: unknown; error?: string }
 
@@ -7,6 +12,52 @@ type ToolResult = { success: boolean; data?: unknown; error?: string }
  */
 function getCurrentChannelId(): string | null {
   return slackBotService.getCurrentChannelId()
+}
+
+/**
+ * Store a sent message and emit event to update UI
+ */
+async function storeSentMessage(
+  messageId: string,
+  channelId: string,
+  text?: string,
+  threadTs?: string,
+  attachments?: StoredAttachment[]
+): Promise<void> {
+  const botInfo = slackBotService.getStatus()
+  const now = Math.floor(Date.now() / 1000)
+
+  const storedMessage: StoredSlackMessage = {
+    messageId,
+    channelId,
+    threadTs,
+    fromId: 'bot',
+    fromUsername: botInfo.username || 'Bot',
+    fromDisplayName: botInfo.botName || 'Bot',
+    text,
+    attachments,
+    date: now,
+    isFromBot: true
+  }
+
+  await slackStorage.storeMessage(storedMessage)
+
+  // Emit event to update UI (include attachments for immediate display)
+  appEvents.emitSlackNewMessage({
+    id: messageId,
+    platform: 'slack',
+    senderName: botInfo.botName || 'Bot',
+    content: text || '',
+    attachments: attachments?.map(att => ({
+      id: att.id,
+      name: att.name,
+      url: att.url,
+      contentType: att.mimetype,
+      size: att.size || 0
+    })),
+    timestamp: new Date(now * 1000),
+    isFromBot: true
+  })
 }
 
 // ========== Tool Executors ==========
@@ -24,7 +75,8 @@ export async function executeSlackSendText(input: SendTextInput): Promise<ToolRe
 
   const result = await slackBotService.sendText(channelId, input.text, input.thread_ts)
 
-  if (result.success) {
+  if (result.success && result.messageId) {
+    await storeSentMessage(result.messageId, channelId, input.text, input.thread_ts)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -49,7 +101,8 @@ export async function executeSlackSendBlocks(input: SendBlocksInput): Promise<To
     input.thread_ts
   )
 
-  if (result.success) {
+  if (result.success && result.messageId) {
+    await storeSentMessage(result.messageId, channelId, input.text || '[Blocks Message]', input.thread_ts)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -76,7 +129,22 @@ export async function executeSlackUploadFile(input: UploadFileInput): Promise<To
     input.initial_comment
   )
 
-  if (result.success) {
+  if (result.success && result.fileId) {
+    const filename = input.filename || path.basename(input.file_path)
+    let fileSize = 0
+    try {
+      fileSize = fs.statSync(input.file_path).size
+    } catch {
+      // Ignore file stat errors
+    }
+    const attachment: StoredAttachment = {
+      id: result.fileId,
+      name: filename,
+      url: input.file_path,
+      size: fileSize
+    }
+    // Use fileId as messageId for file uploads
+    await storeSentMessage(result.fileId, channelId, input.initial_comment || `📎 ${filename}`, undefined, [attachment])
     return { success: true, data: { fileId: result.fileId } }
   }
   return { success: false, error: result.error }

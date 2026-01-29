@@ -9,6 +9,7 @@ interface BoundUser {
   username: string
   firstName?: string
   lastName?: string
+  avatarUrl?: string
   boundAt: number
 }
 
@@ -250,8 +251,21 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                   className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-center gap-3">
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={user.username}
+                        className="w-10 h-10 rounded-full object-cover border-2"
+                        style={{ borderColor: `${accentColor}40` }}
+                        onError={(e) => {
+                          // Fall back to default icon on error
+                          e.currentTarget.style.display = 'none'
+                          e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                        }}
+                      />
+                    ) : null}
                     <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center"
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${user.avatarUrl ? 'hidden' : ''}`}
                       style={{ background: `linear-gradient(to bottom right, ${accentColor}25, ${accentColor}35)` }}
                     >
                       <User className="w-5 h-5" style={{ color: accentColor }} />
@@ -261,7 +275,8 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
                         <span className="text-[13px] font-medium text-slate-900 dark:text-white">
                           {user.firstName || user.username}
                         </span>
-                        {user.username && (
+                        {/* Only show @username if it's a real username (not firstName fallback) */}
+                        {user.username && user.username !== user.firstName && !user.username.includes(' ') && (
                           <span className="text-[12px] text-slate-500 dark:text-slate-400">
                             @{user.username}
                           </span>

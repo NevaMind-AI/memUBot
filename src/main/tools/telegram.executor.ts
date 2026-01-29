@@ -1,8 +1,129 @@
 import * as fs from 'fs'
 import * as path from 'path'
+import TelegramBot from 'node-telegram-bot-api'
 import { telegramBotService } from '../apps/telegram/bot.service'
+import { telegramStorage } from '../apps/telegram/storage'
+import { appEvents } from '../events'
+import type { StoredTelegramMessage, StoredTelegramAttachment } from '../apps/telegram/types'
 
 type ToolResult = { success: boolean; data?: unknown; error?: string }
+
+/**
+ * Store a sent message and emit event to update UI
+ */
+async function storeSentMessage(
+  msg: TelegramBot.Message,
+  text?: string,
+  attachments?: StoredTelegramAttachment[]
+): Promise<void> {
+  const storedMessage: StoredTelegramMessage = {
+    messageId: msg.message_id,
+    chatId: msg.chat.id,
+    fromId: msg.from?.id,
+    fromUsername: msg.from?.username,
+    fromFirstName: msg.from?.first_name || 'Bot',
+    text: text || msg.text || msg.caption,
+    attachments,
+    date: msg.date,
+    isFromBot: true
+  }
+
+  await telegramStorage.storeMessage(storedMessage)
+  
+  // Emit event to update UI (include attachments for immediate display)
+  appEvents.emitNewMessage({
+    id: `${msg.chat.id}-${msg.message_id}`,
+    platform: 'telegram',
+    senderName: msg.from?.first_name || 'Bot',
+    content: text || msg.text || msg.caption || '',
+    attachments: attachments?.map(att => ({
+      id: att.id,
+      name: att.name,
+      url: att.url,
+      contentType: att.contentType,
+      size: att.size || 0,
+      width: att.width,
+      height: att.height
+    })),
+    timestamp: new Date(msg.date * 1000),
+    isFromBot: true
+  })
+}
+
+/**
+ * Extract photo attachment info from Telegram message
+ */
+function extractPhotoAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
+  if (!msg.photo || msg.photo.length === 0) return undefined
+  const photo = msg.photo[msg.photo.length - 1] // Get largest photo
+  return {
+    id: photo.file_id,
+    name: path.basename(inputPath),
+    url: inputPath, // Store original path/URL for reference
+    contentType: 'image/jpeg',
+    size: photo.file_size,
+    width: photo.width,
+    height: photo.height
+  }
+}
+
+/**
+ * Extract document attachment info from Telegram message
+ */
+function extractDocumentAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
+  if (!msg.document) return undefined
+  return {
+    id: msg.document.file_id,
+    name: msg.document.file_name || path.basename(inputPath),
+    url: inputPath,
+    contentType: msg.document.mime_type,
+    size: msg.document.file_size
+  }
+}
+
+/**
+ * Extract video attachment info from Telegram message
+ */
+function extractVideoAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
+  if (!msg.video) return undefined
+  return {
+    id: msg.video.file_id,
+    name: path.basename(inputPath),
+    url: inputPath,
+    contentType: msg.video.mime_type || 'video/mp4',
+    size: msg.video.file_size,
+    width: msg.video.width,
+    height: msg.video.height
+  }
+}
+
+/**
+ * Extract audio attachment info from Telegram message
+ */
+function extractAudioAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
+  if (!msg.audio) return undefined
+  return {
+    id: msg.audio.file_id,
+    name: msg.audio.file_name || path.basename(inputPath),
+    url: inputPath,
+    contentType: msg.audio.mime_type || 'audio/mpeg',
+    size: msg.audio.file_size
+  }
+}
+
+/**
+ * Extract voice attachment info from Telegram message
+ */
+function extractVoiceAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
+  if (!msg.voice) return undefined
+  return {
+    id: msg.voice.file_id,
+    name: path.basename(inputPath),
+    url: inputPath,
+    contentType: msg.voice.mime_type || 'audio/ogg',
+    size: msg.voice.file_size
+  }
+}
 
 /**
  * Get the current chat ID, or return an error if not available
@@ -61,7 +182,8 @@ export async function executeTelegramSendText(input: SendTextInput): Promise<Too
     parse_mode: input.parse_mode
   })
 
-  if (result.success) {
+  if (result.success && result.message) {
+    await storeSentMessage(result.message, input.text)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -87,7 +209,9 @@ export async function executeTelegramSendPhoto(input: SendPhotoInput): Promise<T
       filename: resolved.filename
     })
 
-    if (result.success) {
+    if (result.success && result.message) {
+      const attachment = extractPhotoAttachment(result.message, input.photo)
+      await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
@@ -115,7 +239,9 @@ export async function executeTelegramSendDocument(input: SendDocumentInput): Pro
       filename: input.filename || resolved.filename
     })
 
-    if (result.success) {
+    if (result.success && result.message) {
+      const attachment = extractDocumentAttachment(result.message, input.document)
+      await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
@@ -148,7 +274,9 @@ export async function executeTelegramSendVideo(input: SendVideoInput): Promise<T
       filename: resolved.filename
     })
 
-    if (result.success) {
+    if (result.success && result.message) {
+      const attachment = extractVideoAttachment(result.message, input.video)
+      await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
@@ -181,7 +309,9 @@ export async function executeTelegramSendAudio(input: SendAudioInput): Promise<T
       filename: resolved.filename
     })
 
-    if (result.success) {
+    if (result.success && result.message) {
+      const attachment = extractAudioAttachment(result.message, input.audio)
+      await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
@@ -210,7 +340,9 @@ export async function executeTelegramSendVoice(input: SendVoiceInput): Promise<T
       filename: resolved.filename
     })
 
-    if (result.success) {
+    if (result.success && result.message) {
+      const attachment = extractVoiceAttachment(result.message, input.voice)
+      await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
@@ -232,7 +364,8 @@ export async function executeTelegramSendLocation(input: SendLocationInput): Pro
 
   const result = await telegramBotService.sendLocation(chatId, input.latitude, input.longitude)
 
-  if (result.success) {
+  if (result.success && result.message) {
+    await storeSentMessage(result.message, `📍 Location: ${input.latitude}, ${input.longitude}`)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -257,7 +390,9 @@ export async function executeTelegramSendContact(input: SendContactInput): Promi
     { last_name: input.last_name }
   )
 
-  if (result.success) {
+  if (result.success && result.message) {
+    const contactName = input.last_name ? `${input.first_name} ${input.last_name}` : input.first_name
+    await storeSentMessage(result.message, `👤 Contact: ${contactName} (${input.phone_number})`)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -281,7 +416,9 @@ export async function executeTelegramSendPoll(input: SendPollInput): Promise<Too
     allows_multiple_answers: input.allows_multiple_answers
   })
 
-  if (result.success) {
+  if (result.success && result.message) {
+    const optionsText = input.options.map((opt, i) => `${i + 1}. ${opt}`).join('\n')
+    await storeSentMessage(result.message, `📊 Poll: ${input.question}\n\n${optionsText}`)
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }
@@ -310,7 +447,8 @@ export async function executeTelegramSendSticker(input: SendStickerInput): Promi
 
     const result = await telegramBotService.sendSticker(chatId, stickerContent, { filename })
 
-    if (result.success) {
+    if (result.success && result.message) {
+      await storeSentMessage(result.message, '🎨 Sticker')
       return { success: true, data: { messageId: result.messageId } }
     }
     return { success: false, error: result.error }
