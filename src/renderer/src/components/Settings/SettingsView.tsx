@@ -15,6 +15,10 @@ interface AppSettings {
   maxTokens: number
   temperature: number
   systemPrompt: string
+  memuBaseUrl: string
+  memuApiKey: string
+  memuUserId: string
+  memuAgentId: string
   telegramBotToken: string
   discordBotToken: string
   whatsappEnabled: boolean
@@ -153,6 +157,9 @@ function GeneralSettings(): JSX.Element {
 
   const hasChanges =
     settings.claudeApiKey !== originalSettings.claudeApiKey ||
+    settings.memuApiKey !== originalSettings.memuApiKey ||
+    settings.memuUserId !== originalSettings.memuUserId ||
+    settings.memuAgentId !== originalSettings.memuAgentId ||
     settings.telegramBotToken !== originalSettings.telegramBotToken ||
     settings.discordBotToken !== originalSettings.discordBotToken ||
     settings.slackBotToken !== originalSettings.slackBotToken ||
@@ -168,6 +175,10 @@ function GeneralSettings(): JSX.Element {
     try {
       const result = await window.settings.save({
         claudeApiKey: settings.claudeApiKey,
+        memuBaseUrl: settings.memuBaseUrl,
+        memuApiKey: settings.memuApiKey,
+        memuUserId: settings.memuUserId,
+        memuAgentId: settings.memuAgentId,
         telegramBotToken: settings.telegramBotToken,
         discordBotToken: settings.discordBotToken,
         slackBotToken: settings.slackBotToken,
@@ -219,6 +230,56 @@ function GeneralSettings(): JSX.Element {
             onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
           />
+        </div>
+
+        {/* Memu Settings */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#8B5CF6]/30 shadow-sm">
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#8B5CF6] to-[#A78BFA] flex items-center justify-center">
+                <span className="text-white text-[10px] font-bold">M</span>
+              </div>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                {t('settings.memu.title')}
+              </h4>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">{t('settings.memu.hint')}</p>
+          </div>
+          <div className="space-y-3">
+            {/* API Key */}
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.memu.apiKey')}</label>
+              <input
+                type="password"
+                placeholder="mu_..."
+                value={settings.memuApiKey || ''}
+                onChange={(e) => setSettings({ ...settings, memuApiKey: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#8B5CF6]/50 focus:ring-2 focus:ring-[#8B5CF6]/10 transition-all"
+              />
+            </div>
+            {/* User ID */}
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.memu.userId')}</label>
+              <input
+                type="text"
+                placeholder="user_..."
+                value={settings.memuUserId || ''}
+                onChange={(e) => setSettings({ ...settings, memuUserId: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#8B5CF6]/50 focus:ring-2 focus:ring-[#8B5CF6]/10 transition-all"
+              />
+            </div>
+            {/* Agent ID */}
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.memu.agentId')}</label>
+              <input
+                type="text"
+                placeholder="agent_..."
+                value={settings.memuAgentId || ''}
+                onChange={(e) => setSettings({ ...settings, memuAgentId: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#8B5CF6]/50 focus:ring-2 focus:ring-[#8B5CF6]/10 transition-all"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Telegram Token */}

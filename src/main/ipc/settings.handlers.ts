@@ -115,7 +115,32 @@ export function setupSettingsHandlers(): void {
     'settings:save',
     async (_event, updates: Partial<AppSettings>): Promise<IpcResponse> => {
       try {
+        // Get current settings to detect changes
+        const previousSettings = await loadSettings()
+        const previousMemuApiKey = previousSettings.memuApiKey
+        
         await saveSettings(updates)
+        
+        // Check if memuApiKey was set (from empty to non-empty)
+        const newMemuApiKey = updates.memuApiKey
+        if (newMemuApiKey && newMemuApiKey.trim() !== '' && 
+            (!previousMemuApiKey || previousMemuApiKey.trim() === '')) {
+          // memuApiKey was just configured, try to start proactive service
+          console.log('[Settings] memuApiKey was set, attempting to start proactive service')
+          try {
+            const { proactiveService } = await import('../services/proactive.service')
+            if (!proactiveService.isActive()) {
+              const started = await proactiveService.start()
+              if (started) {
+                console.log('[Settings] Proactive service started successfully')
+              }
+            }
+          } catch (err) {
+            console.error('[Settings] Failed to start proactive service:', err)
+            // Don't fail the save operation
+          }
+        }
+        
         return { success: true }
       } catch (error) {
         return {

@@ -129,6 +129,13 @@
         "channelSecret": "Channel Secret"
       }
     },
+    "memu": {
+      "title": "MemU API",
+      "hint": "从 MemU 平台获取",
+      "apiKey": "API Key",
+      "userId": "User ID",
+      "agentId": "Agent ID"
+    },
     "security": {
       "title": "安全",
       "description": "管理设备绑定和访问控制",
