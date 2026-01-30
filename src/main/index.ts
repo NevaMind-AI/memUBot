@@ -8,6 +8,7 @@ import { autoConnectService } from './services/autoconnect.service'
 import { loggerService } from './services/logger.service'
 import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
+import { requestAllPermissions } from './utils/permissions'
 
 // Initialize shell environment early (before any external processes are spawned)
 // This ensures npx, node, etc. are available in packaged apps
@@ -168,6 +169,20 @@ async function initializeServicesAsync(): Promise<void> {
     console.log('[App] Agent output directory ready:', agentOutputDir)
   } catch (error) {
     console.error('[App] Failed to create agent output directory:', error)
+  }
+
+  // Request macOS permissions (Contacts, Calendar, Automation)
+  // This triggers permission dialogs on first run
+  sendStartupStatus({
+    stage: 'permissions',
+    message: 'Requesting permissions...',
+    progress: 20
+  })
+  
+  try {
+    await requestAllPermissions()
+  } catch (error) {
+    console.error('[App] Permission request error:', error)
   }
 
   // Stage 2: MCP Service

@@ -4,6 +4,7 @@
     "tagline": "永不下线，主动出击",
     "startup": {
       "initializing": "正在启动...",
+      "permissions": "正在请求权限...",
       "mcp": "正在加载 MCP 服务器...",
       "platforms": "正在连接消息平台...",
       "ready": "就绪"

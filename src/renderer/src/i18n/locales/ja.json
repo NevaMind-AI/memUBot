@@ -4,6 +4,7 @@
     "tagline": "常時稼働、常に先回り",
     "startup": {
       "initializing": "起動中...",
+      "permissions": "権限をリクエスト中...",
       "mcp": "MCP サーバーを読み込み中...",
       "platforms": "メッセージングプラットフォームに接続中...",
       "ready": "準備完了"

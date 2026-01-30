@@ -4,6 +4,7 @@
     "tagline": "Always on. Always proactive.",
     "startup": {
       "initializing": "Starting up...",
+      "permissions": "Requesting permissions...",
       "mcp": "Loading MCP servers...",
       "platforms": "Connecting to messaging platforms...",
       "ready": "Ready"
