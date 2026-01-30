@@ -23,6 +23,7 @@
   },
   "common": {
     "save": "保存",
+    "saveChanges": "保存更改",
     "saving": "保存中...",
     "cancel": "取消",
     "delete": "删除",

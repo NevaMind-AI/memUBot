@@ -70,8 +70,8 @@ export function SettingsView(): JSX.Element {
       </div>
 
       {/* Settings Content */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-lg mx-auto py-6 px-5">
+      <div className="flex-1 overflow-y-auto relative">
+        <div className="max-w-lg mx-auto py-6 px-5 pb-24">
           {activeTab === 'general' && <GeneralSettings />}
           {activeTab === 'security' && <SecuritySettings />}
           {activeTab === 'model' && <ModelSettings />}
@@ -81,6 +81,46 @@ export function SettingsView(): JSX.Element {
           {activeTab === 'about' && <AboutSection />}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Floating Save Button Component
+interface FloatingSaveButtonProps {
+  show: boolean
+  saving: boolean
+  onSave: () => void
+}
+
+function FloatingSaveButton({ show, saving, onSave }: FloatingSaveButtonProps): JSX.Element | null {
+  const { t } = useTranslation()
+  
+  return (
+    <div
+      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${
+        show 
+          ? 'opacity-100 translate-y-0' 
+          : 'opacity-0 translate-y-16 pointer-events-none'
+      }`}
+      style={{ marginLeft: '104px' }} // Offset for sidebar (208px / 2)
+    >
+      <button
+        onClick={onSave}
+        disabled={saving}
+        className="flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white text-[13px] font-medium shadow-xl shadow-[#2596D1]/30 hover:shadow-2xl hover:shadow-[#2596D1]/40 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+      >
+        {saving ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>{t('common.saving')}</span>
+          </>
+        ) : (
+          <>
+            <Check className="w-4 h-4" />
+            <span>{t('common.saveChanges')}</span>
+          </>
+        )}
+      </button>
     </div>
   )
 }
@@ -353,23 +393,8 @@ function GeneralSettings(): JSX.Element {
         </div>
       )}
 
-      {/* Save Button */}
-      {hasChanges && (
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white text-[13px] font-medium shadow-lg shadow-[#2596D1]/25 hover:shadow-xl hover:shadow-[#2596D1]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Saving...</span>
-            </>
-          ) : (
-            <span>Save Settings</span>
-          )}
-        </button>
-      )}
+      {/* Floating Save Button */}
+      <FloatingSaveButton show={hasChanges} saving={saving} onSave={handleSave} />
     </div>
   )
 }
@@ -542,23 +567,8 @@ function ModelSettings(): JSX.Element {
         </div>
       )}
 
-      {/* Save Button */}
-      {hasChanges && (
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white text-[13px] font-medium shadow-lg shadow-[#2596D1]/25 hover:shadow-xl hover:shadow-[#2596D1]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>{t('common.saving')}</span>
-            </>
-          ) : (
-            <span>{t('common.save')}</span>
-          )}
-        </button>
-      )}
+      {/* Floating Save Button */}
+      <FloatingSaveButton show={hasChanges} saving={saving} onSave={handleSave} />
     </div>
   )
 }

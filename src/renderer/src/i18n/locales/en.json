@@ -23,6 +23,7 @@
   },
   "common": {
     "save": "Save",
+    "saveChanges": "",
     "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",

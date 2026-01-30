@@ -23,6 +23,7 @@
   },
   "common": {
     "save": "保存",
+    "saveChanges": "変更を保存",
     "saving": "保存中...",
     "cancel": "キャンセル",
     "delete": "削除",
