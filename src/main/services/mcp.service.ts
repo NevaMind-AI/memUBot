@@ -140,6 +140,7 @@ class McpService {
     await fs.mkdir(mcpOutputDir, { recursive: true })
 
     // Merge environment variables with auto-injected ones
+    // PATH is already enhanced at app startup (see utils/shell-env.ts)
     const env = {
       ...process.env,
       // Auto-inject output directory for MCP servers (if they support it)

@@ -7,6 +7,11 @@ import { mcpService } from './services/mcp.service'
 import { autoConnectService } from './services/autoconnect.service'
 import { loggerService } from './services/logger.service'
 import { pathToFileURL } from 'url'
+import { initializeShellEnv } from './utils/shell-env'
+
+// Initialize shell environment early (before any external processes are spawned)
+// This ensures npx, node, etc. are available in packaged apps
+initializeShellEnv()
 
 let mainWindow: BrowserWindow | null = null
 
