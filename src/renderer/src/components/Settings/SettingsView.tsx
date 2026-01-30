@@ -181,10 +181,9 @@ function GeneralSettings(): JSX.Element {
     try {
       const result = await window.settings.save({
         claudeApiKey: settings.claudeApiKey,
-        memuBaseUrl: settings.memuBaseUrl,
         memuApiKey: settings.memuApiKey,
-        memuUserId: settings.memuUserId,
-        memuAgentId: settings.memuAgentId,
+        // memuUserId: settings.memuUserId,
+        // memuAgentId: settings.memuAgentId,
         telegramBotToken: settings.telegramBotToken,
         discordBotToken: settings.discordBotToken,
         slackBotToken: settings.slackBotToken,
@@ -264,7 +263,7 @@ function GeneralSettings(): JSX.Element {
               />
             </div>
             {/* User ID */}
-            <div>
+            {/* <div>
               <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.memu.userId')}</label>
               <input
                 type="text"
@@ -273,9 +272,9 @@ function GeneralSettings(): JSX.Element {
                 onChange={(e) => setSettings({ ...settings, memuUserId: e.target.value })}
                 className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all"
               />
-            </div>
+            </div> */}
             {/* Agent ID */}
-            <div>
+            {/* <div>
               <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.memu.agentId')}</label>
               <input
                 type="text"
@@ -284,7 +283,7 @@ function GeneralSettings(): JSX.Element {
                 onChange={(e) => setSettings({ ...settings, memuAgentId: e.target.value })}
                 className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all"
               />
-            </div>
+            </div> */}
           </div>
         </div>
 
