@@ -159,13 +159,15 @@ export class LineBotService {
   ): Promise<void> {
     console.log('[Line] Sending to Agent:', userMessage.substring(0, 50) + '...')
 
-    if (agentService.isProcessing()) {
-      console.log('[Line] Agent is busy')
-      return
-    }
-
     try {
       const response = await agentService.processMessage(userMessage, 'line')
+
+      // Check if rejected due to cross-platform lock
+      if (!response.success && response.busyWith) {
+        console.log(`[Line] Agent is busy with ${response.busyWith}`)
+        // TODO: Send busy message to Line when client is implemented
+        return
+      }
 
       if (response.success && response.message) {
         console.log('[Line] Agent response:', response.message.substring(0, 100) + '...')

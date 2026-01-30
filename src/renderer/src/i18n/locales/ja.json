@@ -79,6 +79,7 @@
       "model": "AI モデル",
       "mcp": "MCP",
       "skills": "Skills",
+      "services": "バックグラウンドサービス",
       "data": "データ",
       "about": "バージョン情報"
     },
@@ -247,6 +248,30 @@
         "experimental": "実験的",
         "system": "システム"
       }
+    },
+    "services": {
+      "title": "バックグラウンドサービス",
+      "description": "AI が作成した監視・通知用のサービス",
+      "noServices": "サービスがありません",
+      "noServicesHint": "AI に何かを監視するよう依頼すると、ここにサービスが作成されます",
+      "openFolder": "フォルダを開く",
+      "typeLongRunning": "常駐型",
+      "typeScheduled": "スケジュール型",
+      "started": "サービスを開始しました",
+      "stopped": "サービスを停止しました",
+      "deleted": "「{{name}}」を削除しました",
+      "startFailed": "サービスの開始に失敗しました",
+      "stopFailed": "サービスの停止に失敗しました",
+      "deleteFailed": "サービスの削除に失敗しました",
+      "confirmDelete": "サービス「{{name}}」を削除しますか？",
+      "showDetails": "詳細を表示",
+      "hideDetails": "詳細を隠す",
+      "userRequest": "ユーザーリクエスト",
+      "expectation": "期待条件",
+      "entry": "エントリファイル",
+      "schedule": "スケジュール",
+      "notifyVia": "通知先",
+      "created": "作成日時"
     },
     "data": {
       "title": "データ",

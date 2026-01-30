@@ -230,22 +230,23 @@ export function McpSettings(): JSX.Element {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.mcp.title')}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.mcp.title')}</h3>
+            {servers.length > 0 && (
+              <button
+                onClick={handleReloadMcp}
+                disabled={reloading}
+                className="p-1 rounded-md text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"
+                title={t('settings.mcp.reload')}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${reloading ? 'animate-spin' : ''}`} />
+              </button>
+            )}
+          </div>
           <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
             {t('settings.mcp.description')}
           </p>
         </div>
-        {servers.length > 0 && (
-          <button
-            onClick={handleReloadMcp}
-            disabled={reloading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[12px] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"
-            title={t('settings.mcp.reload')}
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${reloading ? 'animate-spin' : ''}`} />
-            <span>{t('settings.mcp.reload')}</span>
-          </button>
-        )}
       </div>
 
       {/* Server List */}

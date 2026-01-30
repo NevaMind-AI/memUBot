@@ -173,6 +173,27 @@ const skillsApi = {
   getGitHubToken: () => ipcRenderer.invoke('skills:getGitHubToken')
 }
 
+// Services API (background services management)
+const servicesApi = {
+  list: () => ipcRenderer.invoke('service:list'),
+  get: (serviceId: string) => ipcRenderer.invoke('service:get', serviceId),
+  start: (serviceId: string) => ipcRenderer.invoke('service:start', serviceId),
+  stop: (serviceId: string) => ipcRenderer.invoke('service:stop', serviceId),
+  delete: (serviceId: string) => ipcRenderer.invoke('service:delete', serviceId),
+  getDir: () => ipcRenderer.invoke('service:get-dir'),
+  openDir: () => ipcRenderer.invoke('service:open-dir'),
+  // Event listener for service status changes
+  onStatusChanged: (callback: (data: { serviceId: string; status: string }) => void) => {
+    ipcRenderer.on('service:status-changed', (_event, data) => callback(data))
+    return () => ipcRenderer.removeAllListeners('service:status-changed')
+  },
+  // Event listener for service list changes (create/delete)
+  onListChanged: (callback: () => void) => {
+    ipcRenderer.on('service:list-changed', () => callback())
+    return () => ipcRenderer.removeAllListeners('service:list-changed')
+  }
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -189,6 +210,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('llm', llmApi)
     contextBridge.exposeInMainWorld('startup', startupApi)
     contextBridge.exposeInMainWorld('skills', skillsApi)
+    contextBridge.exposeInMainWorld('services', servicesApi)
   } catch (error) {
     console.error(error)
   }
@@ -219,4 +241,6 @@ if (process.contextIsolated) {
   window.startup = startupApi
   // @ts-ignore (define in dts)
   window.skills = skillsApi
+  // @ts-ignore (define in dts)
+  window.services = servicesApi
 }

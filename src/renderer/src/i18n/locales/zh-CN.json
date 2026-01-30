@@ -79,6 +79,7 @@
       "model": "AI 模型",
       "mcp": "MCP",
       "skills": "Skills",
+      "services": "后台服务",
       "data": "数据",
       "about": "关于"
     },
@@ -247,6 +248,30 @@
         "experimental": "实验性",
         "system": "系统"
       }
+    },
+    "services": {
+      "title": "后台服务",
+      "description": "AI 创建的用于监控和通知的后台服务",
+      "noServices": "暂无服务",
+      "noServicesHint": "让 AI 帮你监控某些事情，它会在这里创建服务",
+      "openFolder": "打开文件夹",
+      "typeLongRunning": "长期运行",
+      "typeScheduled": "定时任务",
+      "started": "服务已启动",
+      "stopped": "服务已停止",
+      "deleted": "\"{{name}}\" 已删除",
+      "startFailed": "启动服务失败",
+      "stopFailed": "停止服务失败",
+      "deleteFailed": "删除服务失败",
+      "confirmDelete": "确定删除服务 \"{{name}}\"？",
+      "showDetails": "查看详情",
+      "hideDetails": "收起详情",
+      "userRequest": "用户需求",
+      "expectation": "期望条件",
+      "entry": "入口文件",
+      "schedule": "执行计划",
+      "notifyVia": "通知渠道",
+      "created": "创建时间"
     },
     "data": {
       "title": "数据",

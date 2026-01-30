@@ -12,6 +12,11 @@ export interface LLMStatusInfo {
 }
 
 /**
+ * Service status type
+ */
+export type ServiceStatusType = 'stopped' | 'running' | 'error'
+
+/**
  * Event types for the application
  */
 export type AppEventType =
@@ -26,6 +31,8 @@ export type AppEventType =
   | 'line:new-message'
   | 'line:status-changed'
   | 'llm:status-changed'
+  | 'service:status-changed'
+  | 'service:list-changed'
 
 /**
  * Application event emitter
@@ -176,6 +183,24 @@ class AppEventEmitter extends EventEmitter {
     console.log('[Events] Emitting Line status changed:', status)
     this.emit('line:status-changed', status)
     this.sendToRenderer('line:status-changed', status)
+  }
+
+  /**
+   * Emit service status changed event
+   */
+  emitServiceStatusChanged(serviceId: string, status: ServiceStatusType): void {
+    console.log(`[Events] Emitting service status changed: ${serviceId} -> ${status}`)
+    this.emit('service:status-changed', { serviceId, status })
+    this.sendToRenderer('service:status-changed', { serviceId, status })
+  }
+
+  /**
+   * Emit service list changed event (when services are created or deleted)
+   */
+  emitServiceListChanged(): void {
+    console.log('[Events] Emitting service list changed')
+    this.emit('service:list-changed', {})
+    this.sendToRenderer('service:list-changed', {})
   }
 }
 

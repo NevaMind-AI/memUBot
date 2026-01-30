@@ -6,6 +6,7 @@ import { discordTools } from '../tools/discord.definitions'
 import { whatsappTools } from '../tools/whatsapp.definitions'
 import { slackTools } from '../tools/slack.definitions'
 import { lineTools } from '../tools/line.definitions'
+import { serviceTools } from '../tools/service.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
 import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
 import { executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
@@ -14,6 +15,7 @@ import { executeDiscordTool } from '../tools/discord.executor'
 import { executeWhatsAppTool } from '../tools/whatsapp.executor'
 import { executeSlackTool } from '../tools/slack.executor'
 import { executeLineTool } from '../tools/line.executor'
+import { executeServiceTool } from '../tools/service.executor'
 import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
@@ -22,7 +24,9 @@ import { slackStorage } from '../apps/slack/storage'
 import { app } from 'electron'
 import { mcpService } from './mcp.service'
 import { skillsService } from './skills.service'
+import { serviceManagerService } from './service-manager.service'
 import type { ConversationMessage, AgentResponse } from '../types'
+import * as fs from 'fs/promises'
 
 /**
  * Maximum number of historical messages to load as context
@@ -33,6 +37,33 @@ const MAX_CONTEXT_MESSAGES = 20
  * Supported platforms for messaging tools
  */
 export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'none'
+
+/**
+ * Evaluation decision from LLM
+ */
+export interface EvaluationDecision {
+  shouldNotify: boolean
+  message?: string  // Message to send if shouldNotify is true
+  reason: string    // Explanation of the decision
+}
+
+/**
+ * Evaluation request context
+ */
+export interface EvaluationContext {
+  userRequest: string
+  expectation: string
+}
+
+/**
+ * Evaluation request data
+ */
+export interface EvaluationData {
+  summary: string
+  details?: string
+  timestamp: string
+  metadata?: Record<string, unknown>
+}
 
 /**
  * LLM processing status
@@ -229,20 +260,23 @@ function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
   // Add MCP tools to all platforms
   const mcpTools = mcpService.getTools()
   
+  // Service tools are available on all platforms
+  const svcTools = [...serviceTools]
+  
   switch (platform) {
     case 'telegram':
-      return [...baseTools, ...platformTools, ...telegramTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...telegramTools, ...svcTools, ...mcpTools]
     case 'discord':
-      return [...baseTools, ...platformTools, ...discordTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...discordTools, ...svcTools, ...mcpTools]
     case 'whatsapp':
-      return [...baseTools, ...platformTools, ...whatsappTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...whatsappTools, ...svcTools, ...mcpTools]
     case 'slack':
-      return [...baseTools, ...platformTools, ...slackTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...slackTools, ...svcTools, ...mcpTools]
     case 'line':
-      return [...baseTools, ...platformTools, ...lineTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...lineTools, ...svcTools, ...mcpTools]
     case 'none':
     default:
-      return [...baseTools, ...platformTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...svcTools, ...mcpTools]
   }
 }
 
@@ -322,18 +356,48 @@ When creating or saving files (images, documents, code, etc.), use the following
    - code/ - for generated code files`
 
   basePrompt += outputDirInstruction
+
+  // Append service workspace info
+  const servicesDir = serviceManagerService.getServicesDir()
+  basePrompt += `
+
+## Service Workspace
+
+When creating background services, use this directory:
+\`${servicesDir}\`
+
+Services should call the local API at http://127.0.0.1:31415/api/v1/invoke to report events.`
+
+  // Load builtin skills (bundled with app)
+  try {
+    const builtinSkillsDir = path.join(__dirname, '../builtin-skills')
+    const builtinSkillPath = path.join(builtinSkillsDir, 'service-creator', 'SKILL.md')
+    const builtinContent = await fs.readFile(builtinSkillPath, 'utf-8')
+    basePrompt += '\n\n' + builtinContent
+    console.log('[Agent] Loaded builtin skill: service-creator')
+  } catch (error) {
+    // Builtin skills may not exist in dev mode, try src path
+    try {
+      const devSkillPath = path.join(process.cwd(), 'src/main/builtin-skills/service-creator/SKILL.md')
+      const devContent = await fs.readFile(devSkillPath, 'utf-8')
+      basePrompt += '\n\n' + devContent
+      console.log('[Agent] Loaded builtin skill from dev path: service-creator')
+    } catch {
+      console.log('[Agent] Builtin skills not found (this is ok in some environments)')
+    }
+  }
   
-  // Append enabled skills content
+  // Append user-enabled skills content
   try {
     const skillsContent = await skillsService.getEnabledSkillsContent()
     if (skillsContent) {
-      console.log('[Agent] Loaded skills content, length:', skillsContent.length)
+      console.log('[Agent] Loaded user skills content, length:', skillsContent.length)
       basePrompt += skillsContent
     } else {
-      console.log('[Agent] No enabled skills to load')
+      console.log('[Agent] No user skills to load')
     }
   } catch (error) {
-    console.error('[Agent] Failed to load skills:', error)
+    console.error('[Agent] Failed to load user skills:', error)
   }
   
   return basePrompt
@@ -352,6 +416,7 @@ export class AgentService {
   private currentPlatform: MessagePlatform = 'none'
   private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
   private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from
+  private processingLock: MessagePlatform | null = null // Global lock for processMessage - only one platform at a time
 
   /**
    * Get current LLM status
@@ -408,7 +473,30 @@ export class AgentService {
    * Check if processing is currently active
    */
   isProcessing(): boolean {
-    return this.currentStatus.status !== 'idle'
+    return this.processingLock !== null
+  }
+
+  /**
+   * Get the platform currently holding the processing lock
+   * Returns null if no processing is active
+   */
+  getProcessingLockPlatform(): MessagePlatform | null {
+    return this.processingLock
+  }
+
+  /**
+   * Check if a specific platform can start processing
+   * Returns { canProcess: true } or { canProcess: false, busyWith: platform }
+   */
+  canProcess(platform: MessagePlatform): { canProcess: boolean; busyWith?: MessagePlatform } {
+    if (this.processingLock === null) {
+      return { canProcess: true }
+    }
+    if (this.processingLock === platform) {
+      // Same platform trying to process again (shouldn't happen, but allow it)
+      return { canProcess: true }
+    }
+    return { canProcess: false, busyWith: this.processingLock }
   }
 
   /**
@@ -506,6 +594,21 @@ export class AgentService {
     platform: MessagePlatform = 'none',
     imageUrls: string[] = []
   ): Promise<AgentResponse> {
+    // Check if another platform is currently processing
+    const lockCheck = this.canProcess(platform)
+    if (!lockCheck.canProcess) {
+      console.log(`[Agent] Rejected: ${platform} cannot process, busy with ${lockCheck.busyWith}`)
+      return {
+        success: false,
+        error: `busy:${lockCheck.busyWith}`,
+        busyWith: lockCheck.busyWith
+      }
+    }
+
+    // Acquire the processing lock
+    this.processingLock = platform
+    console.log(`[Agent] Lock acquired by ${platform}`)
+
     // Load historical context if this is a new session or platform changed
     if (platform !== 'none') {
       await this.loadContextFromStorage(platform)
@@ -520,7 +623,6 @@ export class AgentService {
     if (platform !== 'none') {
       this.recentReplyPlatform = platform
     }
-    
 
     try {
       console.log(`[Agent] Processing message from ${platform}:`, userMessage.substring(0, 50) + '...')
@@ -620,6 +722,9 @@ export class AgentService {
       }
     } finally {
       this.abortController = null
+      // Release the processing lock
+      console.log(`[Agent] Lock released by ${this.processingLock}`)
+      this.processingLock = null
     }
   }
 
@@ -647,18 +752,6 @@ export class AgentService {
       iterations++
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
       this.setStatus('thinking', undefined, iterations)
-
-      // Log conversation history being sent
-      // console.log(`[Agent] ===== Conversation History (${this.conversationHistory.length} messages) =====`)
-      // this.conversationHistory.forEach((msg, idx) => {
-      //   const contentPreview = typeof msg.content === 'string' 
-      //     ? msg.content.substring(0, 100) + (msg.content.length > 100 ? '...' : '')
-      //     : Array.isArray(msg.content) 
-      //       ? `[${msg.content.length} content blocks]`
-      //       : JSON.stringify(msg.content).substring(0, 100)
-      //   console.log(`[Agent] [${idx}] ${msg.role}: ${contentPreview}`)
-      // })
-      // console.log(`[Agent] ===== End History =====`)
 
       // Call Claude API with platform-specific tools
       const response = await client.messages.create({
@@ -871,6 +964,11 @@ export class AgentService {
       return await executeLineTool(name, input)
     }
 
+    // Service tools
+    if (name.startsWith('service_')) {
+      return await executeServiceTool(name, input)
+    }
+
     // MCP tools
     if (mcpService.isMcpTool(name)) {
       return await mcpService.executeTool(name, input)
@@ -908,6 +1006,127 @@ export class AgentService {
     this.conversationHistory = []
     this.unmemorizedMessages = []
     this.contextLoadedForPlatform = null
+  }
+
+  /**
+   * Evaluate whether to notify user based on context and data
+   * This is a single LLM call without tool use, designed for automated monitoring services
+   * 
+   * @param context User's original request and expectations
+   * @param data Current event data to evaluate
+   * @returns Evaluation decision with shouldNotify, message, and reason
+   */
+  async evaluate(
+    context: EvaluationContext,
+    data: EvaluationData
+  ): Promise<{ success: boolean; decision?: EvaluationDecision; error?: string }> {
+    try {
+      console.log('[Agent] Evaluating notification request...')
+      console.log('[Agent] User request:', context.userRequest.substring(0, 50) + '...')
+      console.log('[Agent] Data summary:', data.summary.substring(0, 50) + '...')
+
+      // Create client
+      const { client, model, maxTokens } = await createClient()
+
+      // Build the evaluation prompt
+      const evaluationPrompt = this.buildEvaluationPrompt(context, data)
+
+      // Single LLM call without tools
+      const response = await client.messages.create({
+        model,
+        max_tokens: Math.min(maxTokens, 1024), // Limit tokens for evaluation
+        system: `You are an evaluation assistant. Your job is to decide whether an event warrants notifying the user based on their stated expectations.
+
+You MUST respond with a valid JSON object in this exact format:
+{
+  "shouldNotify": true or false,
+  "message": "The notification message to send to user (only if shouldNotify is true)",
+  "reason": "Brief explanation of your decision"
+}
+
+Guidelines:
+- Be conservative: only notify when the event clearly matches user's expectations
+- If shouldNotify is false, message can be omitted or empty
+- Keep the notification message concise and actionable
+- The reason should explain why you made this decision
+
+IMPORTANT: Respond with ONLY the JSON object, no additional text.`,
+        messages: [
+          {
+            role: 'user',
+            content: evaluationPrompt
+          }
+        ]
+      })
+
+      // Extract text response
+      const textContent = response.content.find((block) => block.type === 'text')
+      if (!textContent || textContent.type !== 'text') {
+        return { success: false, error: 'No text response from LLM' }
+      }
+
+      // Parse JSON response
+      const responseText = textContent.text.trim()
+      console.log('[Agent] Evaluation response:', responseText)
+
+      try {
+        // Try to extract JSON from response (handle potential markdown code blocks)
+        let jsonStr = responseText
+        const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+        if (jsonMatch) {
+          jsonStr = jsonMatch[1]
+        }
+
+        const decision = JSON.parse(jsonStr) as EvaluationDecision
+
+        // Validate decision structure
+        if (typeof decision.shouldNotify !== 'boolean') {
+          return { success: false, error: 'Invalid decision: shouldNotify must be boolean' }
+        }
+        if (typeof decision.reason !== 'string') {
+          return { success: false, error: 'Invalid decision: reason must be string' }
+        }
+        if (decision.shouldNotify && typeof decision.message !== 'string') {
+          return { success: false, error: 'Invalid decision: message required when shouldNotify is true' }
+        }
+
+        console.log('[Agent] Evaluation decision:', decision.shouldNotify ? 'NOTIFY' : 'IGNORE')
+        return { success: true, decision }
+      } catch (parseError) {
+        console.error('[Agent] Failed to parse evaluation response:', parseError)
+        return { success: false, error: `Failed to parse LLM response: ${responseText}` }
+      }
+    } catch (error) {
+      console.error('[Agent] Evaluation error:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
+  /**
+   * Build the evaluation prompt for LLM
+   */
+  private buildEvaluationPrompt(context: EvaluationContext, data: EvaluationData): string {
+    const metadataStr = data.metadata
+      ? `\nAdditional Metadata:\n${JSON.stringify(data.metadata, null, 2)}`
+      : ''
+
+    return `Please evaluate whether the following event should trigger a notification to the user.
+
+== USER'S ORIGINAL REQUEST ==
+${context.userRequest}
+
+== USER'S EXPECTATION ==
+${context.expectation}
+
+== CURRENT EVENT ==
+Time: ${data.timestamp}
+Summary: ${data.summary}
+${data.details ? `Details: ${data.details}` : ''}${metadataStr}
+
+Based on the user's expectations, should this event trigger a notification?`
   }
 }
 

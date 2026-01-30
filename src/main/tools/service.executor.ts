@@ -1,0 +1,406 @@
+import { serviceManagerService, type ServiceType, type ServiceRuntime } from '../services/service-manager.service'
+
+/**
+ * Service tool executor
+ * Handles execution of service management tools
+ */
+
+interface ServiceCreateInput {
+  name: string
+  description: string
+  type: ServiceType
+  runtime: ServiceRuntime
+  entryFile: string
+  schedule?: string
+  userRequest: string
+  expectation: string
+  notifyPlatform?: string
+}
+
+interface ServiceIdInput {
+  serviceId: string
+}
+
+/**
+ * Execute a service tool
+ */
+export async function executeServiceTool(
+  toolName: string,
+  input: unknown
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  try {
+    switch (toolName) {
+      case 'service_create':
+        return await executeServiceCreate(input as ServiceCreateInput)
+
+      case 'service_list':
+        return await executeServiceList()
+
+      case 'service_start':
+        return await executeServiceStart(input as ServiceIdInput)
+
+      case 'service_stop':
+        return await executeServiceStop(input as ServiceIdInput)
+
+      case 'service_delete':
+        return await executeServiceDelete(input as ServiceIdInput)
+
+      case 'service_get_info':
+        return await executeServiceGetInfo(input as ServiceIdInput)
+
+      default:
+        return { success: false, error: `Unknown service tool: ${toolName}` }
+    }
+  } catch (error) {
+    console.error(`[ServiceExecutor] Error executing ${toolName}:`, error)
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error)
+    }
+  }
+}
+
+/**
+ * Create a new service
+ */
+async function executeServiceCreate(input: ServiceCreateInput): Promise<{
+  success: boolean
+  data?: unknown
+  error?: string
+}> {
+  const result = await serviceManagerService.createService({
+    name: input.name,
+    description: input.description,
+    type: input.type,
+    runtime: input.runtime,
+    entryFile: input.entryFile,
+    schedule: input.schedule,
+    context: {
+      userRequest: input.userRequest,
+      expectation: input.expectation,
+      notifyPlatform: input.notifyPlatform
+    }
+  })
+
+  if (result.success) {
+    return {
+      success: true,
+      data: {
+        serviceId: result.serviceId,
+        servicePath: result.servicePath,
+        message: `Service created successfully. Now write your service code to: ${result.servicePath}/${input.entryFile}`,
+        template: getServiceTemplate(input.runtime, input.type)
+      }
+    }
+  }
+
+  return { success: false, error: result.error }
+}
+
+/**
+ * List all services
+ */
+async function executeServiceList(): Promise<{
+  success: boolean
+  data?: unknown
+  error?: string
+}> {
+  const services = await serviceManagerService.listServices()
+  return {
+    success: true,
+    data: {
+      count: services.length,
+      services: services.map((s) => ({
+        id: s.id,
+        name: s.name,
+        type: s.type,
+        runtime: s.runtime,
+        status: s.status,
+        description: s.description
+      }))
+    }
+  }
+}
+
+/**
+ * Start a service
+ */
+async function executeServiceStart(input: ServiceIdInput): Promise<{
+  success: boolean
+  data?: unknown
+  error?: string
+}> {
+  const result = await serviceManagerService.startService(input.serviceId)
+  if (result.success) {
+    return {
+      success: true,
+      data: { message: `Service ${input.serviceId} started successfully` }
+    }
+  }
+  return { success: false, error: result.error }
+}
+
+/**
+ * Stop a service
+ */
+async function executeServiceStop(input: ServiceIdInput): Promise<{
+  success: boolean
+  data?: unknown
+  error?: string
+}> {
+  const result = await serviceManagerService.stopService(input.serviceId)
+  if (result.success) {
+    return {
+      success: true,
+      data: { message: `Service ${input.serviceId} stopped successfully` }
+    }
+  }
+  return { success: false, error: result.error }
+}
+
+/**
+ * Delete a service
+ */
+async function executeServiceDelete(input: ServiceIdInput): Promise<{
+  success: boolean
+  data?: unknown
+  error?: string
+}> {
+  const result = await serviceManagerService.deleteService(input.serviceId)
+  if (result.success) {
+    return {
+      success: true,
+      data: { message: `Service ${input.serviceId} deleted successfully` }
+    }
+  }
+  return { success: false, error: result.error }
+}
+
+/**
+ * Get service info
+ */
+async function executeServiceGetInfo(input: ServiceIdInput): Promise<{
+  success: boolean
+  data?: unknown
+  error?: string
+}> {
+  const service = await serviceManagerService.getService(input.serviceId)
+  if (service) {
+    return { success: true, data: service }
+  }
+  return { success: false, error: 'Service not found' }
+}
+
+/**
+ * Get service code template
+ */
+function getServiceTemplate(runtime: ServiceRuntime, type: ServiceType): string {
+  if (runtime === 'node') {
+    return getNodeTemplate(type)
+  } else {
+    return getPythonTemplate(type)
+  }
+}
+
+function getNodeTemplate(type: ServiceType): string {
+  const baseTemplate = `// Service: Auto-generated by memu
+// Environment: MEMU_SERVICE_ID, MEMU_API_URL
+
+const http = require('http');
+
+const SERVICE_ID = process.env.MEMU_SERVICE_ID;
+const API_URL = process.env.MEMU_API_URL || 'http://127.0.0.1:31415';
+
+// Context from user request (customize these)
+const CONTEXT = {
+  userRequest: "YOUR_USER_REQUEST_HERE",
+  expectation: "YOUR_EXPECTATION_HERE",
+  notifyPlatform: "telegram" // or discord, slack, etc.
+};
+
+/**
+ * Call the invoke API to report data and let LLM decide whether to notify user
+ */
+async function invoke(summary, details, metadata = {}) {
+  const payload = {
+    context: CONTEXT,
+    data: {
+      summary,
+      details,
+      timestamp: new Date().toISOString(),
+      metadata
+    },
+    serviceId: SERVICE_ID
+  };
+
+  return new Promise((resolve, reject) => {
+    const url = new URL('/api/v1/invoke', API_URL);
+    const options = {
+      hostname: url.hostname,
+      port: url.port,
+      path: url.pathname,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    };
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data));
+        } catch (e) {
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(JSON.stringify(payload));
+    req.end();
+  });
+}
+
+/**
+ * Your monitoring/task logic here
+ */
+async function checkAndReport() {
+  try {
+    // TODO: Implement your monitoring logic
+    // Example: fetch data, check conditions, etc.
+    
+    const summary = "Event summary here";
+    const details = "Detailed information here";
+    
+    const result = await invoke(summary, details);
+    console.log('Invoke result:', result);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+`
+
+  if (type === 'longRunning') {
+    return baseTemplate + `
+// Long-running service: runs continuously
+const INTERVAL_MS = 60000; // Check every minute
+
+console.log(\`[Service:\${SERVICE_ID}] Starting long-running service...\`);
+
+// Initial check
+checkAndReport();
+
+// Periodic checks
+setInterval(checkAndReport, INTERVAL_MS);
+
+// Keep process alive
+process.on('SIGTERM', () => {
+  console.log(\`[Service:\${SERVICE_ID}] Received SIGTERM, shutting down...\`);
+  process.exit(0);
+});
+`
+  } else {
+    return baseTemplate + `
+// Scheduled service: runs once per invocation
+console.log(\`[Service:\${SERVICE_ID}] Running scheduled task...\`);
+
+checkAndReport().then(() => {
+  console.log(\`[Service:\${SERVICE_ID}] Task completed\`);
+}).catch(error => {
+  console.error(\`[Service:\${SERVICE_ID}] Task failed:\`, error);
+  process.exit(1);
+});
+`
+  }
+}
+
+function getPythonTemplate(type: ServiceType): string {
+  const baseTemplate = `#!/usr/bin/env python3
+# Service: Auto-generated by memu
+# Environment: MEMU_SERVICE_ID, MEMU_API_URL
+
+import os
+import json
+import time
+import urllib.request
+from datetime import datetime
+
+SERVICE_ID = os.environ.get('MEMU_SERVICE_ID', 'unknown')
+API_URL = os.environ.get('MEMU_API_URL', 'http://127.0.0.1:31415')
+
+# Context from user request (customize these)
+CONTEXT = {
+    "userRequest": "YOUR_USER_REQUEST_HERE",
+    "expectation": "YOUR_EXPECTATION_HERE",
+    "notifyPlatform": "telegram"  # or discord, slack, etc.
+}
+
+def invoke(summary: str, details: str = "", metadata: dict = None):
+    """Call the invoke API to report data and let LLM decide whether to notify user"""
+    payload = {
+        "context": CONTEXT,
+        "data": {
+            "summary": summary,
+            "details": details,
+            "timestamp": datetime.now().isoformat(),
+            "metadata": metadata or {}
+        },
+        "serviceId": SERVICE_ID
+    }
+    
+    url = f"{API_URL}/api/v1/invoke"
+    data = json.dumps(payload).encode('utf-8')
+    
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={'Content-Type': 'application/json'},
+        method='POST'
+    )
+    
+    try:
+        with urllib.request.urlopen(req) as response:
+            return json.loads(response.read().decode('utf-8'))
+    except Exception as e:
+        print(f"Error calling invoke API: {e}")
+        return None
+
+def check_and_report():
+    """Your monitoring/task logic here"""
+    try:
+        # TODO: Implement your monitoring logic
+        # Example: fetch data, check conditions, etc.
+        
+        summary = "Event summary here"
+        details = "Detailed information here"
+        
+        result = invoke(summary, details)
+        print(f"Invoke result: {result}")
+    except Exception as e:
+        print(f"Error: {e}")
+`
+
+  if (type === 'longRunning') {
+    return baseTemplate + `
+
+# Long-running service: runs continuously
+INTERVAL_SECONDS = 60  # Check every minute
+
+if __name__ == "__main__":
+    print(f"[Service:{SERVICE_ID}] Starting long-running service...")
+    
+    while True:
+        check_and_report()
+        time.sleep(INTERVAL_SECONDS)
+`
+  } else {
+    return baseTemplate + `
+
+# Scheduled service: runs once per invocation
+if __name__ == "__main__":
+    print(f"[Service:{SERVICE_ID}] Running scheduled task...")
+    check_and_report()
+    print(f"[Service:{SERVICE_ID}] Task completed")
+`
+  }
+}

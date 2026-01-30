@@ -52,6 +52,7 @@ export interface AgentResponse {
   success: boolean
   message?: string
   error?: string
+  busyWith?: string  // Platform currently processing (when rejected due to lock)
 }
 
 // IPC response type

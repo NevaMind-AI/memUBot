@@ -497,19 +497,30 @@ export class TelegramBotService {
   private async processWithAgentAndReply(chatId: number, userMessage: string): Promise<void> {
     console.log('[Telegram] Sending to Agent:', userMessage)
 
-    // Check if agent is already processing a message
-    if (agentService.isProcessing()) {
-      console.log('[Telegram] Agent is busy, ignoring message')
-      await this.bot?.sendMessage(chatId, '⏳ I\'m still processing the previous message. Please wait a moment and try again.')
-      return
-    }
-
     // Set current chat ID for tool calls
     this.currentChatId = chatId
 
     try {
       // Get response from Agent with Telegram-specific tools
       const response = await agentService.processMessage(userMessage, 'telegram')
+
+      // Check if rejected due to cross-platform lock
+      if (!response.success && response.busyWith) {
+        const platformNames: Record<string, string> = {
+          telegram: 'Telegram',
+          discord: 'Discord',
+          slack: 'Slack',
+          whatsapp: 'WhatsApp',
+          line: 'Line'
+        }
+        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
+        console.log(`[Telegram] Agent is busy with ${response.busyWith}`)
+        await this.bot?.sendMessage(
+          chatId,
+          `⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment and try again.`
+        )
+        return
+      }
 
       if (response.success && response.message) {
         console.log('[Telegram] Agent response:', response.message.substring(0, 100) + '...')
@@ -608,11 +619,12 @@ export class TelegramBotService {
   /**
    * Send a text message
    * By default, converts Markdown to HTML for stable formatting
+   * @param storeInHistory - Whether to store message in history (default: true)
    */
   async sendText(
     chatId: number,
     text: string,
-    options?: { parse_mode?: 'Markdown' | 'HTML' | 'none'; reply_to_message_id?: number }
+    options?: { parse_mode?: 'Markdown' | 'HTML' | 'none'; reply_to_message_id?: number; storeInHistory?: boolean }
   ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
@@ -642,6 +654,27 @@ export class TelegramBotService {
       if (options?.reply_to_message_id) sendOptions.reply_to_message_id = options.reply_to_message_id
 
       const msg = await this.bot.sendMessage(chatId, finalText, sendOptions)
+
+      // Store message in history (default: true)
+      const shouldStore = options?.storeInHistory !== false
+      if (shouldStore) {
+        const storedMsg: StoredTelegramMessage = {
+          messageId: msg.message_id,
+          chatId: msg.chat.id,
+          fromId: msg.from?.id,
+          fromUsername: msg.from?.username,
+          fromFirstName: msg.from?.first_name || 'Bot',
+          text: text, // Store original text, not converted
+          date: msg.date,
+          isFromBot: true
+        }
+        await telegramStorage.storeMessage(storedMsg)
+        
+        // Emit event for UI update
+        const appMessage = this.convertToAppMessage(storedMsg)
+        appEvents.emitNewMessage(appMessage)
+      }
+
       return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }

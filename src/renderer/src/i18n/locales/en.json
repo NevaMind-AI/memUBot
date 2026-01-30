@@ -79,6 +79,7 @@
       "model": "AI Model",
       "mcp": "MCP",
       "skills": "Skills",
+      "services": "Services",
       "data": "Data",
       "about": "About"
     },
@@ -249,6 +250,30 @@
         "experimental": "Experimental",
         "system": "System"
       }
+    },
+    "services": {
+      "title": "Background Services",
+      "description": "Services created by the AI to monitor and notify you",
+      "noServices": "No services yet",
+      "noServicesHint": "Ask the AI to monitor something, and it will create a service here",
+      "openFolder": "Open Folder",
+      "typeLongRunning": "Long-running",
+      "typeScheduled": "Scheduled",
+      "started": "Service started",
+      "stopped": "Service stopped",
+      "deleted": "\"{{name}}\" deleted",
+      "startFailed": "Failed to start service",
+      "stopFailed": "Failed to stop service",
+      "deleteFailed": "Failed to delete service",
+      "confirmDelete": "Delete service \"{{name}}\"?",
+      "showDetails": "Show details",
+      "hideDetails": "Hide details",
+      "userRequest": "User Request",
+      "expectation": "Expectation",
+      "entry": "Entry",
+      "schedule": "Schedule",
+      "notifyVia": "Notify via",
+      "created": "Created"
     },
     "data": {
       "title": "Data",

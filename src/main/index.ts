@@ -7,6 +7,8 @@ import { mcpService } from './services/mcp.service'
 import { autoConnectService } from './services/autoconnect.service'
 import { loggerService } from './services/logger.service'
 import { proactiveService } from './services/proactive.service'
+import { localApiService } from './services/local-api.service'
+import { serviceManagerService } from './services/service-manager.service'
 import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
 import { requestAllPermissions } from './utils/permissions'
@@ -218,7 +220,7 @@ async function initializeServicesAsync(): Promise<void> {
   sendStartupStatus({
     stage: 'ready',
     message: 'Starting proactive service...',
-    progress: 90
+    progress: 80
   })
 
   try {
@@ -232,7 +234,39 @@ async function initializeServicesAsync(): Promise<void> {
     console.error('[App] Failed to start proactive service:', error)
   }
 
-  // Stage 5: Ready
+  // Stage 5: Start local API server
+  sendStartupStatus({
+    stage: 'ready',
+    message: 'Starting local API server...',
+    progress: 85
+  })
+
+  try {
+    const apiStarted = await localApiService.start()
+    if (apiStarted) {
+      console.log(`[App] Local API server started at ${localApiService.getBaseUrl()}`)
+    } else {
+      console.error('[App] Failed to start local API server')
+    }
+  } catch (error) {
+    console.error('[App] Local API server error:', error)
+  }
+
+  // Stage 6: Start user services
+  sendStartupStatus({
+    stage: 'ready',
+    message: 'Starting user services...',
+    progress: 95
+  })
+
+  try {
+    await serviceManagerService.startAllServices()
+    console.log(`[App] User services started (${serviceManagerService.getRunningCount()} running)`)
+  } catch (error) {
+    console.error('[App] Failed to start user services:', error)
+  }
+
+  // Stage 7: Ready
   sendStartupStatus({
     stage: 'ready',
     message: 'Ready',
@@ -254,6 +288,12 @@ app.on('window-all-closed', () => {
 app.on('will-quit', async () => {
   // Stop proactive service
   proactiveService.stop()
+  
+  // Stop all user services
+  await serviceManagerService.stopAllServices()
+  
+  // Stop local API server
+  await localApiService.stop()
   
   // Shutdown MCP servers
   await mcpService.shutdown()

@@ -387,13 +387,6 @@ export class DiscordBotService {
     console.log('[Discord] Message length:', userMessage.length)
     console.log('[Discord] Attachments count:', attachments.length)
 
-    // Check if agent is already processing a message
-    if (agentService.isProcessing()) {
-      console.log('[Discord] Agent is busy, ignoring message')
-      await originalMessage.reply('⏳ I\'m still processing the previous message. Please wait a moment and try again.')
-      return
-    }
-
     // Extract image URLs from attachments
     const imageUrls = attachments
       .filter(att => att.contentType?.startsWith('image/'))
@@ -418,6 +411,21 @@ export class DiscordBotService {
       // Get response from Agent with Discord-specific tools
       // Pass both text (with URLs) and image URLs for multimodal
       const response = await agentService.processMessage(fullMessage, 'discord', imageUrls)
+
+      // Check if rejected due to cross-platform lock
+      if (!response.success && response.busyWith) {
+        const platformNames: Record<string, string> = {
+          telegram: 'Telegram',
+          discord: 'Discord',
+          slack: 'Slack',
+          whatsapp: 'WhatsApp',
+          line: 'Line'
+        }
+        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
+        console.log(`[Discord] Agent is busy with ${response.busyWith}`)
+        await originalMessage.reply(`⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment and try again.`)
+        return
+      }
 
       if (response.success && response.message) {
         console.log('[Discord] Agent response:', response.message.substring(0, 100) + '...')
@@ -516,10 +524,12 @@ export class DiscordBotService {
 
   /**
    * Send a text message to a channel
+   * @param storeInHistory - Whether to store message in history (default: true)
    */
   async sendText(
     channelId: string,
-    text: string
+    text: string,
+    options?: { storeInHistory?: boolean }
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.client) {
       return { success: false, error: 'Bot not connected' }
@@ -530,9 +540,76 @@ export class DiscordBotService {
         return { success: false, error: 'Invalid channel' }
       }
       // Type assertion since we've verified 'send' exists
-      const msg = await (channel as { send: (text: string) => Promise<{ id: string }> }).send(text)
+      const msg = await (channel as { send: (text: string) => Promise<{ id: string; createdTimestamp: number }> }).send(text)
+
+      // Store message in history (default: true)
+      const shouldStore = options?.storeInHistory !== false
+      if (shouldStore) {
+        const storedMsg: StoredDiscordMessage = {
+          messageId: msg.id,
+          channelId,
+          fromId: this.client.user?.id || '',
+          fromUsername: this.client.user?.username || 'Bot',
+          text,
+          date: Math.floor(msg.createdTimestamp / 1000),
+          isFromBot: true
+        }
+        await discordStorage.storeMessage(storedMsg)
+
+        // Emit event for UI update
+        const appMessage = this.convertToAppMessage(storedMsg)
+        appEvents.emitDiscordNewMessage(appMessage)
+      }
+
       return { success: true, messageId: msg.id }
     } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a direct message (DM) to a user by their ID
+   * Used for proactive notifications to bound users
+   */
+  async sendDMToUser(
+    userId: string,
+    text: string,
+    options?: { storeInHistory?: boolean }
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const user = await this.client.users.fetch(userId)
+      if (!user) {
+        return { success: false, error: 'User not found' }
+      }
+
+      const dmChannel = await user.createDM()
+      const msg = await dmChannel.send(text)
+
+      // Store message in history (default: true)
+      const shouldStore = options?.storeInHistory !== false
+      if (shouldStore) {
+        const storedMsg: StoredDiscordMessage = {
+          messageId: msg.id,
+          channelId: dmChannel.id,
+          fromId: this.client.user?.id || '',
+          fromUsername: this.client.user?.username || 'Bot',
+          text,
+          date: Math.floor(msg.createdTimestamp / 1000),
+          isFromBot: true
+        }
+        await discordStorage.storeMessage(storedMsg)
+
+        // Emit event for UI update
+        const appMessage = this.convertToAppMessage(storedMsg)
+        appEvents.emitDiscordNewMessage(appMessage)
+      }
+
+      return { success: true, messageId: msg.id }
+    } catch (error) {
+      console.error('[Discord] Failed to send DM:', error)
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }

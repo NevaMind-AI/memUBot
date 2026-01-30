@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles } from 'lucide-react'
+import { Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles, Play } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SecuritySettings } from './SecuritySettings'
 import { McpSettings } from './McpSettings'
 import { SkillsSettings } from './SkillsSettings'
+import { ServicesSettings } from './ServicesSettings'
 import { Slider } from '../Slider'
 import { changeLanguage, languages } from '../../i18n'
 import appIcon from '../../assets/app-icon.png'
 import logoSvg from '../../assets/logo.svg'
 import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
 
-type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'mcp' | 'data' | 'about'
+type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'about'
 
 interface AppSettings {
   claudeApiKey: string
@@ -41,6 +42,7 @@ export function SettingsView(): JSX.Element {
     { id: 'security' as const, icon: Shield, labelKey: 'settings.tabs.security' },
     { id: 'model' as const, icon: Bot, labelKey: 'settings.tabs.model' },
     { id: 'skills' as const, icon: Sparkles, labelKey: 'settings.tabs.skills' },
+    { id: 'services' as const, icon: Play, labelKey: 'settings.tabs.services' },
     { id: 'mcp' as const, icon: Server, labelKey: 'settings.tabs.mcp' },
     { id: 'data' as const, icon: Database, labelKey: 'settings.tabs.data' },
     { id: 'about' as const, icon: Info, labelKey: 'settings.tabs.about' }
@@ -83,6 +85,7 @@ export function SettingsView(): JSX.Element {
           {activeTab === 'security' && <SecuritySettings />}
           {activeTab === 'model' && <ModelSettings />}
           {activeTab === 'skills' && <SkillsSettings />}
+          {activeTab === 'services' && <ServicesSettings />}
           {activeTab === 'mcp' && <McpSettings />}
           {activeTab === 'data' && <DataSettings />}
           {activeTab === 'about' && <AboutSection />}

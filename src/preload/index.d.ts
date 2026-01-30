@@ -306,6 +306,46 @@ interface SkillsApi {
   getGitHubToken: () => Promise<IpcResponse<string | undefined>>
 }
 
+// Service type
+type ServiceType = 'longRunning' | 'scheduled'
+type ServiceRuntime = 'node' | 'python'
+type ServiceStatus = 'stopped' | 'running' | 'error'
+
+// Service info type
+interface ServiceInfo {
+  id: string
+  name: string
+  description: string
+  type: ServiceType
+  runtime: ServiceRuntime
+  entryFile: string
+  schedule?: string
+  createdAt: string
+  status: ServiceStatus
+  pid?: number
+  error?: string
+  lastStarted?: string
+  lastStopped?: string
+  context: {
+    userRequest: string
+    expectation: string
+    notifyPlatform?: string
+  }
+}
+
+// Services API interface
+interface ServicesApi {
+  list: () => Promise<IpcResponse<ServiceInfo[]>>
+  get: (serviceId: string) => Promise<IpcResponse<ServiceInfo>>
+  start: (serviceId: string) => Promise<IpcResponse>
+  stop: (serviceId: string) => Promise<IpcResponse>
+  delete: (serviceId: string) => Promise<IpcResponse>
+  getDir: () => Promise<IpcResponse<string>>
+  openDir: () => Promise<IpcResponse>
+  onStatusChanged: (callback: (data: { serviceId: string; status: string }) => void) => () => void
+  onListChanged: (callback: () => void) => () => void
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -321,5 +361,6 @@ declare global {
     llm: LLMApi
     startup: StartupApi
     skills: SkillsApi
+    services: ServicesApi
   }
 }

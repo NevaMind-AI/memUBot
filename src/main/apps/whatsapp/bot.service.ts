@@ -147,14 +147,15 @@ export class WhatsAppBotService {
   private async processWithAgentAndReply(chatId: string, userMessage: string): Promise<void> {
     console.log('[WhatsApp] Sending to Agent:', userMessage.substring(0, 50) + '...')
 
-    if (agentService.isProcessing()) {
-      console.log('[WhatsApp] Agent is busy, ignoring message')
-      // TODO: Send busy message to WhatsApp
-      return
-    }
-
     try {
       const response = await agentService.processMessage(userMessage, 'whatsapp')
+
+      // Check if rejected due to cross-platform lock
+      if (!response.success && response.busyWith) {
+        console.log(`[WhatsApp] Agent is busy with ${response.busyWith}`)
+        // TODO: Send busy message to WhatsApp when client is implemented
+        return
+      }
 
       if (response.success && response.message) {
         console.log('[WhatsApp] Agent response:', response.message.substring(0, 100) + '...')

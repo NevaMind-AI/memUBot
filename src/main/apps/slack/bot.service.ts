@@ -361,15 +361,24 @@ export class SlackBotService {
   ): Promise<void> {
     console.log('[Slack] Sending to Agent:', userMessage.substring(0, 50) + '...')
 
-    if (agentService.isProcessing()) {
-      console.log('[Slack] Agent is busy, ignoring message')
-      // Reply with or without thread based on threadTs
-      await say(threadTs ? { text: '⏳ Please wait, I\'m still processing the previous message...', thread_ts: threadTs } : '⏳ Please wait, I\'m still processing the previous message...')
-      return
-    }
-
     try {
       const response = await agentService.processMessage(userMessage, 'slack')
+
+      // Check if rejected due to cross-platform lock
+      if (!response.success && response.busyWith) {
+        const platformNames: Record<string, string> = {
+          telegram: 'Telegram',
+          discord: 'Discord',
+          slack: 'Slack',
+          whatsapp: 'WhatsApp',
+          line: 'Line'
+        }
+        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
+        console.log(`[Slack] Agent is busy with ${response.busyWith}`)
+        const busyMsg = `⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment and try again.`
+        await say(threadTs ? { text: busyMsg, thread_ts: threadTs } : busyMsg)
+        return
+      }
 
       if (response.success && response.message) {
         console.log('[Slack] Agent response:', response.message.substring(0, 100) + '...')
@@ -531,6 +540,60 @@ export class SlackBotService {
       return { success: false, error: 'Failed to send message' }
     } catch (error) {
       console.error('[Slack] Error sending text:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a direct message (DM) to a user by their ID
+   * Used for proactive notifications to bound users
+   */
+  async sendDMToUser(
+    userId: string,
+    text: string
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.status.isConnected || !this.app) {
+      return { success: false, error: 'Bot not connected' }
+    }
+
+    try {
+      // Open a DM channel with the user
+      const openResult = await this.app.client.conversations.open({
+        users: userId
+      })
+
+      if (!openResult.ok || !openResult.channel?.id) {
+        return { success: false, error: 'Failed to open DM channel' }
+      }
+
+      const dmChannelId = openResult.channel.id
+
+      // Send message to the DM channel
+      const result = await this.app.client.chat.postMessage({
+        channel: dmChannelId,
+        text
+      })
+
+      if (result.ok && result.ts) {
+        // Store bot's message
+        const botMsg: StoredSlackMessage = {
+          messageId: result.ts,
+          channelId: dmChannelId,
+          fromId: 'bot',
+          fromUsername: 'Bot',
+          text,
+          date: Math.floor(Date.now() / 1000),
+          isFromBot: true
+        }
+        await slackStorage.storeMessage(botMsg)
+        appEvents.emitSlackNewMessage(this.convertToAppMessage(botMsg))
+
+        return { success: true, messageId: result.ts }
+      }
+
+      return { success: false, error: 'Failed to send DM' }
+    } catch (error) {
+      console.error('[Slack] Error sending DM:', error)
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
