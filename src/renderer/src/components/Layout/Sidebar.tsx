@@ -36,7 +36,9 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
     <aside className="w-16 flex flex-col bg-[var(--glass-bg)] backdrop-blur-xl border-r border-[var(--glass-border)]">
       {/* App Icon - Same height as header */}
       <div className="h-14 flex translate-y-0.5 items-center justify-center">
-        <img src={appIcon} alt={t('app.name')} className="w-10 h-10 rounded-lg" />
+        <div className="w-11 h-11 rounded-xl bg-[var(--icon-bg)] flex items-center justify-center">
+          <img src={appIcon} alt={t('app.name')} className="w-9 h-9 rounded-lg" />
+        </div>
       </div>
 
       {/* Main Navigation */}
@@ -47,8 +49,8 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           title={t('nav.telegram')}
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             activeNav === 'telegram'
-              ? 'bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25'
-              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#2596D1] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+              ? 'bg-gradient-to-tl from-[#2AABEE] to-[#0088CC] text-white shadow-lg shadow-[#0088CC]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#0088CC] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
           }`}
         >
           <TelegramIcon className="w-[18px] h-[18px]" />
@@ -115,7 +117,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           title={t('nav.settings')}
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             isSettingsActive
-              ? 'bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25'
+              ? 'bg-gradient-to-tl from-[#7DCBF7] to-[#2596D1] text-white shadow-lg shadow-[#2596D1]/25'
               : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
           }`}
         >

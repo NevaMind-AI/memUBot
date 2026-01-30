@@ -12,6 +12,74 @@ import type { BotStatus, AppMessage } from '../types'
 import type { StoredTelegramMessage, TelegramMessage } from './types'
 
 /**
+ * Convert Markdown to Telegram HTML format
+ * HTML mode is more stable than Markdown mode - it won't misparse @username, #hashtag, etc.
+ * Only need to escape: < > &
+ */
+function markdownToTelegramHtml(text: string): string {
+  // First, escape HTML special characters (but preserve what we'll convert)
+  let result = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // Handle code blocks first (```...```) - preserve content as-is
+  result = result.replace(/```(\w*)\n?([\s\S]*?)```/g, (_match, _lang, code) => {
+    return `<pre>${code.trim()}</pre>`
+  })
+
+  // Handle inline code (`...`)
+  result = result.replace(/`([^`]+)`/g, '<code>$1</code>')
+
+  // Handle bold+italic (***...*** or ___...___) - must be before bold and italic
+  result = result.replace(/\*\*\*([^*]+)\*\*\*/g, '<b><i>$1</i></b>')
+  result = result.replace(/___([^_]+)___/g, '<b><i>$1</i></b>')
+
+  // Handle bold (**...** or __...__)
+  result = result.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+  result = result.replace(/__([^_]+)__/g, '<b>$1</b>')
+
+  // Handle italic (*...* or _..._) - be careful not to match inside words
+  // Only match if surrounded by spaces/punctuation or at start/end
+  result = result.replace(/(?<![a-zA-Z0-9])\*([^*]+)\*(?![a-zA-Z0-9])/g, '<i>$1</i>')
+  result = result.replace(/(?<![a-zA-Z0-9])_([^_]+)_(?![a-zA-Z0-9])/g, '<i>$1</i>')
+
+  // Handle strikethrough (~~...~~)
+  result = result.replace(/~~([^~]+)~~/g, '<s>$1</s>')
+
+  // Handle links [text](url)
+  result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+
+  // Handle horizontal rules (---, ***, ___) - convert to a visual separator
+  result = result.replace(/^([-*_]){3,}\s*$/gm, '─────────────────')
+
+  // Handle headings (# ## ### etc.) - convert to bold text
+  // Note: Telegram doesn't support heading sizes, so we just make them bold
+  result = result.replace(/^#{1,6}\s+(.+)$/gm, '<b>$1</b>')
+
+  // Handle blockquotes (> text) - note: > is already escaped to &gt;
+  result = result.replace(/^&gt;\s*(.*)$/gm, '┃ <i>$1</i>')
+
+  // Handle task lists - [x] becomes ✅, [ ] becomes ⬜
+  result = result.replace(/^(\s*[-*])\s*\[x\]\s*/gim, '$1 ✅ ')
+  result = result.replace(/^(\s*[-*])\s*\[\s*\]\s*/gm, '$1 ⬜ ')
+
+  // Handle Markdown tables - convert to a readable text format
+  // Telegram doesn't support tables, so we format them nicely with monospace
+  result = result.replace(/^\|(.+)\|$/gm, (_match, content) => {
+    // Check if this is a separator row (|---|---|)
+    if (/^[\s\-:|]+$/.test(content)) {
+      return '─────────────────'
+    }
+    // Format table row: | col1 | col2 | -> col1 │ col2
+    const cells = content.split('|').map((cell: string) => cell.trim())
+    return cells.join(' │ ')
+  })
+
+  return result
+}
+
+/**
  * TelegramBotService manages the Telegram bot connection and message handling
  * Single-user mode: all messages stored together without session separation
  */
@@ -275,12 +343,12 @@ export class TelegramBotService {
         console.log(`[Telegram] User ${username} (${userId}) successfully bound (no avatar)`)
       }
       // Show @username if available, otherwise show display name
-      const accountDisplay = telegramUsername ? `@${telegramUsername}` : `**${displayName}**`
+      // Use code formatting for username to avoid Telegram parsing @ as mention entity
+      const accountDisplay = telegramUsername ? `@${telegramUsername}` : displayName
       await this.bot?.sendMessage(
         chatId,
         `✅ Success! Your account ${accountDisplay} is now bound to this device.\n\n` +
-          'You can now send messages to interact with the AI assistant.',
-        { parse_mode: 'Markdown' }
+          'You can now send messages to interact with the AI assistant.'
       )
     } else {
       console.log(`[Telegram] Bind failed for ${username}: ${result.error}`)
@@ -446,8 +514,11 @@ export class TelegramBotService {
       if (response.success && response.message) {
         console.log('[Telegram] Agent response:', response.message.substring(0, 100) + '...')
 
-        // Send reply to Telegram
-        const sentMsg = await this.bot!.sendMessage(chatId, response.message)
+        // Convert Markdown to Telegram HTML for proper formatting
+        const htmlMessage = markdownToTelegramHtml(response.message)
+
+        // Send reply to Telegram with HTML formatting
+        const sentMsg = await this.bot!.sendMessage(chatId, htmlMessage, { parse_mode: 'HTML' })
         console.log('[Telegram] Reply sent, message ID:', sentMsg.message_id)
 
         // Store bot's reply
@@ -536,17 +607,41 @@ export class TelegramBotService {
 
   /**
    * Send a text message
+   * By default, converts Markdown to HTML for stable formatting
    */
   async sendText(
     chatId: number,
     text: string,
-    options?: { parse_mode?: 'Markdown' | 'HTML'; reply_to_message_id?: number }
+    options?: { parse_mode?: 'Markdown' | 'HTML' | 'none'; reply_to_message_id?: number }
   ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
-      const msg = await this.bot.sendMessage(chatId, text, options)
+      // By default, convert Markdown to HTML for stable formatting
+      // Use parse_mode: 'none' to send plain text without any formatting
+      let finalText = text
+      let parseMode: 'Markdown' | 'HTML' | undefined = undefined
+
+      if (options?.parse_mode === 'none') {
+        // Plain text, no conversion
+        finalText = text
+        parseMode = undefined
+      } else if (options?.parse_mode === 'Markdown') {
+        // Use legacy Markdown (not recommended, kept for compatibility)
+        finalText = text
+        parseMode = 'Markdown'
+      } else {
+        // Default: convert Markdown to HTML (most stable)
+        finalText = markdownToTelegramHtml(text)
+        parseMode = 'HTML'
+      }
+
+      const sendOptions: TelegramBot.SendMessageOptions = {}
+      if (parseMode) sendOptions.parse_mode = parseMode
+      if (options?.reply_to_message_id) sendOptions.reply_to_message_id = options.reply_to_message_id
+
+      const msg = await this.bot.sendMessage(chatId, finalText, sendOptions)
       return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
@@ -555,19 +650,23 @@ export class TelegramBotService {
 
   /**
    * Send a photo
+   * Caption is automatically converted from Markdown to HTML
    */
   async sendPhoto(
     chatId: number,
     photo: string | Buffer,
-    options?: { caption?: string; parse_mode?: 'Markdown' | 'HTML'; filename?: string }
+    options?: { caption?: string; filename?: string }
   ): Promise<{ success: boolean; messageId?: number; message?: TelegramBot.Message; error?: string }> {
     if (!this.bot) {
       return { success: false, error: 'Bot not connected' }
     }
     try {
       const sendOptions: TelegramBot.SendPhotoOptions = {}
-      if (options?.caption) sendOptions.caption = options.caption
-      if (options?.parse_mode) sendOptions.parse_mode = options.parse_mode
+      // Auto-convert caption Markdown to HTML
+      if (options?.caption) {
+        sendOptions.caption = markdownToTelegramHtml(options.caption)
+        sendOptions.parse_mode = 'HTML'
+      }
       const fileOptions: TelegramBot.FileOptions = {
         contentType: 'image/png' // Default to PNG, covers most cases
       }
@@ -588,6 +687,7 @@ export class TelegramBotService {
 
   /**
    * Send a document/file
+   * Caption is automatically converted from Markdown to HTML
    */
   async sendDocument(
     chatId: number,
@@ -599,7 +699,10 @@ export class TelegramBotService {
     }
     try {
       const sendOptions: TelegramBot.SendDocumentOptions = {}
-      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.caption) {
+        sendOptions.caption = markdownToTelegramHtml(options.caption)
+        sendOptions.parse_mode = 'HTML'
+      }
       const fileOptions: TelegramBot.FileOptions = {
         contentType: 'application/octet-stream'
       }
@@ -613,6 +716,7 @@ export class TelegramBotService {
 
   /**
    * Send a video
+   * Caption is automatically converted from Markdown to HTML
    */
   async sendVideo(
     chatId: number,
@@ -624,7 +728,10 @@ export class TelegramBotService {
     }
     try {
       const sendOptions: TelegramBot.SendVideoOptions = {}
-      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.caption) {
+        sendOptions.caption = markdownToTelegramHtml(options.caption)
+        sendOptions.parse_mode = 'HTML'
+      }
       if (options?.duration) sendOptions.duration = options.duration
       if (options?.width) sendOptions.width = options.width
       if (options?.height) sendOptions.height = options.height
@@ -641,6 +748,7 @@ export class TelegramBotService {
 
   /**
    * Send an audio file
+   * Caption is automatically converted from Markdown to HTML
    */
   async sendAudio(
     chatId: number,
@@ -652,7 +760,10 @@ export class TelegramBotService {
     }
     try {
       const sendOptions: TelegramBot.SendAudioOptions = {}
-      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.caption) {
+        sendOptions.caption = markdownToTelegramHtml(options.caption)
+        sendOptions.parse_mode = 'HTML'
+      }
       if (options?.duration) sendOptions.duration = options.duration
       if (options?.performer) sendOptions.performer = options.performer
       if (options?.title) sendOptions.title = options.title
@@ -676,6 +787,7 @@ export class TelegramBotService {
 
   /**
    * Send a voice message
+   * Caption is automatically converted from Markdown to HTML
    */
   async sendVoice(
     chatId: number,
@@ -687,7 +799,10 @@ export class TelegramBotService {
     }
     try {
       const sendOptions: TelegramBot.SendVoiceOptions = {}
-      if (options?.caption) sendOptions.caption = options.caption
+      if (options?.caption) {
+        sendOptions.caption = markdownToTelegramHtml(options.caption)
+        sendOptions.parse_mode = 'HTML'
+      }
       if (options?.duration) sendOptions.duration = options.duration
       const fileOptions: TelegramBot.FileOptions = {
         contentType: 'audio/ogg'

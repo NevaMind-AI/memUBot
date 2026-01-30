@@ -16,6 +16,9 @@
   --bg-card-solid: #ffffff;
   --bg-input: rgba(248, 250, 252, 0.8);
   
+  /* Icon Background */
+  --icon-bg: rgba(37, 150, 209, 0.1);
+  
   /* Glass */
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: rgba(255, 255, 255, 0.8);
@@ -55,6 +58,9 @@
   --bg-card: rgba(30, 41, 59, 0.7);
   --bg-card-solid: #1e293b;
   --bg-input: rgba(15, 23, 42, 0.8);
+  
+  /* Icon Background */
+  --icon-bg: rgba(125, 203, 247, 0.15);
   
   /* Glass */
   --glass-bg: rgba(30, 41, 59, 0.7);

@@ -8,18 +8,13 @@ export const telegramTools: Anthropic.Tool[] = [
   {
     name: 'telegram_send_text',
     description:
-      'Send a text message to the current Telegram chat. Supports Markdown formatting.',
+      'Send a text message to the current Telegram chat. Use standard Markdown formatting (bold, italic, code, links, etc.) - it will be automatically converted for proper display.',
     input_schema: {
       type: 'object',
       properties: {
         text: {
           type: 'string',
-          description: 'The text message to send'
-        },
-        parse_mode: {
-          type: 'string',
-          enum: ['Markdown', 'HTML'],
-          description: 'Optional: Text formatting mode (Markdown or HTML)'
+          description: 'The text message to send. Supports Markdown: **bold**, *italic*, `code`, ```code blocks```, [links](url), etc.'
         }
       },
       required: ['text']
@@ -38,12 +33,7 @@ export const telegramTools: Anthropic.Tool[] = [
         },
         caption: {
           type: 'string',
-          description: 'Optional: Caption for the photo'
-        },
-        parse_mode: {
-          type: 'string',
-          enum: ['Markdown', 'HTML'],
-          description: 'Optional: Caption formatting mode'
+          description: 'Optional: Caption for the photo. Supports Markdown formatting.'
         }
       },
       required: ['photo']

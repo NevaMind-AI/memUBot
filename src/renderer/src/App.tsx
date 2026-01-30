@@ -171,11 +171,13 @@ function App(): JSX.Element {
       <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[var(--bg-base)] via-[var(--bg-secondary)] to-[var(--bg-tertiary)]">
         {/* App Icon */}
         <div className="mb-8">
-          <img
-            src={appIcon}
-            alt="memU"
-            className="w-24 h-24 rounded-2xl shadow-lg"
-          />
+          <div className="w-28 h-28 rounded-3xl bg-[var(--icon-bg)] flex items-center justify-center shadow-lg">
+            <img
+              src={appIcon}
+              alt="memU"
+              className="w-24 h-24 rounded-2xl"
+            />
+          </div>
         </div>
 
         {/* App Name */}

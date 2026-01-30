@@ -6,6 +6,8 @@ import { McpSettings } from './McpSettings'
 import { SkillsSettings } from './SkillsSettings'
 import { Slider } from '../Slider'
 import { changeLanguage, languages } from '../../i18n'
+import appIcon from '../../assets/app-icon.png'
+import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
 
 type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'mcp' | 'data' | 'about'
 
@@ -225,8 +227,8 @@ function GeneralSettings(): JSX.Element {
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#0088cc]/30 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#0088cc] to-[#229ED9] flex items-center justify-center">
-                <span className="text-white text-[10px] font-bold">T</span>
+              <div className="w-5 h-5 rounded-md bg-gradient-to-tl from-[#2AABEE] to-[#0088CC] flex items-center justify-center">
+                <TelegramIcon className="w-3 h-3 text-white" />
               </div>
               <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
                 Telegram
@@ -248,7 +250,7 @@ function GeneralSettings(): JSX.Element {
           <div className="mb-3">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#5865F2] to-[#7289DA] flex items-center justify-center">
-                <span className="text-white text-[10px] font-bold">D</span>
+                <DiscordIcon className="w-3 h-3 text-white" />
               </div>
               <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
                 Discord
@@ -298,7 +300,7 @@ function GeneralSettings(): JSX.Element {
           <div className="mb-3">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#4A154B] to-[#611F69] flex items-center justify-center">
-                <span className="text-white text-[10px] font-bold">S</span>
+                <SlackIcon className="w-3 h-3 text-white" />
               </div>
               <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
                 Slack
@@ -938,8 +940,8 @@ function AboutSection(): JSX.Element {
       )}
 
       <div className="p-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm text-center">
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#7DCBF7] to-[#2596D1] flex items-center justify-center shadow-lg shadow-[#2596D1]/25">
-          <span className="text-white text-2xl font-bold">M</span>
+        <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-[var(--icon-bg)] flex items-center justify-center shadow-lg">
+          <img src={appIcon} alt="memU" className="w-16 h-16 rounded-xl" />
         </div>
         <h4 className="text-lg font-semibold text-[var(--text-primary)]">memU bot</h4>
         <p 

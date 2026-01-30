@@ -171,7 +171,6 @@ function resolveFile(filePath: string): ResolvedFile {
 
 interface SendTextInput {
   text: string
-  parse_mode?: 'Markdown' | 'HTML'
 }
 
 export async function executeTelegramSendText(input: SendTextInput): Promise<ToolResult> {
@@ -180,9 +179,8 @@ export async function executeTelegramSendText(input: SendTextInput): Promise<Too
     return { success: false, error: 'No active Telegram chat. User must send a message first.' }
   }
 
-  const result = await telegramBotService.sendText(chatId, input.text, {
-    parse_mode: input.parse_mode
-  })
+  // Use default HTML conversion for proper Markdown rendering
+  const result = await telegramBotService.sendText(chatId, input.text)
 
   if (result.success && result.message) {
     await storeSentMessage(result.message, input.text)
@@ -194,7 +192,6 @@ export async function executeTelegramSendText(input: SendTextInput): Promise<Too
 interface SendPhotoInput {
   photo: string
   caption?: string
-  parse_mode?: 'Markdown' | 'HTML'
 }
 
 export async function executeTelegramSendPhoto(input: SendPhotoInput): Promise<ToolResult> {
@@ -207,7 +204,6 @@ export async function executeTelegramSendPhoto(input: SendPhotoInput): Promise<T
     const resolved = resolveFile(input.photo)
     const result = await telegramBotService.sendPhoto(chatId, resolved.content, {
       caption: input.caption,
-      parse_mode: input.parse_mode,
       filename: resolved.filename
     })
 
