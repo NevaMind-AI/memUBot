@@ -351,7 +351,7 @@ export class AgentService {
   private isAborted = false
   private currentPlatform: MessagePlatform = 'none'
   private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
-  private currentImageUrls: string[] = []
+  private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from
 
   /**
    * Get current LLM status
@@ -375,6 +375,13 @@ export class AgentService {
    */
   getCurrentPlatform(): MessagePlatform {
     return this.currentPlatform
+  }
+
+  /**
+   * Get the platform from which the user most recently sent a message
+   */
+  getRecentReplyPlatform(): MessagePlatform {
+    return this.recentReplyPlatform
   }
 
   /**
@@ -509,8 +516,11 @@ export class AgentService {
     this.abortController = new AbortController()
     this.currentPlatform = platform
     
-    // Store image URLs for this message
-    this.currentImageUrls = imageUrls
+    // Track the platform the user most recently sent a message from
+    if (platform !== 'none') {
+      this.recentReplyPlatform = platform
+    }
+    
 
     try {
       console.log(`[Agent] Processing message from ${platform}:`, userMessage.substring(0, 50) + '...')
