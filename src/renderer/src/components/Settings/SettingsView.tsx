@@ -7,6 +7,7 @@ import { SkillsSettings } from './SkillsSettings'
 import { Slider } from '../Slider'
 import { changeLanguage, languages } from '../../i18n'
 import appIcon from '../../assets/app-icon.png'
+import logoSvg from '../../assets/logo.svg'
 import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
 
 type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'mcp' | 'data' | 'about'
@@ -235,11 +236,11 @@ function GeneralSettings(): JSX.Element {
         </div>
 
         {/* Memu Settings */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#8B5CF6]/30 shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#2596D1]/30 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#8B5CF6] to-[#A78BFA] flex items-center justify-center">
-                <span className="text-white text-[10px] font-bold">M</span>
+              <div className="w-5 h-5 rounded-md flex items-center justify-center p-0.5">
+                <img src={logoSvg} alt="memU" className="w-full h-full" />
               </div>
               <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
                 {t('settings.memu.title')}
@@ -256,7 +257,7 @@ function GeneralSettings(): JSX.Element {
                 placeholder="mu_..."
                 value={settings.memuApiKey || ''}
                 onChange={(e) => setSettings({ ...settings, memuApiKey: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#8B5CF6]/50 focus:ring-2 focus:ring-[#8B5CF6]/10 transition-all"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all"
               />
             </div>
             {/* User ID */}
@@ -267,7 +268,7 @@ function GeneralSettings(): JSX.Element {
                 placeholder="user_..."
                 value={settings.memuUserId || ''}
                 onChange={(e) => setSettings({ ...settings, memuUserId: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#8B5CF6]/50 focus:ring-2 focus:ring-[#8B5CF6]/10 transition-all"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all"
               />
             </div>
             {/* Agent ID */}
@@ -278,7 +279,7 @@ function GeneralSettings(): JSX.Element {
                 placeholder="agent_..."
                 value={settings.memuAgentId || ''}
                 onChange={(e) => setSettings({ ...settings, memuAgentId: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#8B5CF6]/50 focus:ring-2 focus:ring-[#8B5CF6]/10 transition-all"
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#2596D1]/50 focus:ring-2 focus:ring-[#2596D1]/10 transition-all"
               />
             </div>
           </div>
