@@ -16,17 +16,27 @@ import type { AgentResponse } from '../types'
 /**
  * Default polling interval in milliseconds
  */
-const DEFAULT_INTERVAL_MS = 5000
+const DEFAULT_INTERVAL_MS = 10000
 
 /**
  * Polling interval for checking memorization status
  */
-const MEMORIZE_STATUS_POLL_INTERVAL_MS = 5000
+const MEMORIZE_STATUS_POLL_INTERVAL_MS = 10000
 
 /**
  * Maximum time to wait for memorization to complete (5 minutes)
  */
 const MEMORIZE_MAX_WAIT_MS = 5 * 60 * 1000
+
+/**
+ * Polling interval for checking user input
+ */
+const USER_INPUT_POLL_INTERVAL_MS = 1000
+
+/**
+ * Maximum time to wait for user input (10 minutes)
+ */
+const USER_INPUT_MAX_WAIT_MS = 10 * 60 * 1000
 
 /**
  * Memorization task status
@@ -177,13 +187,17 @@ class ProactiveService {
     apiKey: string
     userId: string
     agentId: string
+    proactiveUserId: string
+    proactiveAgentId: string
   }> {
     const settings = await loadSettings()
     return {
       baseUrl: settings.memuBaseUrl,
       apiKey: settings.memuApiKey,
       userId: settings.memuUserId,
-      agentId: settings.memuAgentId
+      agentId: settings.memuAgentId,
+      proactiveUserId: settings.memuProactiveUserId,
+      proactiveAgentId: settings.memuProactiveAgentId
     }
   }
 
@@ -217,6 +231,7 @@ class ProactiveService {
 
   /**
    * Execute memu_memory tool
+   * This tool use main user/agent ids to retrieve memory from the main service.
    */
   private async executeMemuMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
@@ -252,8 +267,6 @@ class ProactiveService {
     this.userInput = null
     
     // Poll interval for checking user input
-    const pollIntervalMs = 500
-    const maxWaitMs = 10 * 60 * 1000 // 10 minutes max wait
     const startTime = Date.now()
     
     try {
@@ -264,7 +277,7 @@ class ProactiveService {
           return { success: false, error: 'Timeout waiting for user input' }
         }
         
-        await new Promise(resolve => setTimeout(resolve, pollIntervalMs))
+        await new Promise(resolve => setTimeout(resolve, USER_INPUT_POLL_INTERVAL_MS))
       }
       
       // TypeScript needs help knowing userInput is definitely a string here
@@ -415,6 +428,7 @@ class ProactiveService {
 
   /**
    * Execute memu_todos tool to get todos
+   * This tool use proactive user/agent ids to retrieve todos from the proactive service.
    */
   private async executeMemuTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
@@ -426,8 +440,8 @@ class ProactiveService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: memuConfig.userId,
-          agent_id: memuConfig.agentId
+          user_id: memuConfig.proactiveUserId,
+          agent_id: memuConfig.proactiveAgentId
         })
       })
       const result = await response.json() as { categories: Array<{ name: string; summary: string }> }
@@ -489,8 +503,8 @@ class ProactiveService {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: memuConfig.userId,
-          agent_id: memuConfig.agentId,
+          user_id: memuConfig.proactiveUserId,
+          agent_id: memuConfig.proactiveAgentId,
           conversation: formattedMessages,
           override_config: MEMORIZE_OVERRIDE_CONFIG
         })
@@ -767,7 +781,7 @@ class ProactiveService {
    * @returns true if sent successfully, false otherwise
    */
   private async sendToCurrentPlatform(message: string): Promise<boolean> {
-    const platform = agentService.getCurrentPlatform()
+    const platform = agentService.getRecentReplyPlatform()
     
     if (platform === 'none') {
       console.log('[Proactive] No active platform, skipping message send')

@@ -20,6 +20,8 @@ export interface AppSettings {
   memuApiKey: string
   memuUserId: string
   memuAgentId: string
+  memuProactiveUserId: string
+  memuProactiveAgentId: string
 
   // Telegram settings
   telegramBotToken: string
@@ -51,8 +53,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 
   memuBaseUrl: 'https://api.memu.so',
   memuApiKey: '',
-  memuUserId: 'bot_proactive_user',
-  memuAgentId: 'bot_proactive_agent',
+  memuUserId: 'bot_main_user',
+  memuAgentId: 'bot_main_agent',
+  memuProactiveUserId: 'bot_proactive_user',
+  memuProactiveAgentId: 'bot_proactive_agent',
 
   telegramBotToken: '',
   discordBotToken: '',
