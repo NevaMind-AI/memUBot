@@ -6,6 +6,7 @@ import { setupIpcHandlers } from './ipc/handlers'
 import { mcpService } from './services/mcp.service'
 import { autoConnectService } from './services/autoconnect.service'
 import { loggerService } from './services/logger.service'
+import { proactiveService } from './services/proactive.service'
 import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
 import { requestAllPermissions } from './utils/permissions'
@@ -213,7 +214,25 @@ async function initializeServicesAsync(): Promise<void> {
     console.error('[App] Auto-connect failed:', error)
   }
 
-  // Stage 4: Ready
+  // Stage 4: Start proactive service
+  sendStartupStatus({
+    stage: 'ready',
+    message: 'Starting proactive service...',
+    progress: 90
+  })
+
+  try {
+    const started = await proactiveService.start(5000) // 5 second interval
+    if (started) {
+      console.log('[App] Proactive service started')
+    } else {
+      console.log('[App] Proactive service not started (memuApiKey not configured)')
+    }
+  } catch (error) {
+    console.error('[App] Failed to start proactive service:', error)
+  }
+
+  // Stage 5: Ready
   sendStartupStatus({
     stage: 'ready',
     message: 'Ready',
@@ -233,6 +252,9 @@ app.on('window-all-closed', () => {
 
 // Cleanup on quit
 app.on('will-quit', async () => {
+  // Stop proactive service
+  proactiveService.stop()
+  
   // Shutdown MCP servers
   await mcpService.shutdown()
 })
