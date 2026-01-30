@@ -129,6 +129,13 @@
         "channelSecret": "Channel Secret"
       }
     },
+    "memu": {
+      "title": "MemU Memory Service",
+      "hint": "Get API Key from MemU platform",
+      "apiKey": "API Key",
+      "userId": "User ID",
+      "agentId": "Agent ID"
+    },
     "security": {
       "title": "Security",
       "description": "Manage device binding and access control",

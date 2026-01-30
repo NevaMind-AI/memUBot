@@ -16,6 +16,11 @@ export interface AppSettings {
   temperature: number
   systemPrompt: string
 
+  memuBaseUrl: string
+  memuApiKey: string
+  memuUserId: string
+  memuAgentId: string
+
   // Telegram settings
   telegramBotToken: string
 
@@ -39,10 +44,15 @@ export interface AppSettings {
 
 const DEFAULT_SETTINGS: AppSettings = {
   claudeApiKey: '',
-  claudeModel: 'claude-sonnet-4-5',
+  claudeModel: 'claude-opus-4-5',
   maxTokens: 8192,
   temperature: 0.7,
   systemPrompt: '',
+
+  memuBaseUrl: 'https://api.memu.so',
+  memuApiKey: '',
+  memuUserId: 'bot_proactive_user',
+  memuAgentId: 'bot_proactive_agent',
 
   telegramBotToken: '',
   discordBotToken: '',

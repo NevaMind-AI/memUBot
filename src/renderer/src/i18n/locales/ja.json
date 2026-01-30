@@ -129,6 +129,13 @@
         "channelSecret": "Channel Secret"
       }
     },
+    "memu": {
+      "title": "MemU メモリサービス",
+      "hint": "MemU プラットフォームから API Key を取得",
+      "apiKey": "API Key",
+      "userId": "User ID",
+      "agentId": "Agent ID"
+    },
     "security": {
       "title": "セキュリティ",
       "description": "デバイスバインディングとアクセス制御を管理",

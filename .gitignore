@@ -37,3 +37,5 @@ config.local.json
 build/*.icns
 build/*.ico
 nanobanana-output/
+
+python_source/

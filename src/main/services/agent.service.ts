@@ -345,6 +345,7 @@ When creating or saving files (images, documents, code, etc.), use the following
  */
 export class AgentService {
   private conversationHistory: Anthropic.MessageParam[] = []
+  private unmemorizedMessages: Anthropic.MessageParam[] = []
   private currentStatus: LLMStatusInfo = { status: 'idle' }
   private abortController: AbortController | null = null
   private isAborted = false
@@ -357,6 +358,23 @@ export class AgentService {
    */
   getStatus(): LLMStatusInfo {
     return this.currentStatus
+  }
+
+  /**
+   * Get unmemorized messages and clear the array
+   * Returns messages that have been added to conversation history but not yet memorized
+   */
+  getUnmemorizedMessages(): Anthropic.MessageParam[] {
+    const messages = [...this.unmemorizedMessages]
+    this.unmemorizedMessages = []
+    return messages
+  }
+
+  /**
+   * Get current platform
+   */
+  getCurrentPlatform(): MessagePlatform {
+    return this.currentPlatform
   }
 
   /**
@@ -399,6 +417,7 @@ export class AgentService {
     if (this.contextLoadedForPlatform !== null && this.contextLoadedForPlatform !== platform) {
       console.log(`[Agent] Platform switched from ${this.contextLoadedForPlatform} to ${platform}, clearing context...`)
       this.conversationHistory = []
+      this.unmemorizedMessages = []
       this.contextLoadedForPlatform = null
     }
 
@@ -507,7 +526,9 @@ export class AgentService {
         lastMessage.content === userMessage
 
       if (isAlreadyInHistory) {
-        console.log(`[Agent] Message already in history from storage, skipping duplicate add`)
+        console.log(`[Agent] Message already in history from storage, skipping duplicate add to conversationHistory`)
+        // Still mark for memorization since it's a new incoming message
+        this.unmemorizedMessages.push(lastMessage)
       } else {
         // Build message content with images if present
         if (imageUrls.length > 0) {
@@ -533,17 +554,34 @@ export class AgentService {
             })
           }
           
-          this.conversationHistory.push({
+          const multimodalMessage: Anthropic.MessageParam = {
             role: 'user',
             content: contentParts
-          })
+          }
+          this.conversationHistory.push(multimodalMessage)
+          this.unmemorizedMessages.push(multimodalMessage)
           console.log(`[Agent] Added multimodal message with ${imageUrls.length} images`)
         } else {
           // Text-only message
-          this.conversationHistory.push({
+          const textMessage: Anthropic.MessageParam = {
             role: 'user',
             content: userMessage
-          })
+          }
+          this.conversationHistory.push(textMessage)
+          this.unmemorizedMessages.push(textMessage)
+        }
+      }
+
+      // Check if proactive service is waiting for user input
+      // Use dynamic import to avoid circular dependency
+      const { proactiveService } = await import('./proactive.service')
+      if (proactiveService.isWaitingForUserInput()) {
+        console.log('[Agent] Proactive service is waiting for user input, forwarding message')
+        proactiveService.setUserInput(userMessage)
+        this.setStatus('idle')
+        return {
+          success: true,
+          message: '[Message forwarded to proactive service]'
         }
       }
 
@@ -638,10 +676,12 @@ export class AgentService {
         const message = textContent && textContent.type === 'text' ? textContent.text : ''
 
         // Add assistant response to history
-        this.conversationHistory.push({
+        const assistantMessage: Anthropic.MessageParam = {
           role: 'assistant',
           content: response.content
-        })
+        }
+        this.conversationHistory.push(assistantMessage)
+        this.unmemorizedMessages.push(assistantMessage)
 
         console.log('[Agent] Final response:', message.substring(0, 100) + '...')
 
@@ -668,10 +708,12 @@ export class AgentService {
     }
 
     // Add assistant's response (with tool use) to history
-    this.conversationHistory.push({
+    const assistantToolUseMessage: Anthropic.MessageParam = {
       role: 'assistant',
       content: response.content
-    })
+    }
+    this.conversationHistory.push(assistantToolUseMessage)
+    this.unmemorizedMessages.push(assistantToolUseMessage)
 
     // Find all tool use blocks
     const toolUseBlocks = response.content.filter(
@@ -734,10 +776,12 @@ export class AgentService {
     }
 
     // Add tool results to history
-    this.conversationHistory.push({
+    const toolResultsMessage: Anthropic.MessageParam = {
       role: 'user',
       content: toolResults
-    })
+    }
+    this.conversationHistory.push(toolResultsMessage)
+    this.unmemorizedMessages.push(toolResultsMessage)
   }
 
   /**
@@ -852,6 +896,7 @@ export class AgentService {
    */
   clearHistory(): void {
     this.conversationHistory = []
+    this.unmemorizedMessages = []
     this.contextLoadedForPlatform = null
   }
 }
