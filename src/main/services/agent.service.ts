@@ -526,7 +526,9 @@ export class AgentService {
         lastMessage.content === userMessage
 
       if (isAlreadyInHistory) {
-        console.log(`[Agent] Message already in history from storage, skipping duplicate add`)
+        console.log(`[Agent] Message already in history from storage, skipping duplicate add to conversationHistory`)
+        // Still mark for memorization since it's a new incoming message
+        this.unmemorizedMessages.push(lastMessage)
       } else {
         // Build message content with images if present
         if (imageUrls.length > 0) {

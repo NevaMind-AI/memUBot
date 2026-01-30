@@ -15,6 +15,10 @@ interface AppSettings {
   maxTokens: number
   temperature: number
   systemPrompt: string
+  memuBaseUrl: string
+  memuApiKey: string
+  memuUserId: string
+  memuAgentId: string
   telegramBotToken: string
   discordBotToken: string
   whatsappEnabled: boolean
@@ -153,6 +157,9 @@ function GeneralSettings(): JSX.Element {
 
   const hasChanges =
     settings.claudeApiKey !== originalSettings.claudeApiKey ||
+    settings.memuApiKey !== originalSettings.memuApiKey ||
+    settings.memuUserId !== originalSettings.memuUserId ||
+    settings.memuAgentId !== originalSettings.memuAgentId ||
     settings.telegramBotToken !== originalSettings.telegramBotToken ||
     settings.discordBotToken !== originalSettings.discordBotToken ||
     settings.slackBotToken !== originalSettings.slackBotToken ||
@@ -168,6 +175,10 @@ function GeneralSettings(): JSX.Element {
     try {
       const result = await window.settings.save({
         claudeApiKey: settings.claudeApiKey,
+        memuBaseUrl: settings.memuBaseUrl,
+        memuApiKey: settings.memuApiKey,
+        memuUserId: settings.memuUserId,
+        memuAgentId: settings.memuAgentId,
         telegramBotToken: settings.telegramBotToken,
         discordBotToken: settings.discordBotToken,
         slackBotToken: settings.slackBotToken,

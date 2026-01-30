@@ -65,6 +65,10 @@ interface AppSettings {
   maxTokens: number
   temperature: number
   systemPrompt: string
+  memuBaseUrl: string
+  memuApiKey: string
+  memuUserId: string
+  memuAgentId: string
   telegramBotToken: string
   discordBotToken: string
   whatsappEnabled: boolean

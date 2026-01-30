@@ -44,7 +44,7 @@ export interface AppSettings {
 
 const DEFAULT_SETTINGS: AppSettings = {
   claudeApiKey: '',
-  claudeModel: 'claude-sonnet-4-5',
+  claudeModel: 'claude-opus-4-5',
   maxTokens: 8192,
   temperature: 0.7,
   systemPrompt: '',
