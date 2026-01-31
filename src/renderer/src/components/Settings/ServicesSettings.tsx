@@ -10,8 +10,48 @@ import {
   FolderOpen,
   Check,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  Infinity,
+  Clock
 } from 'lucide-react'
+
+// Simple Node.js logo component
+const NodeJsLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 256 289" className={className}>
+    <path
+      fill="#539E43"
+      d="M128 288.464c-3.975 0-7.685-1.06-11.13-2.915l-35.247-20.936c-5.3-2.915-2.65-3.975-1.06-4.505 7.155-2.385 8.48-2.915 15.9-7.156.796-.53 1.856-.265 2.65.265l27.032 16.166c1.06.53 2.385.53 3.18 0l105.74-61.217c1.06-.53 1.59-1.59 1.59-2.915V83.08c0-1.325-.53-2.385-1.59-2.915l-105.74-60.953c-1.06-.53-2.385-.53-3.18 0L20.705 80.166c-1.06.53-1.59 1.855-1.59 2.915v122.17c0 1.06.53 2.385 1.59 2.915l28.887 16.695c15.636 7.95 25.44-1.325 25.44-10.6V93.68c0-1.59 1.326-3.18 3.181-3.18h13.516c1.59 0 3.18 1.325 3.18 3.18v120.58c0 20.936-11.396 33.126-31.272 33.126-6.095 0-10.865 0-24.38-6.625l-27.827-15.9C4.24 220.356 0 212.67 0 204.456V82.286c0-8.215 4.24-15.9 11.13-19.876L116.87 1.193c6.625-3.71 15.635-3.71 22.26 0L244.87 62.41c6.89 3.975 11.13 11.66 11.13 19.876v122.17c0 8.214-4.24 15.9-11.13 19.875l-105.74 61.217c-3.18 1.856-6.89 2.916-11.13 2.916"
+    />
+    <path
+      fill="#539E43"
+      d="M159.903 204.19c-45.498 0-55.037-20.936-55.037-38.427 0-1.59 1.325-3.18 3.18-3.18h13.78c1.59 0 2.916 1.06 2.916 2.65 2.12 14.045 8.215 20.936 36.042 20.936 22.26 0 31.537-5.035 31.537-16.96 0-6.89-2.65-11.926-37.102-15.372-28.622-2.915-46.378-9.276-46.378-32.33 0-21.467 18.02-34.187 48.233-34.187 33.92 0 50.616 11.66 52.736 37.102 0 .795-.265 1.59-.795 2.385-.53.53-1.325 1.06-2.12 1.06h-13.78c-1.326 0-2.65-1.06-2.916-2.385-3.18-14.575-11.395-19.345-33.125-19.345-24.38 0-27.296 8.48-27.296 14.84 0 7.686 3.445 10.07 36.042 14.31 32.33 4.24 47.437 10.336 47.437 33.126-.265 23.175-19.345 36.306-52.736 36.306"
+    />
+  </svg>
+)
+
+// Simple Python logo component
+const PythonLogo = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 256 255" className={className}>
+    <defs>
+      <linearGradient id="pythonLogoA" x1="12.959%" x2="79.639%" y1="12.039%" y2="78.201%">
+        <stop offset="0%" stopColor="#387EB8" />
+        <stop offset="100%" stopColor="#366994" />
+      </linearGradient>
+      <linearGradient id="pythonLogoB" x1="19.128%" x2="90.742%" y1="20.579%" y2="88.429%">
+        <stop offset="0%" stopColor="#FFE052" />
+        <stop offset="100%" stopColor="#FFC331" />
+      </linearGradient>
+    </defs>
+    <path
+      fill="url(#pythonLogoA)"
+      d="M126.916.072c-64.832 0-60.784 28.115-60.784 28.115l.072 29.128h61.868v8.745H41.631S.145 61.355.145 126.77c0 65.417 36.21 63.097 36.21 63.097h21.61v-30.356s-1.165-36.21 35.632-36.21h61.362s34.475.557 34.475-33.319V33.97S194.67.072 126.916.072M92.802 19.66a11.12 11.12 0 0 1 11.13 11.13 11.12 11.12 0 0 1-11.13 11.13 11.12 11.12 0 0 1-11.13-11.13 11.12 11.12 0 0 1 11.13-11.13"
+    />
+    <path
+      fill="url(#pythonLogoB)"
+      d="M128.757 254.126c64.832 0 60.784-28.115 60.784-28.115l-.072-29.127H127.6v-8.745h86.441s41.486 4.705 41.486-60.712c0-65.416-36.21-63.096-36.21-63.096h-21.61v30.355s1.165 36.21-35.632 36.21h-61.362s-34.475-.557-34.475 33.32v56.013s-5.235 33.897 62.518 33.897m34.114-19.586a11.12 11.12 0 0 1-11.13-11.13 11.12 11.12 0 0 1 11.13-11.131 11.12 11.12 0 0 1 11.13 11.13 11.12 11.12 0 0 1-11.13 11.13"
+    />
+  </svg>
+)
 
 interface ServiceInfo {
   id: string
@@ -156,18 +196,18 @@ export function ServicesSettings(): JSX.Element {
     setExpandedService(expandedService === serviceId ? null : serviceId)
   }
 
-  // Get runtime display name and icon
-  const getRuntimeDisplay = (runtime: string) => {
+  // Get runtime info
+  const getRuntimeInfo = (runtime: string) => {
     return runtime === 'node'
-      ? { name: 'Node.js', icon: '🟢' }
-      : { name: 'Python', icon: '🐍' }
+      ? { name: 'Node.js', Logo: NodeJsLogo }
+      : { name: 'Python', Logo: PythonLogo }
   }
 
-  // Get type display name
-  const getTypeDisplay = (type: string) => {
+  // Get type info
+  const getTypeInfo = (type: string) => {
     return type === 'longRunning'
-      ? { name: t('settings.services.typeLongRunning'), icon: '♾️' }
-      : { name: t('settings.services.typeScheduled'), icon: '⏰' }
+      ? { name: t('settings.services.typeLongRunning'), Icon: Infinity }
+      : { name: t('settings.services.typeScheduled'), Icon: Clock }
   }
 
   return (
@@ -234,22 +274,23 @@ export function ServicesSettings(): JSX.Element {
       ) : (
         <div className="space-y-3">
           {services.map((service) => {
-            const runtime = getRuntimeDisplay(service.runtime)
-            const type = getTypeDisplay(service.type)
+            const runtime = getRuntimeInfo(service.runtime)
+            const type = getTypeInfo(service.type)
             const isExpanded = expandedService === service.id
             const isLoading = actionLoading === service.id
 
             return (
               <div
                 key={service.id}
-                className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm"
+                className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm overflow-hidden"
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
+                <div className="flex items-start gap-3">
+                  {/* Content - shrinks first */}
+                  <div className="flex-1 min-w-0 overflow-hidden">
                     <div className="flex items-center gap-2">
                       {/* Status indicator */}
                       <div
-                        className={`w-2 h-2 rounded-full ${
+                        className={`w-2 h-2 rounded-full shrink-0 ${
                           service.status === 'running'
                             ? 'bg-emerald-500'
                             : service.status === 'error'
@@ -257,20 +298,22 @@ export function ServicesSettings(): JSX.Element {
                               : 'bg-gray-400'
                         }`}
                       />
-                      <h4 className="text-[13px] font-medium text-[var(--text-primary)] truncate">
+                      {/* Title - truncates when space is tight */}
+                      <h4 className="text-[13px] font-medium text-[var(--text-primary)] truncate min-w-0">
                         {service.name}
                       </h4>
+                      {/* Tags - don't shrink */}
                       <span
-                        className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--bg-input)] text-[var(--text-muted)]"
+                        className="flex items-center px-1.5 py-0.5 rounded text-[10px] bg-[var(--bg-input)] text-[var(--text-muted)] shrink-0"
                         title={runtime.name}
                       >
-                        {runtime.icon} {runtime.name}
+                        <runtime.Logo className="w-3 h-3" />
                       </span>
                       <span
-                        className="px-1.5 py-0.5 rounded text-[10px] bg-[var(--bg-input)] text-[var(--text-muted)]"
+                        className="flex items-center px-1.5 py-0.5 rounded text-[10px] bg-[var(--bg-input)] text-[var(--text-muted)] shrink-0"
                         title={type.name}
                       >
-                        {type.icon}
+                        <type.Icon className="w-3 h-3" />
                       </span>
                     </div>
                     <p className="text-[11px] text-[var(--text-muted)] mt-1 line-clamp-2">
@@ -294,39 +337,40 @@ export function ServicesSettings(): JSX.Element {
                     </button>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  {/* Actions - don't shrink */}
+                  <div className="flex items-center gap-1.5 shrink-0">
                     {service.status === 'running' ? (
                       <button
                         onClick={() => handleStop(service.id)}
                         disabled={isLoading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-50"
+                        className="p-1 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-all disabled:opacity-50"
+                        title={t('common.stop')}
                       >
                         {isLoading ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <Square className="w-3.5 h-3.5" />
+                          <Square className="w-4 h-4" />
                         )}
-                        {t('common.stop')}
                       </button>
                     ) : (
                       <button
                         onClick={() => handleStart(service.id)}
                         disabled={isLoading}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
+                        className="p-1 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all disabled:opacity-50"
+                        title={t('common.start')}
                       >
                         {isLoading ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <Loader2 className="w-4 h-4 animate-spin" />
                         ) : (
-                          <Play className="w-3.5 h-3.5" />
+                          <Play className="w-4 h-4" />
                         )}
-                        {t('common.start')}
                       </button>
                     )}
                     <button
                       onClick={() => handleDelete(service)}
                       disabled={isLoading}
-                      className="p-1.5 rounded-lg text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                      className="p-1 rounded-lg text-[var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 transition-all disabled:opacity-50"
+                      title={t('common.delete')}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

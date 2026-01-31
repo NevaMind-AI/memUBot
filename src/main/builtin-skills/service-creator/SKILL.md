@@ -60,7 +60,9 @@ This way:
 Use the `service_create` tool with:
 - `name`: Human-readable name
 - `description`: What the service does
-- `type`: `"longRunning"` (continuous) or `"scheduled"` (periodic)
+- `type`: Choose based on whether the task has a definite end:
+  - `"longRunning"`: Never exits, runs indefinitely (e.g., "monitor stock price every 30s", "wake me up every day at 8am", "send weekly report every Monday")
+  - `"scheduled"`: Completes and exits after task is done (e.g., "remind me at 4:30pm today", "remind me to drink water 3 times", "notify me tomorrow morning")
 - `runtime`: `"node"` or `"python"`
 - `entryFile`: Entry file name (e.g., `"index.js"` or `"main.py"`)
 - `schedule`: For scheduled services, interval like `"*/5"` (every 5 minutes)
@@ -73,7 +75,9 @@ After creating the service, write the code to the returned `servicePath`.
 
 **CRITICAL: Service Code Requirements**
 
-1. **Service must run continuously** - All services are persistent processes that keep running. Use `setInterval` for periodic tasks. The service should NEVER exit unless an error occurs.
+1. **Service lifecycle depends on type**:
+   - `longRunning`: Never exit - keep running indefinitely with `setInterval`
+   - `scheduled`: Exit with `process.exit(0)` after task completion (e.g., reminder sent, N executions done)
 2. **Implement local filtering first** - Use algorithms/rules to filter data before calling API
 3. **Set appropriate thresholds** - Use slightly lower thresholds than user specified to catch edge cases
 4. **Only call invoke when conditions are potentially met** - Save LLM tokens for important decisions
@@ -82,7 +86,7 @@ After creating the service, write the code to the returned `servicePath`.
 7. **Handle errors gracefully** - Wrap all API calls in try-catch and log meaningful error messages. Don't let the service crash due to temporary API failures.
 8. **Respect rate limits** - Free APIs often have rate limits (e.g., 10-30 requests/minute). Don't poll too frequently.
 
-**IMPORTANT**: The service process must stay alive! Use `setInterval()` (Node.js) or `while True` loop (Python) to keep the service running and performing periodic checks.
+**IMPORTANT**: Use `setInterval()` (Node.js) or loops (Python) to keep the service running. For `scheduled` type, call `process.exit(0)` when the task is complete.
 
 ### Step 3: Start the Service
 
