@@ -78,6 +78,9 @@ After creating the service, write the code to the returned `servicePath`.
 3. **Set appropriate thresholds** - Use slightly lower thresholds than user specified to catch edge cases
 4. **Only call invoke when conditions are potentially met** - Save LLM tokens for important decisions
 5. **Include context** - Pass the user's original request and expectations to LLM
+6. **Validate external API responses** - Always check HTTP status code AND response structure before accessing nested properties. External APIs may return rate limit errors, unexpected JSON, or HTML error pages.
+7. **Handle errors gracefully** - Wrap all API calls in try-catch and log meaningful error messages. Don't let the service crash due to temporary API failures.
+8. **Respect rate limits** - Free APIs often have rate limits (e.g., 10-30 requests/minute). Don't poll too frequently.
 
 **IMPORTANT**: The service process must stay alive! Use `setInterval()` (Node.js) or `while True` loop (Python) to keep the service running and performing periodic checks.
 
@@ -138,18 +141,36 @@ async function invoke(summary, details, metadata = {}) {
 }
 
 // ============ DATA FETCHING ============
+// IMPORTANT: Always validate API responses! External APIs may return:
+// - Rate limit errors (429)
+// - Unexpected JSON structure
+// - HTML error pages instead of JSON
 async function fetchStockPrice(symbol) {
   // Example using a free API (replace with your preferred source)
   return new Promise((resolve, reject) => {
     https.get(`https://api.example.com/stock/${symbol}/price`, (res) => {
+      // Check HTTP status first
+      if (res.statusCode !== 200) {
+        reject(new Error(`API returned status ${res.statusCode}`));
+        return;
+      }
+      
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
         try {
           const json = JSON.parse(data);
+          
+          // CRITICAL: Validate response structure before accessing nested properties
+          if (!json || typeof json.price === 'undefined') {
+            reject(new Error(`Invalid API response: missing 'price' field. Got: ${data.substring(0, 100)}`));
+            return;
+          }
+          
           resolve(json.price);
         } catch (e) {
-          reject(e);
+          // JSON parse failed - API might have returned HTML error page
+          reject(new Error(`Failed to parse API response: ${e.message}. Raw: ${data.substring(0, 100)}`));
         }
       });
     }).on('error', reject);

@@ -36,6 +36,7 @@ export interface ServiceMetadata {
   entryFile: string           // e.g., 'index.js' or 'main.py'
   schedule?: string           // cron expression for scheduled services
   createdAt: string
+  enabled?: boolean           // Whether service should auto-start (default: true)
   context: {                  // Original user request context
     userRequest: string
     expectation: string
@@ -203,6 +204,24 @@ class ServiceManagerService {
   }
 
   /**
+   * Update service enabled state in service.json
+   */
+  private async updateServiceEnabled(serviceId: string, enabled: boolean): Promise<void> {
+    const serviceDir = path.join(this.servicesDir, serviceId)
+    const metadataPath = path.join(serviceDir, 'service.json')
+
+    try {
+      const content = await fs.readFile(metadataPath, 'utf-8')
+      const metadata = JSON.parse(content) as ServiceMetadata
+      metadata.enabled = enabled
+      await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2))
+      console.log(`[ServiceManager] Updated service ${serviceId} enabled=${enabled}`)
+    } catch (error) {
+      console.error(`[ServiceManager] Failed to update enabled state for ${serviceId}:`, error)
+    }
+  }
+
+  /**
    * Create a new service directory with metadata
    * Returns the service directory path
    */
@@ -264,8 +283,13 @@ class ServiceManagerService {
 
   /**
    * Start a service
+   * @param serviceId - The service to start
+   * @param options.enableAutoStart - If true, mark service as enabled for auto-start (default: false)
    */
-  async startService(serviceId: string): Promise<{ success: boolean; error?: string }> {
+  async startService(
+    serviceId: string,
+    options?: { enableAutoStart?: boolean }
+  ): Promise<{ success: boolean; error?: string }> {
     await this.initialize()
 
     // Check if already running
@@ -276,7 +300,7 @@ class ServiceManagerService {
     // Get service metadata
     const service = await this.getService(serviceId)
     if (!service) {
-      return { success: false, error: 'Service not found' }
+      return { success: false, error: `Service '${serviceId}' not found. Use service_list to get correct service IDs.` }
     }
 
     const serviceDir = path.join(this.servicesDir, serviceId)
@@ -292,7 +316,14 @@ class ServiceManagerService {
     try {
       // All services are started as persistent processes
       // The service code itself handles timing/scheduling logic via setInterval
-      return await this.startServiceProcess(serviceId, service, serviceDir, entryPath)
+      const result = await this.startServiceProcess(serviceId, service, serviceDir, entryPath)
+
+      // If user manually started, enable auto-start
+      if (result.success && options?.enableAutoStart) {
+        await this.updateServiceEnabled(serviceId, true)
+      }
+
+      return result
     } catch (error) {
       console.error(`[ServiceManager] Failed to start service ${serviceId}:`, error)
       return {
@@ -355,11 +386,16 @@ class ServiceManagerService {
 
   /**
    * Stop a service and wait for it to fully exit
+   * @param serviceId - The service to stop
+   * @param options.disableAutoStart - If true, mark service as disabled to prevent auto-start (default: false)
    */
-  async stopService(serviceId: string): Promise<{ success: boolean; error?: string }> {
+  async stopService(
+    serviceId: string,
+    options?: { disableAutoStart?: boolean }
+  ): Promise<{ success: boolean; error?: string }> {
     const running = this.runningServices.get(serviceId)
     if (!running) {
-      return { success: false, error: 'Service is not running' }
+      return { success: false, error: `Service '${serviceId}' is not running or does not exist. Use service_list to check current services.` }
     }
 
     try {
@@ -401,6 +437,11 @@ class ServiceManagerService {
       console.log(`[ServiceManager] Stopped service: ${serviceId}`)
       appEvents.emitServiceStatusChanged(serviceId, 'stopped')
 
+      // If user manually stopped, disable auto-start
+      if (options?.disableAutoStart) {
+        await this.updateServiceEnabled(serviceId, false)
+      }
+
       return { success: true }
     } catch (error) {
       console.error(`[ServiceManager] Failed to stop service ${serviceId}:`, error)
@@ -438,11 +479,13 @@ class ServiceManagerService {
 
       return { success: true }
     } catch (error) {
-      // If directory doesn't exist, consider it a success
+      // If directory doesn't exist, return error so LLM knows the ID is wrong
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-        console.log(`[ServiceManager] Service directory already deleted: ${serviceId}`)
-        appEvents.emitServiceListChanged()
-        return { success: true }
+        console.log(`[ServiceManager] Service not found: ${serviceId}`)
+        return {
+          success: false,
+          error: `Service '${serviceId}' not found. Use service_list to get correct service IDs.`
+        }
       }
 
       console.error(`[ServiceManager] Failed to delete service ${serviceId}:`, error)
@@ -454,7 +497,8 @@ class ServiceManagerService {
   }
 
   /**
-   * Start all services (called on app startup)
+   * Start all enabled services (called on app startup)
+   * Only starts services that have enabled !== false
    */
   async startAllServices(): Promise<void> {
     await this.initialize()
@@ -463,6 +507,12 @@ class ServiceManagerService {
     console.log(`[ServiceManager] Found ${services.length} services`)
 
     for (const service of services) {
+      // Skip disabled services (enabled defaults to true if not set)
+      if (service.enabled === false) {
+        console.log(`[ServiceManager] Skipping disabled service: ${service.id}`)
+        continue
+      }
+
       if (service.status === 'stopped') {
         console.log(`[ServiceManager] Auto-starting service: ${service.id}`)
         await this.startService(service.id)

@@ -123,14 +123,15 @@ async function executeServiceList(): Promise<{
 }
 
 /**
- * Start a service
+ * Start a service (via tool = user intent, enable auto-start)
  */
 async function executeServiceStart(input: ServiceIdInput): Promise<{
   success: boolean
   data?: unknown
   error?: string
 }> {
-  const result = await serviceManagerService.startService(input.serviceId)
+  // When started via tool, enable auto-start (same as UI behavior)
+  const result = await serviceManagerService.startService(input.serviceId, { enableAutoStart: true })
   if (result.success) {
     return {
       success: true,
@@ -141,14 +142,15 @@ async function executeServiceStart(input: ServiceIdInput): Promise<{
 }
 
 /**
- * Stop a service
+ * Stop a service (via tool = user intent, disable auto-start)
  */
 async function executeServiceStop(input: ServiceIdInput): Promise<{
   success: boolean
   data?: unknown
   error?: string
 }> {
-  const result = await serviceManagerService.stopService(input.serviceId)
+  // When stopped via tool, disable auto-start (same as UI behavior)
+  const result = await serviceManagerService.stopService(input.serviceId, { disableAutoStart: true })
   if (result.success) {
     return {
       success: true,

@@ -32,10 +32,11 @@ export function setupServiceHandlers(): void {
     }
   })
 
-  // Start a service
+  // Start a service (user action enables auto-start)
   ipcMain.handle('service:start', async (_, serviceId: string) => {
     try {
-      const result = await serviceManagerService.startService(serviceId)
+      // When user manually starts, enable auto-start
+      const result = await serviceManagerService.startService(serviceId, { enableAutoStart: true })
       return result
     } catch (error) {
       console.error('[Service IPC] Failed to start service:', error)
@@ -43,10 +44,11 @@ export function setupServiceHandlers(): void {
     }
   })
 
-  // Stop a service
+  // Stop a service (user action disables auto-start)
   ipcMain.handle('service:stop', async (_, serviceId: string) => {
     try {
-      const result = await serviceManagerService.stopService(serviceId)
+      // When user manually stops, disable auto-start
+      const result = await serviceManagerService.stopService(serviceId, { disableAutoStart: true })
       return result
     } catch (error) {
       console.error('[Service IPC] Failed to stop service:', error)
