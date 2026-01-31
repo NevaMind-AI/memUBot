@@ -364,10 +364,19 @@ class ServiceManagerService {
     })
 
     // Handle process exit
-    childProcess.on('exit', (code, signal) => {
+    childProcess.on('exit', async (code, signal) => {
       console.log(`[ServiceManager] Service ${serviceId} exited with code ${code}, signal ${signal}`)
       this.runningServices.delete(serviceId)
       appEvents.emitServiceStatusChanged(serviceId, 'stopped')
+
+      // If service exited on its own (code 0, no signal), it completed its task
+      // Mark as disabled to prevent auto-restart on next app launch
+      if (code === 0 && !signal) {
+        console.log(`[ServiceManager] Service ${serviceId} completed normally, disabling auto-start`)
+        await this.updateServiceEnabled(serviceId, false)
+      }
+      // If killed by signal (SIGTERM/SIGKILL), the caller (stopService) handles enabled state
+      // If crashed (code !== 0), keep enabled so it can be manually restarted or debugged
     })
 
     // Log stdout/stderr
