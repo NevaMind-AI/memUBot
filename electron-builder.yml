@@ -27,7 +27,8 @@ mac:
     - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
     - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
-afterSign: scripts/notarize.js
+  notarize:
+    teamId: AP69DBR725
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:

@@ -64,7 +64,13 @@ function loadConfig(): ReleaseConfig {
 
 async function run(command: string, args: string[], cwd: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(command, args, { cwd, stdio: 'inherit', shell: false })
+    // Explicitly pass process.env to ensure dotenv-loaded variables are inherited
+    const child = spawn(command, args, {
+      cwd,
+      stdio: 'inherit',
+      shell: false,
+      env: process.env
+    })
     child.on('error', reject)
     child.on('exit', (code) => {
       if (code === 0) resolve()
