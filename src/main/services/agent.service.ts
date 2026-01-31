@@ -39,6 +39,15 @@ const MAX_CONTEXT_MESSAGES = 20
 export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'none'
 
 /**
+ * Unmemorized message with metadata
+ */
+export interface UnmemorizedMessage {
+  platform: MessagePlatform
+  timestamp: number // Unix timestamp in seconds
+  message: Anthropic.MessageParam
+}
+
+/**
  * Evaluation decision from LLM
  */
 export interface EvaluationDecision {
@@ -441,7 +450,7 @@ Services should call the local API at http://127.0.0.1:31415/api/v1/invoke to re
  */
 export class AgentService {
   private conversationHistory: Anthropic.MessageParam[] = []
-  private unmemorizedMessages: Anthropic.MessageParam[] = []
+  private unmemorizedMessages: UnmemorizedMessage[] = []
   private currentStatus: LLMStatusInfo = { status: 'idle' }
   private abortController: AbortController | null = null
   private isAborted = false
@@ -461,7 +470,7 @@ export class AgentService {
    * Get unmemorized messages and clear the array
    * Returns messages that have been added to conversation history but not yet memorized
    */
-  getUnmemorizedMessages(): Anthropic.MessageParam[] {
+  getUnmemorizedMessages(): UnmemorizedMessage[] {
     const messages = [...this.unmemorizedMessages]
     this.unmemorizedMessages = []
     return messages
@@ -669,10 +678,16 @@ export class AgentService {
         typeof lastMessage.content === 'string' && 
         lastMessage.content === userMessage
 
+      const currentTimestamp = Math.floor(Date.now() / 1000)
+      
       if (isAlreadyInHistory) {
         console.log(`[Agent] Message already in history from storage, skipping duplicate add to conversationHistory`)
         // Still mark for memorization since it's a new incoming message
-        this.unmemorizedMessages.push(lastMessage)
+        this.unmemorizedMessages.push({
+          platform,
+          timestamp: currentTimestamp,
+          message: lastMessage
+        })
       } else {
         // Build message content with images if present
         if (imageUrls.length > 0) {
@@ -703,7 +718,11 @@ export class AgentService {
             content: contentParts
           }
           this.conversationHistory.push(multimodalMessage)
-          this.unmemorizedMessages.push(multimodalMessage)
+          this.unmemorizedMessages.push({
+            platform,
+            timestamp: currentTimestamp,
+            message: multimodalMessage
+          })
           console.log(`[Agent] Added multimodal message with ${imageUrls.length} images`)
         } else {
           // Text-only message
@@ -712,7 +731,11 @@ export class AgentService {
             content: userMessage
           }
           this.conversationHistory.push(textMessage)
-          this.unmemorizedMessages.push(textMessage)
+          this.unmemorizedMessages.push({
+            platform,
+            timestamp: currentTimestamp,
+            message: textMessage
+          })
         }
       }
 
@@ -816,7 +839,11 @@ export class AgentService {
           content: response.content
         }
         this.conversationHistory.push(assistantMessage)
-        this.unmemorizedMessages.push(assistantMessage)
+        this.unmemorizedMessages.push({
+          platform: this.currentPlatform,
+          timestamp: Math.floor(Date.now() / 1000),
+          message: assistantMessage
+        })
 
         console.log('[Agent] Final response:', message.substring(0, 100) + '...')
 
@@ -848,7 +875,11 @@ export class AgentService {
       content: response.content
     }
     this.conversationHistory.push(assistantToolUseMessage)
-    this.unmemorizedMessages.push(assistantToolUseMessage)
+    this.unmemorizedMessages.push({
+      platform: this.currentPlatform,
+      timestamp: Math.floor(Date.now() / 1000),
+      message: assistantToolUseMessage
+    })
 
     // Find all tool use blocks
     const toolUseBlocks = response.content.filter(
@@ -916,7 +947,11 @@ export class AgentService {
       content: toolResults
     }
     this.conversationHistory.push(toolResultsMessage)
-    this.unmemorizedMessages.push(toolResultsMessage)
+    this.unmemorizedMessages.push({
+      platform: this.currentPlatform,
+      timestamp: Math.floor(Date.now() / 1000),
+      message: toolResultsMessage
+    })
   }
 
   /**

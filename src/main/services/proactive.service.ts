@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { loadSettings } from '../config/settings.config'
-import { agentService, type MessagePlatform } from './agent.service'
+import { agentService, type MessagePlatform, type UnmemorizedMessage } from './agent.service'
+import { proactiveStorage, type ChatPlatform, type ChatPlatformTimestamps } from './proactive.storage'
 import { computerUseTools } from '../tools/computer.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
 import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
@@ -11,6 +12,11 @@ import { discordBotService } from '../apps/discord/bot.service'
 import { slackBotService } from '../apps/slack/bot.service'
 import { whatsappBotService } from '../apps/whatsapp/bot.service'
 import { lineBotService } from '../apps/line/bot.service'
+import { telegramStorage } from '../apps/telegram/storage'
+import { discordStorage } from '../apps/discord/storage'
+import { slackStorage } from '../apps/slack/storage'
+import { whatsappStorage } from '../apps/whatsapp/storage'
+import { lineStorage } from '../apps/line/storage'
 import type { AgentResponse } from '../types'
 
 /**
@@ -37,6 +43,16 @@ const USER_INPUT_POLL_INTERVAL_MS = 1000
  * Maximum time to wait for user input (10 minutes)
  */
 const USER_INPUT_MAX_WAIT_MS = 10 * 60 * 1000
+
+/**
+ * Threshold for number of messages to trigger chat memorization
+ */
+const CHAT_MEMORIZE_MESSAGE_THRESHOLD = 20
+
+/**
+ * Threshold for time since last message to trigger chat memorization (60 minutes)
+ */
+const CHAT_MEMORIZE_TIME_THRESHOLD_MS = 60 * 60 * 1000
 
 /**
  * Memorization task status
@@ -170,6 +186,24 @@ const MEMORIZE_OVERRIDE_CONFIG = {
  * 1. Periodically memorizes conversation history
  * 2. Checks for todos and processes them when idle
  */
+/**
+ * Chat message from platforms (unified format for memorization)
+ */
+interface ChatMessageForMemorize {
+  platform: ChatPlatform
+  role: 'user' | 'assistant'
+  content: string
+  date: number // Unix timestamp in seconds
+}
+
+/**
+ * Chat memorization task info
+ */
+interface ChatMemorizationTask {
+  timestampsByPlatform: ChatPlatformTimestamps
+  messageCount: number
+}
+
 class ProactiveService {
   private intervalId: NodeJS.Timeout | null = null
   private isRunning = false
@@ -178,6 +212,12 @@ class ProactiveService {
   private isProcessing = false // Internal lock to prevent concurrent processing
   private isWaitingUserInput = false // Flag to indicate if waiting for user input
   private userInput: string | null = null
+  
+  // Chat memorization state
+  private isMemorizingChat = false // Flag to track if chat memorization is running
+  private chatUnmemorizedMessages: ChatMessageForMemorize[] = [] // Messages waiting to be memorized
+  private chatUnmemorizedTimestamps: ChatPlatformTimestamps = {} // Timestamps of the first message in the unmemorized messages
+  private chatMemorizationTasks: Map<string, ChatMemorizationTask> = new Map() // Map of task_id -> task info
 
   /**
    * Get memu configuration from settings
@@ -272,7 +312,7 @@ class ProactiveService {
     try {
       // Wait until userInput is set or timeout
       while (this.userInput === null) {
-        if (Date.now() - startTime > maxWaitMs) {
+        if (Date.now() - startTime > USER_INPUT_MAX_WAIT_MS) {
           console.log('[Proactive] User confirmation timed out')
           return { success: false, error: 'Timeout waiting for user input' }
         }
@@ -309,6 +349,9 @@ class ProactiveService {
       console.log('[Proactive] Please configure memuApiKey in settings and call start() again')
       return false
     }
+
+    console.log('[Proactive] First run - collecting and memorizing chat messages from all platforms')
+    await this.collectAndMemorizeChatMessages()
 
     console.log(`[Proactive] Starting service with ${intervalMs}ms interval`)
     this.isRunning = true
@@ -371,7 +414,53 @@ class ProactiveService {
       const agentUnmemorizedMessages = agentService.getUnmemorizedMessages()
       if (agentUnmemorizedMessages.length > 0) {
         console.log(`[Proactive] Received ${agentUnmemorizedMessages.length} unmemorized messages from agentService`)
-        this.unmemorizedMessages.push(...agentUnmemorizedMessages)
+        
+        // Process each message
+        for (const unmemorized of agentUnmemorizedMessages) {
+          // Push pure message to unmemorizedMessages for proactive memorization
+          this.unmemorizedMessages.push(unmemorized.message)
+          
+          // Also push to chatUnmemorizedMessages for chat memorization
+          const platform = unmemorized.platform !== 'none' ? unmemorized.platform : null
+          if (platform) {
+            // Convert to ChatMessageForMemorize format
+            const content = typeof unmemorized.message.content === 'string'
+              ? unmemorized.message.content
+              : JSON.stringify(unmemorized.message.content)
+            
+            this.chatUnmemorizedMessages.push({
+              platform: platform as ChatPlatform,
+              role: unmemorized.message.role,
+              content,
+              date: unmemorized.timestamp
+            })
+            
+            // Update timestamps - only set if not already set for this platform
+            if (!this.chatUnmemorizedTimestamps[platform as ChatPlatform]) {
+              this.chatUnmemorizedTimestamps[platform as ChatPlatform] = unmemorized.timestamp
+            }
+          }
+        }
+      }
+
+      // Step 2.5: Check if we should trigger chat memorization
+      if (this.chatUnmemorizedMessages.length > 0 && !this.isMemorizingChat) {
+        const lastMessage = this.chatUnmemorizedMessages[this.chatUnmemorizedMessages.length - 1]
+        const timeSinceLastMessage = Date.now() - (lastMessage.date * 1000)
+        
+        const shouldMemorize = 
+          this.chatUnmemorizedMessages.length >= CHAT_MEMORIZE_MESSAGE_THRESHOLD ||
+          timeSinceLastMessage >= CHAT_MEMORIZE_TIME_THRESHOLD_MS
+        
+        if (shouldMemorize) {
+          console.log(`[Proactive] Triggering chat memorization: ${this.chatUnmemorizedMessages.length} messages, ${Math.floor(timeSinceLastMessage / 1000)}s since last message`)
+          this.triggerChatMemorizationInBackground(
+            { ...this.chatUnmemorizedTimestamps },
+            this.chatUnmemorizedMessages.length
+          )
+          // Reset timestamps for next batch
+          // this.chatUnmemorizedTimestamps = {}
+        }
       }
       
       if (this.unmemorizedMessages.length > 0) {
@@ -415,6 +504,7 @@ class ProactiveService {
       }
       this.conversationHistory.push(userMessage)
       this.unmemorizedMessages.push(userMessage)
+      await proactiveStorage.storeMessage(userMessage)
       
       await this.runAgentLoop()
       
@@ -637,6 +727,9 @@ class ProactiveService {
         const textContent = response.content.find((block) => block.type === 'text')
         const message = textContent && textContent.type === 'text' ? textContent.text : ''
 
+        // Get the platform before sending (for storage)
+        const platform = agentService.getRecentReplyPlatform()
+
         // Add assistant response to history and track for memorization
         const assistantMessage: Anthropic.MessageParam = {
           role: 'assistant',
@@ -648,9 +741,16 @@ class ProactiveService {
         console.log('[Proactive] Final response:', message.substring(0, 100) + '...')
 
         // Send message to current platform if one is active
+        let sentPlatform: MessagePlatform = 'none'
         if (message) {
-          await this.sendToCurrentPlatform(message)
+          const sent = await this.sendToCurrentPlatform(message)
+          if (sent) {
+            sentPlatform = platform
+          }
         }
+
+        // Store with platform info if it was sent successfully
+        await proactiveStorage.storeMessage(assistantMessage, sentPlatform)
 
         return {
           success: true,
@@ -677,6 +777,7 @@ class ProactiveService {
     }
     this.conversationHistory.push(assistantMessage)
     this.unmemorizedMessages.push(assistantMessage)
+    await proactiveStorage.storeMessage(assistantMessage)
 
     // Find all tool use blocks
     const toolUseBlocks = response.content.filter(
@@ -707,6 +808,7 @@ class ProactiveService {
     }
     this.conversationHistory.push(toolResultsMessage)
     this.unmemorizedMessages.push(toolResultsMessage)
+    await proactiveStorage.storeMessage(toolResultsMessage)
   }
 
   /**
@@ -875,6 +977,351 @@ class ProactiveService {
       console.error(`[Proactive] Error sending to ${platform}:`, error)
       return false
     }
+  }
+
+  /**
+   * Collect chat messages from all platforms and trigger memorization
+   * This runs on the first tick and does not block subsequent ticks
+   */
+  private async collectAndMemorizeChatMessages(): Promise<void> {
+    // Don't start if already memorizing
+    if (this.isMemorizingChat) {
+      console.log('[Proactive] Chat memorization already in progress, skipping')
+      return
+    }
+
+    try {
+      // Get current timestamps
+      const timestamps = await proactiveStorage.getChatTimestamps()
+      console.log('[Proactive] Current chat timestamps:', timestamps)
+
+      // Collect messages from all platforms
+      const allMessages: ChatMessageForMemorize[] = []
+      const newTimestamps: ChatPlatformTimestamps = {}
+
+      // Telegram
+      const telegramMessages = await this.collectPlatformMessages(
+        'telegram',
+        timestamps.telegram,
+        async () => {
+          const msgs = await telegramStorage.getMessages(200)
+          return msgs.map(m => ({
+            role: (m.isFromBot ? 'assistant' : 'user') as 'user' | 'assistant',
+            content: m.text || '',
+            date: m.date
+          }))
+        }
+      )
+      if (telegramMessages.messages.length > 0) {
+        allMessages.push(...telegramMessages.messages)
+        if (telegramMessages.lastTimestamp) {
+          newTimestamps.telegram = telegramMessages.lastTimestamp
+        }
+      }
+
+      // Discord
+      const discordMessages = await this.collectPlatformMessages(
+        'discord',
+        timestamps.discord,
+        async () => {
+          const msgs = await discordStorage.getMessages(200)
+          return msgs.map(m => ({
+            role: (m.isFromBot ? 'assistant' : 'user') as 'user' | 'assistant',
+            content: m.text || '',
+            date: m.date
+          }))
+        }
+      )
+      if (discordMessages.messages.length > 0) {
+        allMessages.push(...discordMessages.messages)
+        if (discordMessages.lastTimestamp) {
+          newTimestamps.discord = discordMessages.lastTimestamp
+        }
+      }
+
+      // Slack
+      const slackMessages = await this.collectPlatformMessages(
+        'slack',
+        timestamps.slack,
+        async () => {
+          const msgs = await slackStorage.getMessages(200)
+          return msgs.map(m => ({
+            role: (m.isFromBot ? 'assistant' : 'user') as 'user' | 'assistant',
+            content: m.text || '',
+            date: m.date
+          }))
+        }
+      )
+      if (slackMessages.messages.length > 0) {
+        allMessages.push(...slackMessages.messages)
+        if (slackMessages.lastTimestamp) {
+          newTimestamps.slack = slackMessages.lastTimestamp
+        }
+      }
+
+      // WhatsApp
+      const whatsappMessages = await this.collectPlatformMessages(
+        'whatsapp',
+        timestamps.whatsapp,
+        async () => {
+          const msgs = await whatsappStorage.getMessages(200)
+          return msgs.map(m => ({
+            role: (m.isFromBot ? 'assistant' : 'user') as 'user' | 'assistant',
+            content: m.text || '',
+            date: m.date
+          }))
+        }
+      )
+      if (whatsappMessages.messages.length > 0) {
+        allMessages.push(...whatsappMessages.messages)
+        if (whatsappMessages.lastTimestamp) {
+          newTimestamps.whatsapp = whatsappMessages.lastTimestamp
+        }
+      }
+
+      // Line
+      const lineMessages = await this.collectPlatformMessages(
+        'line',
+        timestamps.line,
+        async () => {
+          const msgs = await lineStorage.getMessages(200)
+          return msgs.map(m => ({
+            role: (m.isFromBot ? 'assistant' : 'user') as 'user' | 'assistant',
+            content: m.text || '',
+            date: m.date
+          }))
+        }
+      )
+      if (lineMessages.messages.length > 0) {
+        allMessages.push(...lineMessages.messages)
+        if (lineMessages.lastTimestamp) {
+          newTimestamps.line = lineMessages.lastTimestamp
+        }
+      }
+
+      // If no new messages, skip memorization
+      if (allMessages.length === 0) {
+        console.log('[Proactive] No new chat messages to memorize')
+        return
+      }
+
+      // Sort all messages by date
+      allMessages.sort((a, b) => a.date - b.date)
+      console.log(`[Proactive] Collected ${allMessages.length} new chat messages from all platforms`)
+
+      // Append to unmemorized messages (in case there are already pending messages)
+      this.chatUnmemorizedMessages.push(...allMessages)
+
+      // Trigger memorization in background (non-blocking), passing timestamps and message count
+      this.triggerChatMemorizationInBackground(newTimestamps, allMessages.length)
+
+    } catch (error) {
+      console.error('[Proactive] Error collecting chat messages:', error)
+    }
+  }
+
+  /**
+   * Collect messages from a single platform, filtering by timestamp
+   */
+  private async collectPlatformMessages(
+    platform: ChatPlatform,
+    lastTimestamp: number | undefined,
+    getMessages: () => Promise<{ role: 'user' | 'assistant'; content: string; date: number }[]>
+  ): Promise<{ messages: ChatMessageForMemorize[]; lastTimestamp: number | undefined }> {
+    try {
+      const rawMessages = await getMessages()
+      
+      // Filter messages newer than lastTimestamp
+      const filtered = lastTimestamp 
+        ? rawMessages.filter(m => m.date > lastTimestamp)
+        : rawMessages
+
+      if (filtered.length === 0) {
+        return { messages: [], lastTimestamp: undefined }
+      }
+
+      // Convert to ChatMessageForMemorize format
+      const messages: ChatMessageForMemorize[] = filtered.map(m => ({
+        platform,
+        role: m.role,
+        content: m.content,
+        date: m.date
+      }))
+
+      // Get the latest timestamp
+      const lastMessageTimestamp = Math.max(...filtered.map(m => m.date))
+
+      console.log(`[Proactive] Collected ${messages.length} new messages from ${platform}`)
+      return { messages, lastTimestamp: lastMessageTimestamp }
+
+    } catch (error) {
+      console.error(`[Proactive] Error collecting messages from ${platform}:`, error)
+      return { messages: [], lastTimestamp: undefined }
+    }
+  }
+
+  /**
+   * Trigger chat memorization in background (non-blocking)
+   * @param timestamps The timestamps to update after successful memorization
+   * @param messageCount The number of messages being memorized
+   */
+  private triggerChatMemorizationInBackground(timestamps: ChatPlatformTimestamps, messageCount: number): void {
+    if (this.isMemorizingChat) {
+      console.log('[Proactive] Chat memorization already running')
+      return
+    }
+
+    if (this.chatUnmemorizedMessages.length === 0) {
+      console.log('[Proactive] No chat messages to memorize')
+      return
+    }
+
+    // Start background memorization
+    this.isMemorizingChat = true
+    console.log(`[Proactive] Starting background chat memorization for ${messageCount} messages`)
+
+    // Run in background (don't await)
+    this.runChatMemorization(timestamps, messageCount).catch(error => {
+      console.error('[Proactive] Background chat memorization failed:', error)
+      this.isMemorizingChat = false
+    })
+  }
+
+  /**
+   * Run chat memorization process
+   * @param timestamps The timestamps to update after successful memorization
+   * @param messageCount The number of messages being memorized
+   */
+  private async runChatMemorization(timestamps: ChatPlatformTimestamps, messageCount: number): Promise<void> {
+    try {
+      const memuConfig = await this.getMemuConfig()
+
+      // Get only the messages for this batch (first messageCount messages)
+      const messagesToMemorize = this.chatUnmemorizedMessages.slice(0, messageCount)
+
+      // Format messages for API
+      const formattedMessages = messagesToMemorize.map(m => ({
+        role: m.role,
+        content: `[${m.platform}] ${m.content}`
+      }))
+
+      console.log(`[Proactive] Sending ${formattedMessages.length} chat messages to memorize`)
+
+      // Trigger memorization
+      const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/memorize`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${memuConfig.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: memuConfig.userId,
+          agent_id: memuConfig.agentId,
+          conversation: formattedMessages
+        })
+      })
+
+      if (!response.ok) {
+        console.error('[Proactive] Chat memorization failed with status:', response.status)
+        this.isMemorizingChat = false
+        return
+      }
+
+      const result = await response.json() as { task_id?: string }
+      const taskId = result.task_id
+
+      if (!taskId) {
+        console.error('[Proactive] No task_id returned from chat memorization')
+        this.isMemorizingChat = false
+        return
+      }
+
+      console.log(`[Proactive] Chat memorization triggered with task_id: ${taskId}`)
+
+      // Store task info with task_id for later update on success
+      this.chatMemorizationTasks.set(taskId, {
+        timestampsByPlatform: timestamps,
+        messageCount: messageCount
+      })
+
+      // Monitor memorization status in background
+      await this.monitorChatMemorization(taskId)
+
+    } catch (error) {
+      console.error('[Proactive] Chat memorization error:', error)
+      this.isMemorizingChat = false
+    }
+  }
+
+  /**
+   * Monitor chat memorization status and update timestamps on success
+   */
+  private async monitorChatMemorization(taskId: string): Promise<void> {
+    const memuConfig = await this.getMemuConfig()
+    const startTime = Date.now()
+
+    while (Date.now() - startTime < MEMORIZE_MAX_WAIT_MS) {
+      try {
+        const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/memorize/status/${taskId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${memuConfig.apiKey}`,
+            'Content-Type': 'application/json'
+          }
+        })
+
+        if (!response.ok) {
+          console.error(`[Proactive] Failed to get chat memorize status: ${response.status}`)
+          await new Promise(resolve => setTimeout(resolve, MEMORIZE_STATUS_POLL_INTERVAL_MS))
+          continue
+        }
+
+        const result = await response.json() as MemorizeStatusResponse
+        console.log(`[Proactive] Chat memorize task ${taskId} status: ${result.status}`)
+
+        if (result.status === 'SUCCESS') {
+          console.log(`[Proactive] Chat memorization completed successfully`)
+          
+          // Get task info and update storage
+          const taskInfo = this.chatMemorizationTasks.get(taskId)
+          if (taskInfo) {
+            // Update timestamps
+            await proactiveStorage.updateChatTimestamps(taskInfo.timestampsByPlatform)
+            console.log('[Proactive] Updated chat timestamps:', taskInfo.timestampsByPlatform)
+            
+            // Remove the first messageCount messages that were memorized
+            this.chatUnmemorizedMessages.splice(0, taskInfo.messageCount)
+            console.log(`[Proactive] Removed ${taskInfo.messageCount} memorized messages, ${this.chatUnmemorizedMessages.length} remaining`)
+            
+            // Remove task from map
+            // this.chatMemorizationTasks.delete(taskId)
+          }
+          
+          this.isMemorizingChat = false
+          return
+        }
+
+        if (result.status === 'FAILURE') {
+          console.error(`[Proactive] Chat memorization failed: ${result.detail_info}`)
+          // Remove task from map on failure
+          // this.chatMemorizationTasks.delete(taskId)
+          this.isMemorizingChat = false
+          return
+        }
+
+        // Status is PENDING or PROCESSING, wait and poll again
+        await new Promise(resolve => setTimeout(resolve, MEMORIZE_STATUS_POLL_INTERVAL_MS))
+
+      } catch (error) {
+        console.error(`[Proactive] Error polling chat memorize status:`, error)
+        await new Promise(resolve => setTimeout(resolve, MEMORIZE_STATUS_POLL_INTERVAL_MS))
+      }
+    }
+
+    console.error(`[Proactive] Chat memorization task ${taskId} timed out`)
+    // Remove task from map on timeout
+    // this.chatMemorizationTasks.delete(taskId)
+    this.isMemorizingChat = false
   }
 
   /**
