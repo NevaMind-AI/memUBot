@@ -12,6 +12,9 @@ import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
+import { app } from 'electron'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 import type { BotStatus, AppMessage, MessageAttachment } from '../types'
 import type { StoredDiscordMessage, StoredAttachment } from './types'
 
@@ -387,29 +390,41 @@ export class DiscordBotService {
     console.log('[Discord] Message length:', userMessage.length)
     console.log('[Discord] Attachments count:', attachments.length)
 
-    // Extract image URLs from attachments
-    const imageUrls = attachments
-      .filter(att => att.contentType?.startsWith('image/'))
-      .map(att => att.url)
-    
+    // Separate image attachments from other files
+    const imageAttachments = attachments.filter(att => att.contentType?.startsWith('image/'))
+    const fileAttachments = attachments.filter(att => !att.contentType?.startsWith('image/'))
+
+    // Extract image URLs for multimodal processing
+    const imageUrls = imageAttachments.map(att => att.url)
     console.log('[Discord] Image URLs:', imageUrls)
 
-    // Build text message with attachment info
+    // Download non-image files to local storage for Agent to process
+    const downloadedFiles: { path: string; name: string; mimeType: string }[] = []
+    for (const att of fileAttachments) {
+      const localPath = await this.downloadFile(att.url, att.name)
+      if (localPath) {
+        downloadedFiles.push({
+          path: localPath,
+          name: att.name,
+          mimeType: att.contentType || 'application/octet-stream'
+        })
+      }
+    }
+    console.log('[Discord] Downloaded files:', downloadedFiles.length)
+
+    // Build text message with file info
     let fullMessage = userMessage
-    if (attachments.length > 0) {
-      const attachmentDescriptions = attachments.map(att => {
-        const type = att.contentType?.split('/')[0] || 'file'
-        return `[Attachment: ${type} - ${att.name}]\nURL: ${att.url}`
-      })
-      const attachmentText = '\n\n--- Attachments ---\n' + attachmentDescriptions.join('\n\n')
-      fullMessage = userMessage ? userMessage + attachmentText : attachmentText.trim()
+    if (downloadedFiles.length > 0) {
+      const fileInfo = downloadedFiles.map(f => `- ${f.name} (${f.mimeType}): ${f.path}`).join('\n')
+      const fileMessage = `\n\n[Attached files - use file_read tool to read content]:\n${fileInfo}`
+      fullMessage = userMessage ? userMessage + fileMessage : fileMessage.trim()
     }
 
-    console.log('[Discord] Full message with attachments:', fullMessage.substring(0, 200) + '...')
+    console.log('[Discord] Full message:', fullMessage.substring(0, 200) + '...')
 
     try {
       // Get response from Agent with Discord-specific tools
-      // Pass both text (with URLs) and image URLs for multimodal
+      // Pass both text (with file paths) and image URLs for multimodal
       const response = await agentService.processMessage(fullMessage, 'discord', imageUrls)
 
       // Check if rejected due to cross-platform lock
@@ -655,6 +670,39 @@ export class DiscordBotService {
       return { success: true, messageId: msg.id }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Download a file from Discord to local storage
+   * Returns the local file path or null if download failed
+   */
+  private async downloadFile(fileUrl: string, fileName: string): Promise<string | null> {
+    try {
+      // Create downloads directory in app data
+      const downloadsDir = path.join(app.getPath('userData'), 'downloads', 'discord')
+      await fs.mkdir(downloadsDir, { recursive: true })
+
+      // Generate unique filename with timestamp
+      const timestamp = Date.now()
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const localPath = path.join(downloadsDir, `${timestamp}_${safeName}`)
+
+      console.log(`[Discord] Downloading file: ${fileName} -> ${localPath}`)
+      
+      const response = await fetch(fileUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.status}`)
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer())
+      await fs.writeFile(localPath, buffer)
+      
+      console.log(`[Discord] File downloaded: ${localPath} (${buffer.length} bytes)`)
+      return localPath
+    } catch (error) {
+      console.error(`[Discord] Error downloading file:`, error)
+      return null
     }
   }
 

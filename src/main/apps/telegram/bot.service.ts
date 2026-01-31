@@ -1,5 +1,8 @@
 import TelegramBot from 'node-telegram-bot-api'
 import { telegramStorage } from './storage'
+import { app } from 'electron'
+import * as fs from 'fs/promises'
+import * as path from 'path'
 
 // Disable node-telegram-bot-api deprecation warning about content-type
 // We explicitly set contentType in all file sending methods
@@ -9,7 +12,7 @@ import { agentService } from '../../services/agent.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
-import type { StoredTelegramMessage, TelegramMessage } from './types'
+import type { StoredTelegramMessage, StoredTelegramAttachment, TelegramMessage } from './types'
 
 /**
  * Convert Markdown to Telegram HTML format
@@ -466,6 +469,17 @@ export class TelegramBotService {
       return
     }
 
+    // Extract attachments and build message content
+    const { attachments, imageUrls, filePaths } = await this.extractAttachments(msg)
+
+    // Build the text content - include file paths for Agent to process
+    let textContent = msg.text || msg.caption || ''
+    if (filePaths.length > 0) {
+      const fileInfo = filePaths.map(f => `- ${f.name} (${f.mimeType}): ${f.path}`).join('\n')
+      const fileMessage = `\n\n[Attached files - use file_read tool to read content]:\n${fileInfo}`
+      textContent = textContent ? textContent + fileMessage : fileMessage.trim()
+    }
+
     // Store incoming message first
     const storedMsg: StoredTelegramMessage = {
       messageId: msg.message_id,
@@ -473,36 +487,199 @@ export class TelegramBotService {
       fromId: msg.from?.id,
       fromUsername: msg.from?.username,
       fromFirstName: msg.from?.first_name,
-      text: msg.text,
+      text: textContent || undefined,
+      attachments: attachments.length > 0 ? attachments : undefined,
       date: msg.date,
       replyToMessageId: msg.reply_to_message?.message_id,
       isFromBot: false
     }
     await telegramStorage.storeMessage(storedMsg)
-    console.log('[Telegram] Message stored:', storedMsg.messageId)
+    console.log('[Telegram] Message stored:', storedMsg.messageId, attachments.length > 0 ? `with ${attachments.length} attachments` : '')
 
     // Emit event for new message (to update UI)
     const appMessage = this.convertToAppMessage(storedMsg)
     appEvents.emitNewMessage(appMessage)
 
-    // Process with Agent and reply (only if there's text)
-    if (msg.text && this.bot) {
-      await this.processWithAgentAndReply(msg.chat.id, msg.text)
+    // Process with Agent and reply if there's content (text, images, or files)
+    if ((textContent || imageUrls.length > 0 || filePaths.length > 0) && this.bot) {
+      await this.processWithAgentAndReply(msg.chat.id, textContent, imageUrls)
+    }
+  }
+
+  /**
+   * Extract attachments from a Telegram message
+   * Downloads files to local storage and returns paths for Agent to process
+   */
+  private async extractAttachments(msg: TelegramMessage): Promise<{
+    attachments: StoredTelegramAttachment[]
+    imageUrls: string[]
+    filePaths: { path: string; name: string; mimeType: string }[]
+  }> {
+    const attachments: StoredTelegramAttachment[] = []
+    const imageUrls: string[] = []
+    const filePaths: { path: string; name: string; mimeType: string }[] = []
+
+    if (!this.bot) {
+      return { attachments, imageUrls, filePaths }
+    }
+
+    try {
+      // Handle photos - get the largest size
+      if (msg.photo && msg.photo.length > 0) {
+        const photo = msg.photo[msg.photo.length - 1] // Largest photo
+        const fileLink = await this.bot.getFileLink(photo.file_id)
+        attachments.push({
+          id: photo.file_id,
+          name: 'photo.jpg',
+          url: fileLink,
+          contentType: 'image/jpeg',
+          size: photo.file_size,
+          width: photo.width,
+          height: photo.height
+        })
+        imageUrls.push(fileLink)
+        console.log('[Telegram] Photo attachment:', fileLink)
+      }
+
+      // Handle documents (PDF, DOC, TXT, etc.) - download to local storage
+      if (msg.document) {
+        const doc = msg.document
+        const fileLink = await this.bot.getFileLink(doc.file_id)
+        const fileName = doc.file_name || 'document'
+        const mimeType = doc.mime_type || 'application/octet-stream'
+
+        attachments.push({
+          id: doc.file_id,
+          name: fileName,
+          url: fileLink,
+          contentType: mimeType,
+          size: doc.file_size
+        })
+        console.log('[Telegram] Document attachment:', fileName, mimeType)
+
+        // Download file to local storage for Agent to process
+        const localPath = await this.downloadFile(fileLink, fileName)
+        if (localPath) {
+          filePaths.push({ path: localPath, name: fileName, mimeType })
+        }
+      }
+
+      // Handle video
+      if (msg.video) {
+        const video = msg.video
+        const fileLink = await this.bot.getFileLink(video.file_id)
+        attachments.push({
+          id: video.file_id,
+          name: 'video.mp4',
+          url: fileLink,
+          contentType: video.mime_type || 'video/mp4',
+          size: video.file_size,
+          width: video.width,
+          height: video.height
+        })
+        console.log('[Telegram] Video attachment:', fileLink)
+      }
+
+      // Handle audio
+      if (msg.audio) {
+        const audio = msg.audio
+        const fileLink = await this.bot.getFileLink(audio.file_id)
+        const fileName = audio.title ? `${audio.title}.mp3` : 'audio.mp3'
+        attachments.push({
+          id: audio.file_id,
+          name: fileName,
+          url: fileLink,
+          contentType: audio.mime_type || 'audio/mpeg',
+          size: audio.file_size
+        })
+        console.log('[Telegram] Audio attachment:', fileLink)
+      }
+
+      // Handle voice message
+      if (msg.voice) {
+        const voice = msg.voice
+        const fileLink = await this.bot.getFileLink(voice.file_id)
+        attachments.push({
+          id: voice.file_id,
+          name: 'voice.ogg',
+          url: fileLink,
+          contentType: voice.mime_type || 'audio/ogg',
+          size: voice.file_size
+        })
+        console.log('[Telegram] Voice attachment:', fileLink)
+      }
+
+      // Handle sticker
+      if (msg.sticker) {
+        const sticker = msg.sticker
+        // Stickers can be static (webp) or animated (tgs/webm)
+        if (!sticker.is_animated && !sticker.is_video) {
+          const fileLink = await this.bot.getFileLink(sticker.file_id)
+          attachments.push({
+            id: sticker.file_id,
+            name: sticker.set_name ? `${sticker.set_name}.webp` : 'sticker.webp',
+            url: fileLink,
+            contentType: 'image/webp',
+            size: sticker.file_size,
+            width: sticker.width,
+            height: sticker.height
+          })
+          imageUrls.push(fileLink)
+          console.log('[Telegram] Sticker attachment:', fileLink)
+        }
+      }
+    } catch (error) {
+      console.error('[Telegram] Error extracting attachments:', error)
+    }
+
+    return { attachments, imageUrls, filePaths }
+  }
+
+  /**
+   * Download a file from Telegram to local storage
+   * Returns the local file path or null if download failed
+   */
+  private async downloadFile(fileUrl: string, fileName: string): Promise<string | null> {
+    try {
+      // Create downloads directory in app data
+      const downloadsDir = path.join(app.getPath('userData'), 'downloads', 'telegram')
+      await fs.mkdir(downloadsDir, { recursive: true })
+
+      // Generate unique filename with timestamp
+      const timestamp = Date.now()
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const localPath = path.join(downloadsDir, `${timestamp}_${safeName}`)
+
+      console.log(`[Telegram] Downloading file: ${fileName} -> ${localPath}`)
+      
+      const response = await fetch(fileUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.status}`)
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer())
+      await fs.writeFile(localPath, buffer)
+      
+      console.log(`[Telegram] File downloaded: ${localPath} (${buffer.length} bytes)`)
+      return localPath
+    } catch (error) {
+      console.error(`[Telegram] Error downloading file:`, error)
+      return null
     }
   }
 
   /**
    * Process message with Agent and send reply
    */
-  private async processWithAgentAndReply(chatId: number, userMessage: string): Promise<void> {
-    console.log('[Telegram] Sending to Agent:', userMessage)
+  private async processWithAgentAndReply(chatId: number, userMessage: string, imageUrls: string[] = []): Promise<void> {
+    console.log('[Telegram] Sending to Agent:', userMessage, imageUrls.length > 0 ? `with ${imageUrls.length} images` : '')
 
     // Set current chat ID for tool calls
     this.currentChatId = chatId
 
     try {
-      // Get response from Agent with Telegram-specific tools
-      const response = await agentService.processMessage(userMessage, 'telegram')
+      // Get response from Agent with Telegram-specific tools and images
+      const response = await agentService.processMessage(userMessage, 'telegram', imageUrls)
 
       // Check if rejected due to cross-platform lock
       if (!response.success && response.busyWith) {

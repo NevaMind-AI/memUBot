@@ -100,14 +100,96 @@ function formatTime(date: Date): string {
 }
 
 /**
+ * Parse local file paths from message content
+ * Returns a map of filename -> local path
+ */
+function parseLocalFilePaths(content: string): Map<string, { path: string; mimeType: string }> {
+  const localFiles = new Map<string, { path: string; mimeType: string }>()
+  
+  // Pattern: "- filename (mimetype): /path/to/file"
+  const filePattern = /^- (.+?) \(([^)]+)\): (.+)$/gm
+  let match
+  
+  while ((match = filePattern.exec(content)) !== null) {
+    const [, name, mimeType, filePath] = match
+    localFiles.set(name, { path: filePath, mimeType })
+  }
+  
+  return localFiles
+}
+
+/**
+ * Clean message content by removing internal file path hints
+ * These are added for Agent processing but shouldn't be shown to users
+ */
+function cleanMessageContent(content: string): string {
+  // Remove "[Attached files - use file_read tool to read content]:" section
+  const attachedFilesPattern = /\n*\[Attached files - use file_read tool to read content\]:[\s\S]*$/
+  let cleaned = content.replace(attachedFilesPattern, '')
+  
+  // Also handle the pattern from Discord/Slack: "--- Attachments ---" section
+  const attachmentsPattern = /\n*--- Attachments ---[\s\S]*$/
+  cleaned = cleaned.replace(attachmentsPattern, '')
+  
+  return cleaned.trim()
+}
+
+/**
+ * Merge attachments with local file paths
+ * Prioritizes local paths when available
+ */
+function mergeAttachmentsWithLocalPaths(
+  attachments: MessageAttachment[] | undefined,
+  localFiles: Map<string, { path: string; mimeType: string }>
+): MessageAttachment[] {
+  const result: MessageAttachment[] = []
+  const usedLocalFiles = new Set<string>()
+
+  // First, process existing attachments and enhance with local paths
+  if (attachments) {
+    for (const att of attachments) {
+      const localFile = localFiles.get(att.name)
+      if (localFile) {
+        // Use local path for this attachment
+        result.push({
+          ...att,
+          url: localFile.path,
+          contentType: localFile.mimeType
+        })
+        usedLocalFiles.add(att.name)
+      } else {
+        result.push(att)
+      }
+    }
+  }
+
+  // Then, add any local files that weren't in attachments
+  for (const [name, fileInfo] of localFiles) {
+    if (!usedLocalFiles.has(name)) {
+      result.push({
+        id: `local-${name}`,
+        name,
+        url: fileInfo.path,
+        contentType: fileInfo.mimeType,
+        size: 0 // Size unknown for local files
+      })
+    }
+  }
+
+  return result
+}
+
+/**
  * Shared Message Bubble Component - Discord style
  */
 export function MessageBubble({ message, botAvatarUrl, userAvatarUrl, colors }: MessageBubbleProps): JSX.Element {
   const { primary, primaryLight, primaryDark, secondary, secondaryDark } = colors
 
-  // Generate CSS class for bot/user colors
-  const botColorClass = `bg-[${primary}]/10 dark:bg-[${primary}]/20 border-[${primary}]/20 dark:border-[${primaryDark || primaryLight}]/30`
-  const userColorClass = `bg-[${secondary}]/10 dark:bg-[${secondary}]/20 border-[${secondary}]/20 dark:border-[${secondaryDark || secondary}]/30`
+  // Parse local file paths from message content
+  const localFiles = parseLocalFilePaths(message.content)
+  
+  // Merge attachments with local file paths (local paths take priority)
+  const enhancedAttachments = mergeAttachmentsWithLocalPaths(message.attachments, localFiles)
 
   return (
     <div
@@ -179,9 +261,9 @@ export function MessageBubble({ message, botAvatarUrl, userAvatarUrl, colors }: 
         </div>
 
         {/* Attachments */}
-        {message.attachments && message.attachments.length > 0 && (
+        {enhancedAttachments.length > 0 && (
           <div className="mb-2 space-y-2">
-            {message.attachments.map((att) => {
+            {enhancedAttachments.map((att) => {
               const displayUrl = getDisplayUrl(att.url)
               return (
                 <div key={att.id}>
@@ -239,7 +321,7 @@ export function MessageBubble({ message, botAvatarUrl, userAvatarUrl, colors }: 
         )}
 
         {/* Content */}
-        {message.content && (
+        {message.content && cleanMessageContent(message.content) && (
           message.isFromBot ? (
             <div
               className="text-[13px] text-[var(--text-primary)] prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-pre:my-2 prose-headings:text-[var(--text-primary)]"
@@ -336,7 +418,7 @@ export function MessageBubble({ message, botAvatarUrl, userAvatarUrl, colors }: 
                   )
                 }}
               >
-                {message.content}
+                {cleanMessageContent(message.content)}
               </ReactMarkdown>
             </div>
           ) : (
@@ -344,7 +426,7 @@ export function MessageBubble({ message, botAvatarUrl, userAvatarUrl, colors }: 
               className="text-[13px] text-[var(--text-primary)]"
               style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'anywhere' }}
             >
-              {message.content}
+              {cleanMessageContent(message.content)}
             </p>
           )
         )}

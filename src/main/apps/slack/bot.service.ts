@@ -4,9 +4,12 @@ import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
-import type { BotStatus, AppMessage } from '../types'
-import type { StoredSlackMessage, SlackWorkspace } from './types'
+import { app } from 'electron'
 import * as fs from 'fs'
+import * as fsPromises from 'fs/promises'
+import * as path from 'path'
+import type { BotStatus, AppMessage } from '../types'
+import type { StoredSlackMessage, SlackWorkspace, StoredAttachment } from './types'
 
 /**
  * SlackBotService manages Slack bot connection and message handling
@@ -215,6 +218,14 @@ export class SlackBotService {
       channel: string
       ts: string
       thread_ts?: string
+      files?: Array<{
+        id: string
+        name: string
+        mimetype: string
+        url_private?: string
+        url_private_download?: string
+        size?: number
+      }>
     },
     say: (message: string | { text: string; thread_ts?: string }) => Promise<unknown>,
     isDM: boolean = false
@@ -224,6 +235,7 @@ export class SlackBotService {
     const channelId = event.channel
     const messageTs = event.ts
     const threadTs = event.thread_ts
+    const files = event.files || []
 
     if (!userId) {
       console.log('[Slack] Message has no user ID, ignoring')
@@ -232,6 +244,7 @@ export class SlackBotService {
 
     console.log('[Slack] Processing message from user:', userId)
     console.log('[Slack] Message text:', text)
+    console.log('[Slack] Files count:', files.length)
 
     // Set current context
     this.currentChannelId = channelId
@@ -276,6 +289,9 @@ export class SlackBotService {
       return
     }
 
+    // Extract attachments from files
+    const { storedAttachments, imageUrls, downloadedFiles } = await this.extractAttachments(files)
+
     // Store incoming message first
     const storedMsg: StoredSlackMessage = {
       messageId: messageTs,
@@ -285,6 +301,7 @@ export class SlackBotService {
       fromUsername: username,
       fromDisplayName: displayName,
       text: cleanText,
+      attachments: storedAttachments.length > 0 ? storedAttachments : undefined,
       date: Math.floor(parseFloat(messageTs)),
       isFromBot: false
     }
@@ -296,11 +313,107 @@ export class SlackBotService {
     appEvents.emitSlackNewMessage(appMessage)
 
     // Process with Agent and reply
-    if (cleanText) {
+    if (cleanText || imageUrls.length > 0 || downloadedFiles.length > 0) {
       // In DMs: only use thread if user is already in one, otherwise reply directly
       // In channels: always reply in thread
       const replyThreadTs = isDM ? threadTs : (threadTs || messageTs)
-      await this.processWithAgentAndReply(channelId, cleanText, replyThreadTs, say)
+      await this.processWithAgentAndReply(channelId, cleanText, replyThreadTs, say, imageUrls, downloadedFiles)
+    }
+  }
+
+  /**
+   * Extract attachments from Slack files
+   * Downloads files to local storage and returns paths for Agent to process
+   */
+  private async extractAttachments(files: Array<{
+    id: string
+    name: string
+    mimetype: string
+    url_private?: string
+    url_private_download?: string
+    size?: number
+  }>): Promise<{
+    storedAttachments: StoredAttachment[]
+    imageUrls: string[]
+    downloadedFiles: { path: string; name: string; mimeType: string }[]
+  }> {
+    const storedAttachments: StoredAttachment[] = []
+    const imageUrls: string[] = []
+    const downloadedFiles: { path: string; name: string; mimeType: string }[] = []
+
+    for (const file of files) {
+      const fileUrl = file.url_private_download || file.url_private
+      if (!fileUrl) continue
+
+      storedAttachments.push({
+        id: file.id,
+        name: file.name,
+        url: fileUrl,
+        mimetype: file.mimetype,
+        size: file.size
+      })
+
+      // Check if it's an image for multimodal processing
+      if (file.mimetype.startsWith('image/')) {
+        // For Slack images, we need to use the private URL with auth
+        // Add to imageUrls for multimodal (may require token auth)
+        imageUrls.push(fileUrl)
+        console.log(`[Slack] Image attachment: ${file.name}`)
+      } else {
+        // Download non-image files for Agent to process
+        const localPath = await this.downloadFile(fileUrl, file.name)
+        if (localPath) {
+          downloadedFiles.push({
+            path: localPath,
+            name: file.name,
+            mimeType: file.mimetype
+          })
+        }
+      }
+    }
+
+    return { storedAttachments, imageUrls, downloadedFiles }
+  }
+
+  /**
+   * Download a file from Slack to local storage
+   * Returns the local file path or null if download failed
+   */
+  private async downloadFile(fileUrl: string, fileName: string): Promise<string | null> {
+    try {
+      if (!this.app) return null
+
+      // Create downloads directory in app data
+      const downloadsDir = path.join(app.getPath('userData'), 'downloads', 'slack')
+      await fsPromises.mkdir(downloadsDir, { recursive: true })
+
+      // Generate unique filename with timestamp
+      const timestamp = Date.now()
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const localPath = path.join(downloadsDir, `${timestamp}_${safeName}`)
+
+      console.log(`[Slack] Downloading file: ${fileName} -> ${localPath}`)
+
+      // Slack files require authentication
+      const botToken = await getSetting('slackBotToken')
+      const response = await fetch(fileUrl, {
+        headers: {
+          'Authorization': `Bearer ${botToken}`
+        }
+      })
+
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.status}`)
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer())
+      await fsPromises.writeFile(localPath, buffer)
+
+      console.log(`[Slack] File downloaded: ${localPath} (${buffer.length} bytes)`)
+      return localPath
+    } catch (error) {
+      console.error(`[Slack] Error downloading file:`, error)
+      return null
     }
   }
 
@@ -357,12 +470,24 @@ export class SlackBotService {
     channelId: string,
     userMessage: string,
     threadTs: string | undefined,
-    say: (message: string | { text: string; thread_ts?: string }) => Promise<unknown>
+    say: (message: string | { text: string; thread_ts?: string }) => Promise<unknown>,
+    imageUrls: string[] = [],
+    downloadedFiles: { path: string; name: string; mimeType: string }[] = []
   ): Promise<void> {
     console.log('[Slack] Sending to Agent:', userMessage.substring(0, 50) + '...')
+    console.log('[Slack] Image URLs:', imageUrls.length)
+    console.log('[Slack] Downloaded files:', downloadedFiles.length)
+
+    // Build text message with file info
+    let fullMessage = userMessage
+    if (downloadedFiles.length > 0) {
+      const fileInfo = downloadedFiles.map(f => `- ${f.name} (${f.mimeType}): ${f.path}`).join('\n')
+      const fileMessage = `\n\n[Attached files - use file_read tool to read content]:\n${fileInfo}`
+      fullMessage = userMessage ? userMessage + fileMessage : fileMessage.trim()
+    }
 
     try {
-      const response = await agentService.processMessage(userMessage, 'slack')
+      const response = await agentService.processMessage(fullMessage, 'slack', imageUrls)
 
       // Check if rejected due to cross-platform lock
       if (!response.success && response.busyWith) {
