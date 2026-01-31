@@ -19,7 +19,8 @@
     "settings": "設定"
   },
   "header": {
-    "aiAssistant": "AI アシスタント"
+    "aiAssistant": "AI アシスタント",
+    "viewTutorial": "セットアップを見る"
   },
   "common": {
     "save": "保存",

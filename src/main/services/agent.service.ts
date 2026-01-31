@@ -1102,7 +1102,7 @@ export class AgentService {
       const response = await client.messages.create({
         model,
         max_tokens: Math.min(maxTokens, 1024), // Limit tokens for evaluation
-        system: `You are an evaluation assistant. Your job is to decide whether an event warrants notifying the user based on their stated expectations.
+        system: `You are a STRICT evaluation assistant. Your job is to decide whether an event warrants notifying the user based on their EXACT expectations.
 
 You MUST respond with a valid JSON object in this exact format:
 {
@@ -1111,8 +1111,15 @@ You MUST respond with a valid JSON object in this exact format:
   "reason": "Brief explanation of your decision"
 }
 
-Guidelines:
-- Be conservative: only notify when the event clearly matches user's expectations
+STRICT Guidelines:
+- Be VERY conservative: only notify when the event EXACTLY matches user's expectations
+- For TIME-BASED requests (reminders, alarms):
+  - ONLY notify when current time >= target time (not before!)
+  - "Remind me at 4:30pm" means notify at 4:30pm or after, NEVER before
+  - Being "close to" the time (e.g., 3 minutes early) is NOT a match - REJECT it
+- For THRESHOLD-BASED requests (price alerts, monitoring):
+  - The threshold must be clearly met or exceeded
+  - "Near" the threshold is NOT enough
 - If shouldNotify is false, message can be omitted or empty
 - Keep the notification message concise and actionable
 - The reason should explain why you made this decision
@@ -1180,7 +1187,7 @@ IMPORTANT: Respond with ONLY the JSON object, no additional text.`,
       ? `\nAdditional Metadata:\n${JSON.stringify(data.metadata, null, 2)}`
       : ''
 
-    return `Please evaluate whether the following event should trigger a notification to the user.
+    return `Strictly evaluate whether the following event should trigger a notification.
 
 == USER'S ORIGINAL REQUEST ==
 ${context.userRequest}
@@ -1193,7 +1200,11 @@ Time: ${data.timestamp}
 Summary: ${data.summary}
 ${data.details ? `Details: ${data.details}` : ''}${metadataStr}
 
-Based on the user's expectations, should this event trigger a notification?`
+IMPORTANT: Only return shouldNotify=true if the conditions are EXACTLY met:
+- For time-based requests: current time must be AT or AFTER the target time
+- For threshold-based requests: the threshold must be clearly met or exceeded
+
+Should this event trigger a notification? Answer strictly based on whether conditions are EXACTLY met.`
   }
 }
 

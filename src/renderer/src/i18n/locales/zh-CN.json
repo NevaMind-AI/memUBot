@@ -19,7 +19,8 @@
     "settings": "设置"
   },
   "header": {
-    "aiAssistant": "AI 助手"
+    "aiAssistant": "AI 助手",
+    "viewTutorial": "查看配置教程"
   },
   "common": {
     "save": "保存",

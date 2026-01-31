@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Power, Loader2, Circle, Users, Square, Brain, Wrench } from 'lucide-react'
+import { Power, Loader2, Circle, Users, Square, Brain, Wrench, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '../Toast'
 import { BoundUsersModal } from '../Shared'
@@ -14,6 +14,12 @@ interface HeaderProps {
 }
 
 type Platform = 'telegram' | 'discord' | 'slack'
+
+// Platform tutorial links
+const platformTutorialLinks: Partial<Record<Platform, string>> = {
+  telegram: 'https://memu.bot/tutorial/telegram',
+  discord: 'https://memu.bot/tutorial/discord'
+}
 
 // Bot avatar component - supports Telegram, Discord, and Slack themes
 function BotAvatar({
@@ -281,6 +287,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
       : t('header.aiAssistant')
     : subtitle
   const avatarUrl = status?.avatarUrl
+  const tutorialLink = platform ? platformTutorialLinks[platform] : undefined
 
   return (
     <header className="h-14 flex items-center justify-between px-5 bg-[var(--glass-bg)] backdrop-blur-xl border-b border-[var(--glass-border)]">
@@ -306,7 +313,20 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
               )}
             </div>
             {displaySubtitle && (
-              <p className="text-[11px] text-[var(--text-muted)] leading-tight">{displaySubtitle}</p>
+              showStatus && !isConnected && tutorialLink ? (
+                <a
+                  href={tutorialLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 text-[11px] leading-tight transition-colors hover:opacity-80"
+                  style={{ color: platformColors.from }}
+                >
+                  <span>{t('header.viewTutorial')}</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              ) : (
+                <p className="text-[11px] text-[var(--text-muted)] leading-tight">{displaySubtitle}</p>
+              )
             )}
           </div>
 
