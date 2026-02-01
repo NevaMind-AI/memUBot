@@ -588,8 +588,24 @@ export class AgentService {
   }
 
   /**
+   * Check if a message contains tool_use blocks
+   */
+  private hasToolUse(msg: Anthropic.MessageParam): boolean {
+    if (!Array.isArray(msg.content)) return false
+    return msg.content.some(block => block.type === 'tool_use')
+  }
+
+  /**
+   * Check if a message contains tool_result blocks
+   */
+  private hasToolResult(msg: Anthropic.MessageParam): boolean {
+    if (!Array.isArray(msg.content)) return false
+    return msg.content.some(block => block.type === 'tool_result')
+  }
+
+  /**
    * Truncate conversation history if it exceeds token limit
-   * Removes oldest messages (except the most recent user message) to fit within limit
+   * Removes oldest messages while ensuring tool_use/tool_result pairs stay together
    */
   private truncateContextIfNeeded(): void {
     // Calculate total tokens
@@ -601,16 +617,51 @@ export class AgentService {
     
     console.log(`[Agent] Context too large (${totalTokens} tokens), truncating...`)
     
-    // Keep removing oldest messages until we're under the limit
-    // But always keep at least the last 2 messages (user's question and possibly assistant's response)
-    while (totalTokens > MAX_CONTEXT_TOKENS && this.conversationHistory.length > 2) {
-      const removed = this.conversationHistory.shift()
-      if (removed) {
-        const removedTokens = estimateTokens(removed)
-        totalTokens -= removedTokens
-        console.log(`[Agent] Removed message (${removedTokens} tokens), remaining: ${totalTokens} tokens`)
+    // Find a safe truncation point - we need to remove messages in pairs when they contain tool_use/tool_result
+    // Strategy: Find the earliest point where we can safely cut without breaking tool pairs
+    let cutIndex = 0
+    
+    while (cutIndex < this.conversationHistory.length - 2) {
+      // Calculate tokens from cutIndex onwards
+      let remainingTokens = 0
+      for (let i = cutIndex; i < this.conversationHistory.length; i++) {
+        remainingTokens += estimateTokens(this.conversationHistory[i])
+      }
+      
+      if (remainingTokens <= MAX_CONTEXT_TOKENS) {
+        break
+      }
+      
+      // Check if current message has tool_use - if so, we need to skip the next message too (tool_result)
+      const currentMsg = this.conversationHistory[cutIndex]
+      if (this.hasToolUse(currentMsg)) {
+        // Skip both this message and the next (tool_result)
+        cutIndex += 2
+      } else if (this.hasToolResult(currentMsg)) {
+        // This shouldn't happen if we're iterating correctly, but handle it anyway
+        // Skip this message
+        cutIndex += 1
+      } else {
+        // Regular message, can safely remove
+        cutIndex += 1
       }
     }
+    
+    // Ensure we don't cut too much - keep at least the last 2 messages
+    if (cutIndex > this.conversationHistory.length - 2) {
+      cutIndex = Math.max(0, this.conversationHistory.length - 2)
+    }
+    
+    // Remove messages up to cutIndex
+    if (cutIndex > 0) {
+      const removed = this.conversationHistory.splice(0, cutIndex)
+      const removedTokens = removed.reduce((sum, msg) => sum + estimateTokens(msg), 0)
+      totalTokens -= removedTokens
+      console.log(`[Agent] Removed ${removed.length} messages (${removedTokens} tokens)`)
+    }
+    
+    // Verify tool_use/tool_result integrity after truncation
+    this.verifyAndFixToolPairs()
     
     // If still too large (single message is huge), we need to handle specially
     if (totalTokens > MAX_CONTEXT_TOKENS && this.conversationHistory.length > 0) {
@@ -634,7 +685,67 @@ export class AgentService {
       }
     }
     
+    totalTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
     console.log(`[Agent] Context truncated to ${this.conversationHistory.length} messages (~${totalTokens} tokens)`)
+  }
+
+  /**
+   * Verify and fix tool_use/tool_result pairs in conversation history
+   * If a tool_use exists without a corresponding tool_result, remove it
+   */
+  private verifyAndFixToolPairs(): void {
+    // Collect all tool_use IDs
+    const toolUseIds = new Set<string>()
+    const toolResultIds = new Set<string>()
+    
+    for (const msg of this.conversationHistory) {
+      if (!Array.isArray(msg.content)) continue
+      
+      for (const block of msg.content) {
+        if (block.type === 'tool_use') {
+          toolUseIds.add(block.id)
+        } else if (block.type === 'tool_result') {
+          toolResultIds.add(block.tool_use_id)
+        }
+      }
+    }
+    
+    // Find orphaned tool_use IDs (no corresponding tool_result)
+    const orphanedIds = new Set<string>()
+    for (const id of toolUseIds) {
+      if (!toolResultIds.has(id)) {
+        orphanedIds.add(id)
+        console.log(`[Agent] Found orphaned tool_use: ${id}`)
+      }
+    }
+    
+    // Find orphaned tool_result IDs (no corresponding tool_use)
+    for (const id of toolResultIds) {
+      if (!toolUseIds.has(id)) {
+        orphanedIds.add(id)
+        console.log(`[Agent] Found orphaned tool_result: ${id}`)
+      }
+    }
+    
+    if (orphanedIds.size === 0) return
+    
+    // Remove messages containing orphaned tool blocks
+    this.conversationHistory = this.conversationHistory.filter(msg => {
+      if (!Array.isArray(msg.content)) return true
+      
+      // Check if any block in this message is orphaned
+      const hasOrphan = msg.content.some(block => {
+        if (block.type === 'tool_use' && orphanedIds.has(block.id)) return true
+        if (block.type === 'tool_result' && orphanedIds.has(block.tool_use_id)) return true
+        return false
+      })
+      
+      if (hasOrphan) {
+        console.log(`[Agent] Removing message with orphaned tool block`)
+        return false
+      }
+      return true
+    })
   }
 
   /**
