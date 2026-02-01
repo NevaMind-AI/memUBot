@@ -23,6 +23,11 @@ export class FeishuBotService {
   }
   private currentChatId: string | null = null
   private botOpenId: string | null = null
+  
+  // Deduplication: track processed message IDs to avoid duplicate processing
+  // This is needed because Feishu SDK may redeliver messages on WebSocket reconnect
+  private processedMessageIds: Set<string> = new Set()
+  private readonly MAX_PROCESSED_IDS = 1000 // Limit memory usage
 
   /**
    * Connect to Feishu using WebSocket
@@ -113,8 +118,29 @@ export class FeishuBotService {
    * Handle incoming message event from WebSocket
    */
   private async handleMessageEvent(event: FeishuMessageEvent): Promise<void> {
+    const messageId = event.message.message_id
+    
+    // Deduplication: skip if already processed
+    if (this.processedMessageIds.has(messageId)) {
+      console.log(`[Feishu] Skipping duplicate message: ${messageId}`)
+      return
+    }
+    
+    // Add to processed set
+    this.processedMessageIds.add(messageId)
+    
+    // Cleanup old IDs if set is too large
+    if (this.processedMessageIds.size > this.MAX_PROCESSED_IDS) {
+      const idsArray = Array.from(this.processedMessageIds)
+      // Remove oldest half
+      for (let i = 0; i < this.MAX_PROCESSED_IDS / 2; i++) {
+        this.processedMessageIds.delete(idsArray[i])
+      }
+      console.log(`[Feishu] Cleaned up processed message IDs, now ${this.processedMessageIds.size} entries`)
+    }
+    
     console.log('[Feishu] ========== MESSAGE RECEIVED ==========')
-    console.log('[Feishu] Message ID:', event.message.message_id)
+    console.log('[Feishu] Message ID:', messageId)
     console.log('[Feishu] From:', event.sender.sender_id.open_id)
     console.log('[Feishu] Chat Type:', event.message.chat_type)
     console.log('[Feishu] Message Type:', event.message.message_type)

@@ -21,7 +21,7 @@ let mainWindow: BrowserWindow | null = null
 
 // Startup status tracking
 interface StartupStatus {
-  stage: 'initializing' | 'mcp' | 'platforms' | 'ready'
+  stage: 'initializing' | 'mcp' | 'platforms' | 'ready' | 'permissions'
   message: string
   progress: number // 0-100
 }
@@ -216,23 +216,24 @@ async function initializeServicesAsync(): Promise<void> {
     console.error('[App] Auto-connect failed:', error)
   }
 
-  // Stage 4: Start proactive service
-  sendStartupStatus({
-    stage: 'ready',
-    message: 'Starting proactive service...',
-    progress: 80
-  })
+  // Stage 4: Start proactive service (temporarily disabled)
+  // sendStartupStatus({
+  //   stage: 'ready',
+  //   message: 'Starting proactive service...',
+  //   progress: 80
+  // })
 
-  try {
-    const started = await proactiveService.start(5000) // 5 second interval
-    if (started) {
-      console.log('[App] Proactive service started')
-    } else {
-      console.log('[App] Proactive service not started (memuApiKey not configured)')
-    }
-  } catch (error) {
-    console.error('[App] Failed to start proactive service:', error)
-  }
+  // try {
+  //   const started = await proactiveService.start(5000) // 5 second interval
+  //   if (started) {
+  //     console.log('[App] Proactive service started')
+  //   } else {
+  //     console.log('[App] Proactive service not started (memuApiKey not configured)')
+  //   }
+  // } catch (error) {
+  //   console.error('[App] Failed to start proactive service:', error)
+  // }
+  console.log('[App] Proactive service disabled (temporarily)')
 
   // Stage 5: Start local API server
   sendStartupStatus({
