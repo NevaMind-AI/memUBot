@@ -37,6 +37,45 @@ import * as fs from 'fs/promises'
 const MAX_CONTEXT_MESSAGES = 20
 
 /**
+ * Maximum tokens for context (leave room for response, Claude limit is 200k)
+ * We use 150k to leave room for system prompt, tools, and response
+ */
+const MAX_CONTEXT_TOKENS = 150000
+
+/**
+ * Estimate token count for a message
+ * Rough estimation: ~4 chars per token for text, base64 images are much larger
+ */
+function estimateTokens(message: Anthropic.MessageParam): number {
+  if (typeof message.content === 'string') {
+    return Math.ceil(message.content.length / 4)
+  }
+  
+  let tokens = 0
+  for (const block of message.content) {
+    if (block.type === 'text') {
+      tokens += Math.ceil(block.text.length / 4)
+    } else if (block.type === 'image') {
+      // Base64 images are expensive - estimate based on data size
+      // Each base64 char is ~0.75 bytes, and images cost more tokens
+      if (block.source.type === 'base64') {
+        // Base64 data length / 4 chars per token * 1.5 (images cost more)
+        tokens += Math.ceil(block.source.data.length / 4 * 1.5)
+      } else {
+        // URL-based images - estimate ~1000 tokens per image
+        tokens += 1000
+      }
+    } else if (block.type === 'tool_use') {
+      tokens += Math.ceil(JSON.stringify(block).length / 4)
+    } else if (block.type === 'tool_result') {
+      const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
+      tokens += Math.ceil(content.length / 4)
+    }
+  }
+  return tokens
+}
+
+/**
  * Supported platforms for messaging tools
  */
 export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'none'
@@ -549,6 +588,56 @@ export class AgentService {
   }
 
   /**
+   * Truncate conversation history if it exceeds token limit
+   * Removes oldest messages (except the most recent user message) to fit within limit
+   */
+  private truncateContextIfNeeded(): void {
+    // Calculate total tokens
+    let totalTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
+    
+    if (totalTokens <= MAX_CONTEXT_TOKENS) {
+      return
+    }
+    
+    console.log(`[Agent] Context too large (${totalTokens} tokens), truncating...`)
+    
+    // Keep removing oldest messages until we're under the limit
+    // But always keep at least the last 2 messages (user's question and possibly assistant's response)
+    while (totalTokens > MAX_CONTEXT_TOKENS && this.conversationHistory.length > 2) {
+      const removed = this.conversationHistory.shift()
+      if (removed) {
+        const removedTokens = estimateTokens(removed)
+        totalTokens -= removedTokens
+        console.log(`[Agent] Removed message (${removedTokens} tokens), remaining: ${totalTokens} tokens`)
+      }
+    }
+    
+    // If still too large (single message is huge), we need to handle specially
+    if (totalTokens > MAX_CONTEXT_TOKENS && this.conversationHistory.length > 0) {
+      // Check if it's a multimodal message with large images
+      const firstMsg = this.conversationHistory[0]
+      if (Array.isArray(firstMsg.content)) {
+        // Remove image blocks from the message to reduce size
+        const filteredContent = firstMsg.content.filter(block => {
+          if (block.type === 'image') {
+            console.log('[Agent] Removing large image from context to fit limit')
+            return false
+          }
+          return true
+        })
+        if (filteredContent.length > 0) {
+          firstMsg.content = filteredContent as Anthropic.ContentBlockParam[]
+        } else {
+          // No content left, add a placeholder
+          firstMsg.content = '[Previous image removed due to size limit]'
+        }
+      }
+    }
+    
+    console.log(`[Agent] Context truncated to ${this.conversationHistory.length} messages (~${totalTokens} tokens)`)
+  }
+
+  /**
    * Check if processing is currently active
    */
   isProcessing(): boolean {
@@ -707,6 +796,7 @@ export class AgentService {
       // We need to group consecutive messages from the same role
       if (messages.length > 0) {
         let lastRole: 'user' | 'assistant' | null = null
+        let totalTokens = 0
         
         for (const msg of messages as Array<{ text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] }>) {
           // Handle multimodal messages (images)
@@ -714,10 +804,20 @@ export class AgentService {
             const role = 'user' as const
             // For multimodal, we can't easily merge, so add as new message
             if (role !== lastRole || this.conversationHistory.length === 0) {
-              this.conversationHistory.push({
+              const newMsg: Anthropic.MessageParam = {
                 role,
                 content: msg._multimodal
-              })
+              }
+              const msgTokens = estimateTokens(newMsg)
+              
+              // Check if adding this message would exceed token limit
+              if (totalTokens + msgTokens > MAX_CONTEXT_TOKENS) {
+                console.log(`[Agent] Stopping context load - would exceed token limit (${totalTokens} + ${msgTokens} > ${MAX_CONTEXT_TOKENS})`)
+                break
+              }
+              
+              this.conversationHistory.push(newMsg)
+              totalTokens += msgTokens
               lastRole = role
             }
             continue
@@ -734,17 +834,28 @@ export class AgentService {
             const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]
             if (typeof lastMsg.content === 'string') {
               lastMsg.content = lastMsg.content + '\n\n' + msg.text
+              totalTokens += Math.ceil(msg.text.length / 4)
             }
           } else {
-            this.conversationHistory.push({
+            const newMsg: Anthropic.MessageParam = {
               role,
               content: msg.text
-            })
+            }
+            const msgTokens = estimateTokens(newMsg)
+            
+            // Check if adding this message would exceed token limit
+            if (totalTokens + msgTokens > MAX_CONTEXT_TOKENS) {
+              console.log(`[Agent] Stopping context load - would exceed token limit (${totalTokens} + ${msgTokens} > ${MAX_CONTEXT_TOKENS})`)
+              break
+            }
+            
+            this.conversationHistory.push(newMsg)
+            totalTokens += msgTokens
             lastRole = role
           }
         }
         
-        console.log(`[Agent] Loaded ${this.conversationHistory.length} context messages`)
+        console.log(`[Agent] Loaded ${this.conversationHistory.length} context messages (~${totalTokens} tokens)`)
       }
     } catch (error) {
       console.error('[Agent] Error loading context:', error)
@@ -999,6 +1110,9 @@ export class AgentService {
       iterations++
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
       this.setStatus('thinking', undefined, iterations)
+
+      // Check and truncate context if too large
+      this.truncateContextIfNeeded()
 
       // Call Claude API with platform-specific tools
       const response = await client.messages.create({
