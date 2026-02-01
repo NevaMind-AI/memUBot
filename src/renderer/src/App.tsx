@@ -6,12 +6,13 @@ import { DiscordView } from './components/Discord'
 import { WhatsAppView } from './components/WhatsApp'
 import { SlackView } from './components/Slack'
 import { LineView } from './components/Line'
+import { FeishuView } from './components/Feishu'
 import { SettingsView } from './components/Settings'
 import { ToastContainer } from './components/Toast'
 import { useThemeStore, applyTheme } from './stores/themeStore'
 import appIcon from './assets/app-icon.png'
 
-type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'settings'
+type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 type AppNavItem = Exclude<NavItem, 'settings'>
 
 const LAST_APP_TAB_KEY = 'memu-last-app-tab'
@@ -19,7 +20,7 @@ const LAST_APP_TAB_KEY = 'memu-last-app-tab'
 // Get saved tab or default to telegram
 function getSavedAppTab(): AppNavItem {
   const saved = localStorage.getItem(LAST_APP_TAB_KEY)
-  const validTabs: AppNavItem[] = ['telegram', 'discord', 'whatsapp', 'slack', 'line']
+  const validTabs: AppNavItem[] = ['telegram', 'discord', 'whatsapp', 'slack', 'line', 'feishu']
   if (saved && validTabs.includes(saved as AppNavItem)) {
     return saved as AppNavItem
   }
@@ -100,7 +101,8 @@ function App(): JSX.Element {
           showDiscordStatus: false,
           showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false
+          showLineStatus: false,
+          showFeishuStatus: false
         }
       case 'discord':
         return {
@@ -110,7 +112,8 @@ function App(): JSX.Element {
           showDiscordStatus: true,
           showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false
+          showLineStatus: false,
+          showFeishuStatus: false
         }
       case 'whatsapp':
         return {
@@ -120,7 +123,8 @@ function App(): JSX.Element {
           showDiscordStatus: false,
           showWhatsAppStatus: true,
           showSlackStatus: false,
-          showLineStatus: false
+          showLineStatus: false,
+          showFeishuStatus: false
         }
       case 'slack':
         return {
@@ -130,7 +134,8 @@ function App(): JSX.Element {
           showDiscordStatus: false,
           showWhatsAppStatus: false,
           showSlackStatus: true,
-          showLineStatus: false
+          showLineStatus: false,
+          showFeishuStatus: false
         }
       case 'line':
         return {
@@ -140,7 +145,19 @@ function App(): JSX.Element {
           showDiscordStatus: false,
           showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: true
+          showLineStatus: true,
+          showFeishuStatus: false
+        }
+      case 'feishu':
+        return {
+          title: 'Feishu',
+          subtitle: 'AI Assistant',
+          showTelegramStatus: false,
+          showDiscordStatus: false,
+          showWhatsAppStatus: false,
+          showSlackStatus: false,
+          showLineStatus: false,
+          showFeishuStatus: true
         }
       case 'settings':
         return {
@@ -149,7 +166,8 @@ function App(): JSX.Element {
           showDiscordStatus: false,
           showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false
+          showLineStatus: false,
+          showFeishuStatus: false
         }
       default:
         return {
@@ -158,7 +176,8 @@ function App(): JSX.Element {
           showDiscordStatus: false,
           showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false
+          showLineStatus: false,
+          showFeishuStatus: false
         }
     }
   }
@@ -223,6 +242,7 @@ function App(): JSX.Element {
           showTelegramStatus={headerInfo.showTelegramStatus}
           showDiscordStatus={headerInfo.showDiscordStatus}
           showSlackStatus={headerInfo.showSlackStatus}
+          showFeishuStatus={headerInfo.showFeishuStatus}
         />
 
         {/* Content */}
@@ -232,6 +252,7 @@ function App(): JSX.Element {
           {activeNav === 'whatsapp' && <WhatsAppView />}
           {activeNav === 'slack' && <SlackView />}
           {activeNav === 'line' && <LineView />}
+          {activeNav === 'feishu' && <FeishuView />}
           {activeNav === 'settings' && <SettingsView />}
         </main>
       </div>

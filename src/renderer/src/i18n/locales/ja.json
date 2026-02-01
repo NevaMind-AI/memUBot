@@ -16,6 +16,7 @@
     "whatsapp": "WhatsApp",
     "slack": "Slack",
     "line": "Line",
+    "feishu": "飞书",
     "settings": "設定"
   },
   "header": {
@@ -129,6 +130,15 @@
         "title": "Line",
         "channelAccessToken": "Channel Access Token",
         "channelSecret": "Channel Secret"
+      },
+      "feishu": {
+        "title": "飞书",
+        "appId": "App ID",
+        "appIdPlaceholder": "cli_xxxxxxxx",
+        "appIdHint": "飞书オープンプラットフォームのApp ID",
+        "appSecret": "App Secret",
+        "appSecretPlaceholder": "アプリシークレット",
+        "appSecretHint": "飞书オープンプラットフォームのApp Secret"
       }
     },
     "memu": {
@@ -289,6 +299,7 @@
         "telegram": "Telegram",
         "discord": "Discord",
         "slack": "Slack",
+        "feishu": "飞书",
         "mcpOutput": "MCP 出力",
         "agentOutput": "Agent 出力",
         "skills": "Skills",
@@ -397,7 +408,8 @@
     "bindHint": {
       "telegram": "ボットに /bind <コード> を送信。コードは 設定 → セキュリティ で取得",
       "discord": "@bot /bind <コード> でボットをメンション。コードは 設定 → セキュリティ で取得",
-      "slack": "/bind <コード> コマンドを使用、または @bot /bind <コード> を送信。コードは 設定 → セキュリティ で取得"
+      "slack": "/bind <コード> コマンドを使用、または @bot /bind <コード> を送信。コードは 設定 → セキュリティ で取得",
+      "feishu": "ボットに /bind <コード> を送信。コードは 設定 → セキュリティ で取得"
     }
   },
   "time": {

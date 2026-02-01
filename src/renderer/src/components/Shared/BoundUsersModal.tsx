@@ -14,7 +14,7 @@ interface BoundUser {
   boundAt: number
 }
 
-type Platform = 'telegram' | 'discord' | 'slack'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
 
 interface BoundUsersModalProps {
   isOpen: boolean
@@ -26,21 +26,24 @@ interface BoundUsersModalProps {
 const platformColors: Record<Platform, { from: string; to: string; accent: string; darkAccent: string }> = {
   telegram: { from: '#7DCBF7', to: '#2596D1', accent: '#2596D1', darkAccent: '#7DCBF7' },
   discord: { from: '#5865F2', to: '#7289DA', accent: '#5865F2', darkAccent: '#a5b4fc' },
-  slack: { from: '#E0B3E6', to: '#C97BD2', accent: '#611F69', darkAccent: '#E0B3E6' }
+  slack: { from: '#E0B3E6', to: '#C97BD2', accent: '#611F69', darkAccent: '#E0B3E6' },
+  feishu: { from: '#3370FF', to: '#5B8FF9', accent: '#3370FF', darkAccent: '#8BABFF' }
 }
 
 // Platform-specific bind commands
 const platformBindCommands: Record<Platform, string> = {
   telegram: '/bind <code>',
   discord: '@bot /bind <code>',
-  slack: '/bind <code>'
+  slack: '/bind <code>',
+  feishu: '/bind <code>'
 }
 
 // Capitalized platform names
 const platformNames: Record<Platform, string> = {
   telegram: 'Telegram',
   discord: 'Discord',
-  slack: 'Slack'
+  slack: 'Slack',
+  feishu: 'Feishu'
 }
 
 /**
@@ -246,59 +249,61 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
           ) : (
             <div className="space-y-2">
               {users.map((user) => (
-                <div
-                  key={user.uniqueId || String(user.userId)}
-                  className="flex items-center justify-between p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
-                >
-                  <div className="flex items-center gap-3">
-                    {user.avatarUrl ? (
-                      <img
-                        src={user.avatarUrl}
-                        alt={user.username}
-                        className="w-10 h-10 rounded-full object-cover border-2"
-                        style={{ borderColor: `${accentColor}40` }}
-                        onError={(e) => {
-                          // Fall back to default icon on error
-                          e.currentTarget.style.display = 'none'
-                          e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                        }}
-                      />
-                    ) : null}
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${user.avatarUrl ? 'hidden' : ''}`}
-                      style={{ background: `linear-gradient(to bottom right, ${accentColor}25, ${accentColor}35)` }}
-                    >
-                      <User className="w-5 h-5" style={{ color: accentColor }} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[13px] font-medium text-slate-900 dark:text-white">
-                          {user.firstName || user.username}
-                        </span>
-                        {/* Only show @username if it's a real username (not firstName fallback) */}
-                        {user.username && user.username !== user.firstName && !user.username.includes(' ') && (
-                          <span className="text-[12px] text-slate-500 dark:text-slate-400">
-                            @{user.username}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        {t('boundUsers.boundAt')} {formatDate(user.boundAt)}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleRemoveUser(user)}
-                    disabled={deletingId === (user.uniqueId || String(user.userId))}
-                    className="p-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all disabled:opacity-50"
+                  <div
+                    key={user.uniqueId || String(user.userId)}
+                    className="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700"
                   >
-                    {deletingId === (user.uniqueId || String(user.userId)) ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="flex-shrink-0">
+                        {user.avatarUrl ? (
+                          <img
+                            src={user.avatarUrl}
+                            alt={user.username}
+                            className="w-10 h-10 rounded-full object-cover border-2"
+                            style={{ borderColor: `${accentColor}40` }}
+                            onError={(e) => {
+                              // Fall back to default icon on error
+                              e.currentTarget.style.display = 'none'
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center ${user.avatarUrl ? 'hidden' : ''}`}
+                          style={{ background: `linear-gradient(to bottom right, ${accentColor}25, ${accentColor}35)` }}
+                        >
+                          <User className="w-5 h-5" style={{ color: accentColor }} />
+                        </div>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-[13px] font-medium text-slate-900 dark:text-white truncate">
+                            {user.firstName || user.username}
+                          </span>
+                          {/* Only show @username if it's a real username (not firstName fallback) */}
+                          {user.username && user.username !== user.firstName && !user.username.includes(' ') && (
+                            <span className="text-[12px] text-slate-500 dark:text-slate-400 truncate flex-shrink">
+                              @{user.username}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate">
+                          {t('boundUsers.boundAt')} {formatDate(user.boundAt)}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveUser(user)}
+                      disabled={deletingId === (user.uniqueId || String(user.userId))}
+                      className="flex-shrink-0 p-2 rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-500/20 transition-all disabled:opacity-50"
+                    >
+                      {deletingId === (user.uniqueId || String(user.userId)) ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
               ))}
 
               {/* Binding Instructions for existing users */}

@@ -2,9 +2,9 @@ import { Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
 import appIcon from '../../assets/app-icon.png'
-import { TelegramIcon, DiscordIcon, WhatsAppIcon, SlackIcon, LineIcon } from '../Icons/AppIcons'
+import { TelegramIcon, DiscordIcon, WhatsAppIcon, SlackIcon, LineIcon, FeishuIcon } from '../Icons/AppIcons'
 
-type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'settings'
+type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 
 interface SidebarProps {
   activeNav: NavItem
@@ -107,6 +107,19 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
         >
           <LineIcon className="w-[18px] h-[18px]" />
         </button> */}
+
+        {/* Feishu */}
+        <button
+          onClick={() => onNavChange('feishu')}
+          title={t('nav.feishu')}
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'feishu'
+              ? 'bg-gradient-to-br from-white to-[#F5F6F7] dark:from-[#2A2B2E] dark:to-[#1F2023] shadow-md shadow-black/10 dark:shadow-black/10 ring-1 ring-black/5 dark:ring-white/10'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <FeishuIcon className="w-[22px] h-[22px]" />
+        </button>
       </nav>
 
       {/* Bottom Actions: Settings + Theme */}

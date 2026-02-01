@@ -40,6 +40,10 @@ export interface AppSettings {
   lineChannelAccessToken: string
   lineChannelSecret: string
 
+  // Feishu settings
+  feishuAppId: string
+  feishuAppSecret: string
+
   // General settings
   language: string
 }
@@ -68,6 +72,9 @@ const DEFAULT_SETTINGS: AppSettings = {
 
   lineChannelAccessToken: '',
   lineChannelSecret: '',
+
+  feishuAppId: '',
+  feishuAppSecret: '',
 
   language: 'en'
 }

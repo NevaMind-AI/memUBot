@@ -52,7 +52,7 @@ const settingsApi = {
 }
 
 // Security API
-type Platform = 'telegram' | 'discord' | 'slack'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
 
 const securityApi = {
   generateCode: () => ipcRenderer.invoke('security:generate-code'),
@@ -134,6 +134,23 @@ const lineApi = {
   }
 }
 
+// Feishu API (single-user mode)
+const feishuApi = {
+  connect: () => ipcRenderer.invoke('feishu:connect'),
+  disconnect: () => ipcRenderer.invoke('feishu:disconnect'),
+  getStatus: () => ipcRenderer.invoke('feishu:status'),
+  getMessages: (limit?: number) => ipcRenderer.invoke('feishu:get-messages', limit),
+  // Event listeners
+  onNewMessage: (callback: (message: unknown) => void) => {
+    ipcRenderer.on('feishu:new-message', (_event, message) => callback(message))
+    return () => ipcRenderer.removeAllListeners('feishu:new-message')
+  },
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('feishu:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('feishu:status-changed')
+  }
+}
+
 // LLM API
 const llmApi = {
   getStatus: () => ipcRenderer.invoke('llm:get-status'),
@@ -205,6 +222,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('whatsapp', whatsappApi)
     contextBridge.exposeInMainWorld('slack', slackApi)
     contextBridge.exposeInMainWorld('line', lineApi)
+    contextBridge.exposeInMainWorld('feishu', feishuApi)
     contextBridge.exposeInMainWorld('settings', settingsApi)
     contextBridge.exposeInMainWorld('security', securityApi)
     contextBridge.exposeInMainWorld('llm', llmApi)
@@ -231,6 +249,8 @@ if (process.contextIsolated) {
   window.slack = slackApi
   // @ts-ignore (define in dts)
   window.line = lineApi
+  // @ts-ignore (define in dts)
+  window.feishu = feishuApi
   // @ts-ignore (define in dts)
   window.settings = settingsApi
   // @ts-ignore (define in dts)

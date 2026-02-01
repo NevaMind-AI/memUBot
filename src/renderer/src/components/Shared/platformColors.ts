@@ -38,5 +38,12 @@ export const platformColors: Record<string, ThemeColors> = {
     primaryDark: '#4ade80',
     secondary: '#00C300',
     secondaryDark: '#86efac'
+  },
+  feishu: {
+    primary: '#3370FF',
+    primaryLight: '#5B8FF9',
+    primaryDark: '#8BABFF',
+    secondary: '#5B8FF9',
+    secondaryDark: '#B5C8FF'
   }
 }

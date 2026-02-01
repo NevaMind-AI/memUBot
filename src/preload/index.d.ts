@@ -37,7 +37,7 @@ interface MessageAttachment {
 // App message type
 interface AppMessage {
   id: string
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
   chatId?: string
   senderId?: string
   senderName: string
@@ -50,7 +50,7 @@ interface AppMessage {
 
 // Bot status type
 interface BotStatus {
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
   isConnected: boolean
   username?: string
   botName?: string
@@ -76,6 +76,8 @@ interface AppSettings {
   slackAppToken: string
   lineChannelAccessToken: string
   lineChannelSecret: string
+  feishuAppId: string
+  feishuAppSecret: string
   language: string
 }
 
@@ -152,6 +154,17 @@ interface LineApi {
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
 }
 
+// Feishu API interface (single-user mode)
+interface FeishuApi {
+  connect: () => Promise<IpcResponse>
+  disconnect: () => Promise<IpcResponse>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+  getMessages: (limit?: number) => Promise<IpcResponse<AppMessage[]>>
+  // Event listeners (returns unsubscribe function)
+  onNewMessage: (callback: (message: AppMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+}
+
 // MCP Server Configuration
 interface McpServerConfig {
   [key: string]: {
@@ -210,7 +223,7 @@ interface StorageInfo {
 }
 
 // Platform type
-type Platform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line'
+type Platform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu'
 
 // Bound user type
 interface BoundUser {
@@ -356,6 +369,7 @@ declare global {
     whatsapp: WhatsAppApi
     slack: SlackApi
     line: LineApi
+    feishu: FeishuApi
     settings: SettingsApi
     security: SecurityApi
     llm: LLMApi

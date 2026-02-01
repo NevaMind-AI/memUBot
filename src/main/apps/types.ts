@@ -3,7 +3,7 @@
  */
 
 // Supported app platforms
-export type AppPlatform = 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line'
+export type AppPlatform = 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
 
 // Attachment structure for messages
 export interface MessageAttachment {

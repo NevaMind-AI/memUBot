@@ -9,7 +9,7 @@ import { Slider } from '../Slider'
 import { changeLanguage, languages } from '../../i18n'
 import appIcon from '../../assets/app-icon.png'
 import logoSvg from '../../assets/logo.svg'
-import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
+import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
 
 type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'about'
 
@@ -30,6 +30,8 @@ interface AppSettings {
   slackAppToken: string
   lineChannelAccessToken: string
   lineChannelSecret: string
+  feishuAppId: string
+  feishuAppSecret: string
   language: string
 }
 
@@ -173,6 +175,8 @@ function GeneralSettings(): JSX.Element {
     // Line settings temporarily disabled
     // settings.lineChannelAccessToken !== originalSettings.lineChannelAccessToken ||
     // settings.lineChannelSecret !== originalSettings.lineChannelSecret ||
+    settings.feishuAppId !== originalSettings.feishuAppId ||
+    settings.feishuAppSecret !== originalSettings.feishuAppSecret ||
     settings.language !== originalSettings.language
 
   const handleSave = async () => {
@@ -191,6 +195,8 @@ function GeneralSettings(): JSX.Element {
         // Line settings temporarily disabled
         // lineChannelAccessToken: settings.lineChannelAccessToken,
         // lineChannelSecret: settings.lineChannelSecret,
+        feishuAppId: settings.feishuAppId,
+        feishuAppSecret: settings.feishuAppSecret,
         language: settings.language
       })
       if (result.success) {
@@ -437,6 +443,40 @@ function GeneralSettings(): JSX.Element {
           </div>
         </div> */}
 
+        {/* Feishu Tokens */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#3370FF]/30">
+          <div className="mb-3">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-white to-[#F5F6F7] dark:from-[#2A2B2E] dark:to-[#1F2023] ring-1 ring-black/5 dark:ring-white/10 flex items-center justify-center">
+                <FeishuIcon className="w-3 h-3" />
+              </div>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.platforms.feishu.title')}</h4>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.platforms.feishu.appId')}</label>
+              <input
+                type="text"
+                placeholder={t('settings.platforms.feishu.appIdPlaceholder')}
+                value={settings.feishuAppId || ''}
+                onChange={(e) => setSettings({ ...settings, feishuAppId: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#3370FF]/50 focus:ring-2 focus:ring-[#3370FF]/10 transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-[var(--text-muted)] mb-1.5 block">{t('settings.platforms.feishu.appSecret')}</label>
+              <input
+                type="password"
+                placeholder={t('settings.platforms.feishu.appSecretPlaceholder')}
+                value={settings.feishuAppSecret || ''}
+                onChange={(e) => setSettings({ ...settings, feishuAppSecret: e.target.value })}
+                className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[#3370FF]/50 focus:ring-2 focus:ring-[#3370FF]/10 transition-all"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Language */}
         <LanguageSelector />
       </div>
@@ -539,7 +579,7 @@ function ModelSettings(): JSX.Element {
 
       <div className="space-y-3">
         {/* Model Selection */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)]">
           <div className="flex items-center justify-between">
             <div>
               <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.model.model')}</h4>

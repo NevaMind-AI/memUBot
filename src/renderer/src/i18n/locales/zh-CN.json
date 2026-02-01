@@ -16,6 +16,7 @@
     "whatsapp": "WhatsApp",
     "slack": "Slack",
     "line": "Line",
+    "feishu": "飞书",
     "settings": "设置"
   },
   "header": {
@@ -129,6 +130,15 @@
         "title": "Line",
         "channelAccessToken": "Channel Access Token",
         "channelSecret": "Channel Secret"
+      },
+      "feishu": {
+        "title": "飞书",
+        "appId": "App ID",
+        "appIdPlaceholder": "cli_xxxxxxxx",
+        "appIdHint": "飞书开放平台的应用 ID",
+        "appSecret": "App Secret",
+        "appSecretPlaceholder": "您的应用密钥",
+        "appSecretHint": "飞书开放平台的应用密钥"
       }
     },
     "memu": {
@@ -289,6 +299,7 @@
         "telegram": "Telegram",
         "discord": "Discord",
         "slack": "Slack",
+        "feishu": "飞书",
         "mcpOutput": "MCP 输出",
         "agentOutput": "Agent 输出",
         "skills": "Skills",
@@ -397,7 +408,8 @@
     "bindHint": {
       "telegram": "向机器人发送 /bind <绑定码>，绑定码可在 设置 → 安全 中获取",
       "discord": "@ 机器人并发送 @bot /bind <绑定码>，绑定码可在 设置 → 安全 中获取",
-      "slack": "使用 /bind <绑定码> 命令，或发送 @bot /bind <绑定码>，绑定码可在 设置 → 安全 中获取"
+      "slack": "使用 /bind <绑定码> 命令，或发送 @bot /bind <绑定码>，绑定码可在 设置 → 安全 中获取",
+      "feishu": "向机器人发送 /bind <绑定码>，绑定码可在 设置 → 安全 中获取"
     }
   },
   "time": {

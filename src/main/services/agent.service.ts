@@ -6,6 +6,7 @@ import { discordTools } from '../tools/discord.definitions'
 import { whatsappTools } from '../tools/whatsapp.definitions'
 import { slackTools } from '../tools/slack.definitions'
 import { lineTools } from '../tools/line.definitions'
+import { feishuTools } from '../tools/feishu.definitions'
 import { serviceTools } from '../tools/service.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
 import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
@@ -15,12 +16,14 @@ import { executeDiscordTool } from '../tools/discord.executor'
 import { executeWhatsAppTool } from '../tools/whatsapp.executor'
 import { executeSlackTool } from '../tools/slack.executor'
 import { executeLineTool } from '../tools/line.executor'
+import { executeFeishuTool } from '../tools/feishu.executor'
 import { executeServiceTool } from '../tools/service.executor'
 import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
+import { feishuStorage } from '../apps/feishu/storage'
 import { app } from 'electron'
 import { mcpService } from './mcp.service'
 import { skillsService } from './skills.service'
@@ -36,7 +39,7 @@ const MAX_CONTEXT_MESSAGES = 20
 /**
  * Supported platforms for messaging tools
  */
-export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'none'
+export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'none'
 
 /**
  * Unmemorized message with metadata
@@ -250,6 +253,36 @@ You are an expert assistant that can help with:
 - Sharing files and media via Line
 - Any command-line task the user needs help with`
 
+const FEISHU_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
+
+You have access to:
+1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+2. **Text editor** - View and edit files with precision
+3. **Feishu messaging** - Send various types of content to the user via Feishu (飞书):
+   - Text messages
+   - Images
+   - Files/Documents
+   - Message cards (interactive cards with rich formatting)
+
+Guidelines:
+- Use bash for command-line tasks, file operations, git, npm, etc.
+- Use the text editor for viewing and editing code files
+- Use Feishu tools to send rich content (images, files, cards) to the user
+- Ask for confirmation before destructive operations
+
+Communication Guidelines:
+- Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
+- **AVOID** sending status updates like "Task started" - just do the work
+- **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
+- Keep your final text response **brief** if details were already sent
+
+You are an expert assistant that can help with:
+- Software development and coding
+- System administration
+- File management
+- Sharing files and media via Feishu
+- Any command-line task the user needs help with`
+
 const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
 
 You have access to:
@@ -315,6 +348,8 @@ function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
       return [...baseTools, ...platformTools, ...slackTools, ...svcTools, ...mcpTools]
     case 'line':
       return [...baseTools, ...platformTools, ...lineTools, ...svcTools, ...mcpTools]
+    case 'feishu':
+      return [...baseTools, ...platformTools, ...feishuTools, ...svcTools, ...mcpTools]
     case 'none':
     default:
       return [...baseTools, ...platformTools, ...svcTools, ...mcpTools]
@@ -355,6 +390,9 @@ async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<st
         break
       case 'line':
         basePrompt = LINE_SYSTEM_PROMPT
+        break
+      case 'feishu':
+        basePrompt = FEISHU_SYSTEM_PROMPT
         break
       case 'none':
       default:
@@ -585,6 +623,84 @@ export class AgentService {
           text: m.text,
           isFromBot: m.isFromBot
         }))
+      } else if (platform === 'feishu') {
+        const storedMessages = await feishuStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        // For Feishu, also include image attachments in context
+        for (const m of storedMessages) {
+          const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
+          if (hasImages && !m.isFromBot) {
+            // Load images for user messages (limit to recent messages to avoid memory issues)
+            const imageAttachments = m.attachments?.filter(a => a.contentType?.startsWith('image/')) || []
+            const imageContents: Anthropic.ContentBlockParam[] = []
+            const imagePaths: string[] = [] // Track local paths for reference
+            const MAX_IMAGE_SIZE_MB = 1 // Images larger than 2MB will be treated as files
+            
+            for (const att of imageAttachments.slice(0, 3)) { // Max 3 images per message
+              if (att.url && !att.url.startsWith('http')) {
+                // Local file - check size and convert to base64 if small enough
+                try {
+                  const imageData = await fs.readFile(att.url)
+                  const imageSizeMB = imageData.length / (1024 * 1024)
+                  
+                  if (imageSizeMB > MAX_IMAGE_SIZE_MB) {
+                    // Image too large - just track path, don't convert to base64
+                    console.log(`[Agent] Historical image too large (${imageSizeMB.toFixed(2)}MB), skipping base64: ${att.url}`)
+                    imagePaths.push(att.url)
+                  } else {
+                    // Detect media type from magic bytes
+                    let mediaType = 'image/png'
+                    if (imageData[0] === 0xff && imageData[1] === 0xd8) mediaType = 'image/jpeg'
+                    else if (imageData[0] === 0x89 && imageData[1] === 0x50) mediaType = 'image/png'
+                    else if (imageData[0] === 0x47 && imageData[1] === 0x49) mediaType = 'image/gif'
+                    
+                    imageContents.push({
+                      type: 'image',
+                      source: {
+                        type: 'base64',
+                        media_type: mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+                        data: imageData.toString('base64')
+                      }
+                    })
+                    imagePaths.push(att.url)
+                  }
+                } catch (err) {
+                  console.log(`[Agent] Could not load historical image: ${att.url}`)
+                }
+              }
+            }
+            
+            if (imageContents.length > 0 || imagePaths.length > 0) {
+              // Build text with image paths and user's message
+              const pathInfo = imagePaths.map((p, i) => `[Image ${i + 1} local path: ${p}]`).join('\n')
+              const textParts = [pathInfo]
+              if (m.text) {
+                textParts.push(m.text)
+              }
+              
+              if (imageContents.length > 0) {
+                // Has small images - create multimodal message
+                imageContents.push({ type: 'text', text: textParts.join('\n\n') })
+                messages.push({
+                  text: undefined, // Will be handled specially
+                  isFromBot: false,
+                  _multimodal: imageContents
+                } as { text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] })
+              } else {
+                // All images too large - just add as text with paths
+                messages.push({
+                  text: textParts.join('\n\n'),
+                  isFromBot: false
+                })
+              }
+              continue
+            }
+          }
+          
+          messages.push({
+            text: m.text,
+            isFromBot: m.isFromBot
+          })
+        }
       }
 
       // Convert to Anthropic message format
@@ -592,7 +708,21 @@ export class AgentService {
       if (messages.length > 0) {
         let lastRole: 'user' | 'assistant' | null = null
         
-        for (const msg of messages) {
+        for (const msg of messages as Array<{ text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] }>) {
+          // Handle multimodal messages (images)
+          if (msg._multimodal && msg._multimodal.length > 0) {
+            const role = 'user' as const
+            // For multimodal, we can't easily merge, so add as new message
+            if (role !== lastRole || this.conversationHistory.length === 0) {
+              this.conversationHistory.push({
+                role,
+                content: msg._multimodal
+              })
+              lastRole = role
+            }
+            continue
+          }
+          
           if (!msg.text) continue
           
           const role: 'user' | 'assistant' = msg.isFromBot ? 'assistant' : 'user'
@@ -693,23 +823,85 @@ export class AgentService {
         if (imageUrls.length > 0) {
           // Create multimodal content with images and text
           const contentParts: Anthropic.ContentBlockParam[] = []
+          const localImagePaths: string[] = [] // Track local paths for reference
           
           // Add images first
           for (const imageUrl of imageUrls) {
-            contentParts.push({
-              type: 'image',
-              source: {
-                type: 'url',
-                url: imageUrl
+            // Check if it's a local file path or a URL
+            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+              // Remote URL - use url type
+              contentParts.push({
+                type: 'image',
+                source: {
+                  type: 'url',
+                  url: imageUrl
+                }
+              } as Anthropic.ImageBlockParam)
+            } else {
+              // Local file path - read and convert to base64
+              try {
+                const imageData = await fs.readFile(imageUrl)
+                const imageSizeMB = imageData.length / (1024 * 1024)
+                const MAX_IMAGE_SIZE_MB = 1 // Images larger than 2MB will be treated as files
+                
+                if (imageSizeMB > MAX_IMAGE_SIZE_MB) {
+                  // Image too large - treat as file instead of base64
+                  console.log(`[Agent] Image too large (${imageSizeMB.toFixed(2)}MB > ${MAX_IMAGE_SIZE_MB}MB), treating as file: ${path.basename(imageUrl)}`)
+                  localImagePaths.push(imageUrl)
+                  // Don't add to contentParts as image - will be added as text path only
+                } else {
+                  // Convert to base64
+                  const base64Data = imageData.toString('base64')
+                  
+                  // Detect media type from file magic bytes (more reliable than extension)
+                  let mediaType = 'image/png' // default
+                  if (imageData[0] === 0xff && imageData[1] === 0xd8 && imageData[2] === 0xff) {
+                    mediaType = 'image/jpeg'
+                  } else if (imageData[0] === 0x89 && imageData[1] === 0x50 && imageData[2] === 0x4e && imageData[3] === 0x47) {
+                    mediaType = 'image/png'
+                  } else if (imageData[0] === 0x47 && imageData[1] === 0x49 && imageData[2] === 0x46) {
+                    mediaType = 'image/gif'
+                  } else if (imageData[0] === 0x52 && imageData[1] === 0x49 && imageData[2] === 0x46 && imageData[3] === 0x46) {
+                    // RIFF header - could be WebP
+                    if (imageData[8] === 0x57 && imageData[9] === 0x45 && imageData[10] === 0x42 && imageData[11] === 0x50) {
+                      mediaType = 'image/webp'
+                    }
+                  }
+                  
+                  console.log(`[Agent] Detected media type: ${mediaType} for ${path.basename(imageUrl)} (${imageSizeMB.toFixed(2)}MB)`)
+                  
+                  contentParts.push({
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+                      data: base64Data
+                    }
+                  } as Anthropic.ImageBlockParam)
+                  localImagePaths.push(imageUrl)
+                  console.log(`[Agent] Converted local image to base64: ${path.basename(imageUrl)}`)
+                }
+              } catch (err) {
+                console.error(`[Agent] Failed to read local image: ${imageUrl}`, err)
               }
-            } as Anthropic.ImageBlockParam)
+            }
+          }
+          
+          // Build text with local image paths (so Agent knows where to find them)
+          const textParts: string[] = []
+          if (localImagePaths.length > 0) {
+            const pathInfo = localImagePaths.map((p, i) => `[Image ${i + 1} local path: ${p}]`).join('\n')
+            textParts.push(pathInfo)
+          }
+          if (userMessage) {
+            textParts.push(userMessage)
           }
           
           // Add text if present
-          if (userMessage) {
+          if (textParts.length > 0) {
             contentParts.push({
               type: 'text',
-              text: userMessage
+              text: textParts.join('\n\n')
             })
           }
           
@@ -1029,6 +1221,14 @@ export class AgentService {
         return { success: false, error: `Line tools are not available in ${this.currentPlatform} context` }
       }
       return await executeLineTool(name, input)
+    }
+
+    // Feishu tools
+    if (name.startsWith('feishu_')) {
+      if (this.currentPlatform !== 'feishu') {
+        return { success: false, error: `Feishu tools are not available in ${this.currentPlatform} context` }
+      }
+      return await executeFeishuTool(name, input)
     }
 
     // Service tools

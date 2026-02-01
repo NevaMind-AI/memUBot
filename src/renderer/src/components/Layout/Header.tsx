@@ -3,7 +3,7 @@ import { Power, Loader2, Circle, Users, Square, Brain, Wrench, ExternalLink } fr
 import { useTranslation } from 'react-i18next'
 import { toast } from '../Toast'
 import { BoundUsersModal } from '../Shared'
-import { TelegramIcon, DiscordIcon, SlackIcon } from '../Icons/AppIcons'
+import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
 
 interface HeaderProps {
   title: string
@@ -11,14 +11,16 @@ interface HeaderProps {
   showTelegramStatus?: boolean
   showDiscordStatus?: boolean
   showSlackStatus?: boolean
+  showFeishuStatus?: boolean
 }
 
-type Platform = 'telegram' | 'discord' | 'slack'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
 
 // Platform tutorial links
 const platformTutorialLinks: Partial<Record<Platform, string>> = {
   telegram: 'https://memu.bot/tutorial/telegram',
-  discord: 'https://memu.bot/tutorial/discord'
+  discord: 'https://memu.bot/tutorial/discord',
+  feishu: 'https://memu.bot/tutorial/feishu'
 }
 
 // Bot avatar component - supports Telegram, Discord, and Slack themes
@@ -34,7 +36,8 @@ function BotAvatar({
   const colorMap = {
     telegram: { from: '#7DCBF7', to: '#2596D1', border: '#7DCBF7' },
     discord: { from: '#5865F2', to: '#7289DA', border: '#5865F2' },
-    slack: { from: '#4A154B', to: '#611F69', border: '#4A154B' }
+    slack: { from: '#4A154B', to: '#611F69', border: '#4A154B' },
+    feishu: { from: '#3370FF', to: '#5B8FF9', border: '#3370FF' }
   }
   const colors = colorMap[platform]
 
@@ -54,7 +57,8 @@ function BotAvatar({
   const iconMap = {
     telegram: TelegramIcon,
     discord: DiscordIcon,
-    slack: SlackIcon
+    slack: SlackIcon,
+    feishu: FeishuIcon
   }
   const PlatformIcon = iconMap[platform]
 
@@ -91,11 +95,12 @@ interface LLMStatusInfo {
   iteration?: number
 }
 
-export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus }: HeaderProps): JSX.Element {
+export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus }: HeaderProps): JSX.Element {
   const { t } = useTranslation()
   const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
   const [discordStatus, setDiscordStatus] = useState<BotStatus | null>(null)
   const [slackStatus, setSlackStatus] = useState<BotStatus | null>(null)
+  const [feishuStatus, setFeishuStatus] = useState<BotStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
   const [llmStatus, setLLMStatus] = useState<LLMStatusInfo>({ status: 'idle' })
@@ -107,6 +112,8 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     ? 'discord'
     : showSlackStatus
     ? 'slack'
+    : showFeishuStatus
+    ? 'feishu'
     : null
 
   // Current platform status
@@ -116,13 +123,16 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     ? discordStatus
     : showSlackStatus
     ? slackStatus
+    : showFeishuStatus
+    ? feishuStatus
     : null
 
   // Platform colors
   const platformColorMap = {
     telegram: { from: '#7DCBF7', to: '#2596D1', shadow: '#2596D1' },
     discord: { from: '#5865F2', to: '#7289DA', shadow: '#5865F2' },
-    slack: { from: '#4A154B', to: '#611F69', shadow: '#4A154B' }
+    slack: { from: '#4A154B', to: '#611F69', shadow: '#4A154B' },
+    feishu: { from: '#3370FF', to: '#5B8FF9', shadow: '#3370FF' }
   }
   const platformColors = platform ? platformColorMap[platform] : platformColorMap.telegram
 
@@ -168,6 +178,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }, [showSlackStatus])
 
+  // Subscribe to Feishu status
+  useEffect(() => {
+    if (showFeishuStatus) {
+      checkFeishuStatus()
+      const unsubscribe = window.feishu.onStatusChanged((newStatus: BotStatus) => {
+        setFeishuStatus(newStatus)
+      })
+      return () => unsubscribe()
+    }
+  }, [showFeishuStatus])
+
   const checkTelegramStatus = async () => {
     try {
       const result = await window.telegram.getStatus()
@@ -201,6 +222,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }
 
+  const checkFeishuStatus = async () => {
+    try {
+      const result = await window.feishu.getStatus()
+      if (result.success && result.data) {
+        setFeishuStatus(result.data)
+      }
+    } catch (error) {
+      console.error('Failed to get Feishu status:', error)
+    }
+  }
+
   const handleConnect = async () => {
     setConnecting(true)
     try {
@@ -231,6 +263,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
           toast.success(`Slack ${t('common.connected').toLowerCase()}`)
         }
         await checkSlackStatus()
+      } else if (showFeishuStatus) {
+        const result = await window.feishu.connect()
+        if (!result.success) {
+          setFeishuStatus({ platform: 'feishu', isConnected: false, error: result.error })
+          toast.error(result.error || t('errors.connectionFailed'))
+        } else {
+          toast.success(`Feishu ${t('common.connected').toLowerCase()}`)
+        }
+        await checkFeishuStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
@@ -253,6 +294,10 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
         await window.slack.disconnect()
         toast.info(`Slack ${t('common.disconnected').toLowerCase()}`)
         await checkSlackStatus()
+      } else if (showFeishuStatus) {
+        await window.feishu.disconnect()
+        toast.info(`Feishu ${t('common.disconnected').toLowerCase()}`)
+        await checkFeishuStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
@@ -272,7 +317,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
 
   const isConnected = status?.isConnected
   const isLLMProcessing = llmStatus.status !== 'idle'
-  const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus
+  const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus || showFeishuStatus
 
   // Get display info based on connection status
   const platformName = platform ? t(`nav.${platform}`) : ''
@@ -412,6 +457,11 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
       {/* Bound Users Modal - Slack */}
       {showSlackStatus && (
         <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="slack" />
+      )}
+
+      {/* Bound Users Modal - Feishu */}
+      {showFeishuStatus && (
+        <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="feishu" />
       )}
     </header>
   )

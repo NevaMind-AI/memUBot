@@ -30,6 +30,8 @@ export type AppEventType =
   | 'slack:status-changed'
   | 'line:new-message'
   | 'line:status-changed'
+  | 'feishu:new-message'
+  | 'feishu:status-changed'
   | 'llm:status-changed'
   | 'service:status-changed'
   | 'service:list-changed'
@@ -183,6 +185,31 @@ class AppEventEmitter extends EventEmitter {
     console.log('[Events] Emitting Line status changed:', status)
     this.emit('line:status-changed', status)
     this.sendToRenderer('line:status-changed', status)
+  }
+
+  /**
+   * Emit Feishu new message event
+   */
+  emitFeishuNewMessage(message: AppMessage): void {
+    console.log('[Events] Emitting Feishu new message:', message.id)
+    this.emit('feishu:new-message', message)
+    this.sendToRenderer('feishu:new-message', message)
+  }
+
+  /**
+   * Emit Feishu status changed event
+   */
+  emitFeishuStatusChanged(status: {
+    platform: string
+    isConnected: boolean
+    username?: string
+    botName?: string
+    avatarUrl?: string
+    error?: string
+  }): void {
+    console.log('[Events] Emitting Feishu status changed:', status)
+    this.emit('feishu:status-changed', status)
+    this.sendToRenderer('feishu:status-changed', status)
   }
 
   /**

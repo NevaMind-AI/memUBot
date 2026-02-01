@@ -4,6 +4,7 @@ import { discordBotService } from '../apps/discord/bot.service'
 import { slackBotService } from '../apps/slack/bot.service'
 import { whatsappBotService } from '../apps/whatsapp/bot.service'
 import { lineBotService } from '../apps/line/bot.service'
+import { feishuBotService } from '../apps/feishu/bot.service'
 import { securityService } from './security.service'
 
 /**
@@ -237,6 +238,22 @@ class InvokeService {
             return { success: false, error: 'No active Line chat' }
           }
           return await lineBotService.sendText(source.id, message)
+        }
+
+        case 'feishu': {
+          // Try current chat first, then fall back to bound users
+          let chatId = feishuBotService.getCurrentChatId()
+          if (!chatId) {
+            const boundUsers = await securityService.getBoundUsers('feishu')
+            if (boundUsers.length > 0) {
+              chatId = boundUsers[0].uniqueId
+              console.log(`[Invoke] Using bound user for Feishu: ${chatId}`)
+            }
+          }
+          if (!chatId) {
+            return { success: false, error: 'No Feishu chat available (no active chat and no bound users)' }
+          }
+          return await feishuBotService.sendText(chatId, message)
         }
 
         default:

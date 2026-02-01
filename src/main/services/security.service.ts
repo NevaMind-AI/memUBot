@@ -8,7 +8,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { app } from 'electron'
 
-type Platform = 'telegram' | 'discord' | 'slack'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
 
 interface SecurityCode {
   code: string
@@ -45,6 +45,7 @@ class SecurityService {
     this.boundUsersByPlatform.set('telegram', new Map())
     this.boundUsersByPlatform.set('discord', new Map())
     this.boundUsersByPlatform.set('slack', new Map())
+    this.boundUsersByPlatform.set('feishu', new Map())
   }
 
   /**
@@ -79,7 +80,7 @@ class SecurityService {
       }
 
       console.log(
-        `[Security] Loaded bound users: Telegram=${this.boundUsersByPlatform.get('telegram')?.size || 0}, Discord=${this.boundUsersByPlatform.get('discord')?.size || 0}, Slack=${this.boundUsersByPlatform.get('slack')?.size || 0}`
+        `[Security] Loaded bound users: Telegram=${this.boundUsersByPlatform.get('telegram')?.size || 0}, Discord=${this.boundUsersByPlatform.get('discord')?.size || 0}, Slack=${this.boundUsersByPlatform.get('slack')?.size || 0}, Feishu=${this.boundUsersByPlatform.get('feishu')?.size || 0}`
       )
     } catch {
       console.log('[Security] No existing bound users found')

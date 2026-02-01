@@ -2,6 +2,7 @@ import { loadSettings } from '../config/settings.config'
 import { telegramBotService } from '../apps/telegram/bot.service'
 import { discordBotService } from '../apps/discord/bot.service'
 import { slackBotService } from '../apps/slack/bot.service'
+import { feishuBotService } from '../apps/feishu/bot.service'
 
 /**
  * AutoConnect Service
@@ -50,6 +51,19 @@ class AutoConnectService {
       )
     }
 
+    // Check Feishu (needs both app ID and app secret)
+    if (
+      settings.feishuAppId && settings.feishuAppId.trim() !== '' &&
+      settings.feishuAppSecret && settings.feishuAppSecret.trim() !== ''
+    ) {
+      console.log('[AutoConnect] Feishu is configured, connecting...')
+      connectPromises.push(
+        this.connectFeishu().catch((err) => {
+          console.error('[AutoConnect] Failed to connect Feishu:', err)
+        })
+      )
+    }
+
     // Wait for all connections to complete (or fail)
     if (connectPromises.length > 0) {
       await Promise.all(connectPromises)
@@ -92,6 +106,18 @@ class AutoConnectService {
       console.log('[AutoConnect] Slack connected successfully')
     } catch (error) {
       throw new Error(`Slack connection failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+  }
+
+  /**
+   * Connect to Feishu
+   */
+  private async connectFeishu(): Promise<void> {
+    try {
+      await feishuBotService.connect()
+      console.log('[AutoConnect] Feishu connected successfully')
+    } catch (error) {
+      throw new Error(`Feishu connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
   }
 }

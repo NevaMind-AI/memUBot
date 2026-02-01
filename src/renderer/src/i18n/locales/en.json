@@ -16,6 +16,7 @@
     "whatsapp": "WhatsApp",
     "slack": "Slack",
     "line": "Line",
+    "feishu": "Feishu",
     "settings": "Settings"
   },
   "header": {
@@ -129,6 +130,15 @@
         "title": "Line",
         "channelAccessToken": "Channel Access Token",
         "channelSecret": "Channel Secret"
+      },
+      "feishu": {
+        "title": "Feishu (飞书)",
+        "appId": "App ID",
+        "appIdPlaceholder": "cli_xxxxxxxx",
+        "appIdHint": "App ID from Feishu Open Platform",
+        "appSecret": "App Secret",
+        "appSecretPlaceholder": "Your app secret",
+        "appSecretHint": "App Secret from Feishu Open Platform"
       }
     },
     "memu": {
@@ -291,6 +301,7 @@
         "telegram": "Telegram",
         "discord": "Discord",
         "slack": "Slack",
+        "feishu": "Feishu",
         "mcpOutput": "MCP Output",
         "agentOutput": "Agent Output",
         "skills": "Skills",
@@ -399,7 +410,8 @@
     "bindHint": {
       "telegram": "Send /bind <code> to the bot. Get code from Settings → Security.",
       "discord": "Mention the bot with @bot /bind <code>. Get code from Settings → Security.",
-      "slack": "Use /bind <code> command or send @bot /bind <code>. Get code from Settings → Security."
+      "slack": "Use /bind <code> command or send @bot /bind <code>. Get code from Settings → Security.",
+      "feishu": "Send /bind <code> command to the bot in Feishu. Get code from Settings → Security."
     }
   },
   "time": {
