@@ -9,48 +9,43 @@ export function isMacOS(): boolean {
 }
 
 /**
- * Mail tool - Read and send emails via Apple Mail
+ * Mail tool - Basic email operations via Apple Mail
+ * For complex queries, use bash with AppleScript directly
  */
 export const mailTool: Anthropic.Tool = {
   name: 'macos_mail',
-  description: `Interact with Apple Mail app on macOS. Can read emails, send emails with attachments, and search mailboxes.
+  description: `Basic email operations via Apple Mail on macOS.
 
 Available actions:
 - list_accounts: List all email accounts configured in Mail
-- list_mailboxes: List all available mailboxes/folders
-- list_emails: List emails from a mailbox (default: INBOX)
-- read_email: Read a specific email by index (includes attachment info)
-- send_email: Send a new email with optional attachments (can specify which account to send from)
-- search_emails: Search emails by subject or sender
-- download_attachment: Download an attachment from an email to local storage
+- send_email: Send a new email with optional attachments
+- read_email: Read a specific email by index from INBOX
+- download_attachment: Download attachment from an email
 
-IMPORTANT: 
-- Use list_accounts first to see available accounts, then specify the account name when sending emails.
-- When reading emails, attachment info will be shown. Use download_attachment to save attachments locally.
-- When sending emails, use the attachments parameter with file paths to attach files.`,
+For complex queries (searching, filtering by date, listing many emails), use bash with AppleScript directly. Example:
+\`\`\`bash
+osascript -e 'tell application "Mail" to get subject of messages 1 thru 5 of inbox'
+\`\`\`
+
+Common AppleScript patterns for Mail:
+- Get unread count: \`tell application "Mail" to get unread count of inbox\`
+- List mailboxes: \`tell application "Mail" to name of every mailbox\`
+- Search by subject: \`tell application "Mail" to get messages of inbox whose subject contains "keyword"\``,
   input_schema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['list_accounts', 'list_mailboxes', 'list_emails', 'read_email', 'send_email', 'search_emails', 'download_attachment'],
+        enum: ['list_accounts', 'send_email', 'read_email', 'download_attachment'],
         description: 'The action to perform'
       },
       account: {
         type: 'string',
-        description: 'Account name to use for sending emails (e.g., "谷歌", "163"). Use list_accounts to see available accounts. If not specified, uses the default account.'
-      },
-      mailbox: {
-        type: 'string',
-        description: 'Mailbox name (default: INBOX). Use for list_emails, read_email, search_emails, download_attachment'
+        description: 'Account name for send_email. Use list_accounts to see available accounts.'
       },
       index: {
         type: 'number',
-        description: 'Email index (1-based) for read_email and download_attachment actions'
-      },
-      count: {
-        type: 'number',
-        description: 'Number of emails to list (default: 10, max: 50)'
+        description: 'Email index (1-based) for read_email/download_attachment'
       },
       to: {
         type: 'string',
@@ -64,18 +59,14 @@ IMPORTANT:
         type: 'string',
         description: 'Email body content for send_email'
       },
-      query: {
-        type: 'string',
-        description: 'Search query for search_emails (searches subject and sender)'
-      },
       attachments: {
         type: 'array',
         items: { type: 'string' },
-        description: 'Array of file paths to attach when sending email (for send_email action)'
+        description: 'Array of file paths to attach when sending email'
       },
       attachment_index: {
         type: 'number',
-        description: 'Attachment index (1-based) for download_attachment action. If not specified, downloads all attachments.'
+        description: 'Attachment index (1-based) for download_attachment. If not specified, downloads all.'
       }
     },
     required: ['action']
@@ -83,39 +74,38 @@ IMPORTANT:
 }
 
 /**
- * Calendar tool - Manage calendar events via Apple Calendar
+ * Calendar tool - Basic calendar operations via Apple Calendar
+ * For complex queries, use bash with AppleScript directly
  */
 export const calendarTool: Anthropic.Tool = {
   name: 'macos_calendar',
-  description: `Interact with Apple Calendar app on macOS. Can list calendars, view events, and create new events.
+  description: `Basic calendar operations via Apple Calendar on macOS.
 
 Available actions:
-- list_calendars: List all available calendars
-- list_events: List upcoming events (optionally filter by calendar)
-- get_event: Get details of a specific event
+- list_calendars: List all available calendar names
 - create_event: Create a new calendar event
-- search_events: Search events by title
 
-Note: Uses calendars configured in Apple Calendar (including iCloud, Google, etc).`,
+For querying events (list, search, filter by date), use bash with AppleScript directly. Example:
+\`\`\`bash
+osascript -e 'tell application "Calendar" to get summary of events of calendar "Work"'
+\`\`\`
+
+Common AppleScript patterns for Calendar:
+- List calendar names: \`tell application "Calendar" to name of every calendar\`
+- Get events from specific calendar: \`tell application "Calendar" to get events of calendar "CalendarName"\`
+- Get event properties: \`summary\`, \`start date\`, \`end date\`, \`location\`, \`uid\`
+- Filter by date: \`every event of calendar "X" whose start date >= (current date)\``,
   input_schema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['list_calendars', 'list_events', 'get_event', 'create_event', 'search_events'],
+        enum: ['list_calendars', 'create_event'],
         description: 'The action to perform'
       },
       calendar: {
         type: 'string',
-        description: 'Calendar name (uses default calendar if not specified)'
-      },
-      days: {
-        type: 'number',
-        description: 'Number of days to look ahead for list_events (default: 7)'
-      },
-      event_id: {
-        type: 'string',
-        description: 'Event ID for get_event action'
+        description: 'Calendar name for create_event (uses default if not specified)'
       },
       title: {
         type: 'string',
@@ -123,27 +113,23 @@ Note: Uses calendars configured in Apple Calendar (including iCloud, Google, etc
       },
       start_date: {
         type: 'string',
-        description: 'Start date/time in ISO format (e.g., "2024-01-15T10:00:00") for create_event'
+        description: 'Start date/time in ISO format (e.g., "2024-01-15T10:00:00")'
       },
       end_date: {
         type: 'string',
-        description: 'End date/time in ISO format for create_event'
+        description: 'End date/time in ISO format'
       },
       location: {
         type: 'string',
-        description: 'Event location for create_event'
+        description: 'Event location'
       },
       notes: {
         type: 'string',
-        description: 'Event notes/description for create_event'
+        description: 'Event notes/description'
       },
       all_day: {
         type: 'boolean',
         description: 'Whether the event is all-day (default: false)'
-      },
-      query: {
-        type: 'string',
-        description: 'Search query for search_events'
       }
     },
     required: ['action']
@@ -151,40 +137,73 @@ Note: Uses calendars configured in Apple Calendar (including iCloud, Google, etc
 }
 
 /**
- * Contacts tool - Read contacts from Apple Contacts
+ * Contacts tool - Basic contact operations via Apple Contacts
+ * For complex queries, use bash with AppleScript directly
  */
 export const contactsTool: Anthropic.Tool = {
   name: 'macos_contacts',
-  description: `Read contacts from Apple Contacts app on macOS. Can list contacts, search by name, and get contact details.
+  description: `Basic contact operations via Apple Contacts on macOS. Read-only.
 
 Available actions:
-- list_contacts: List all contacts (with optional limit)
-- search_contacts: Search contacts by name, email, or phone
-- get_contact: Get full details of a specific contact
+- search_contacts: Search contacts by name (fast, recommended)
+- get_contact: Get full details of a specific contact by ID
 
-Note: Read-only access to contacts. Cannot create or modify contacts.`,
+For listing all contacts or complex queries, use bash with AppleScript directly. Example:
+\`\`\`bash
+osascript -e 'tell application "Contacts" to get name of every person'
+\`\`\`
+
+Common AppleScript patterns for Contacts:
+- Get all names: \`tell application "Contacts" to name of every person\`
+- Get phones: \`tell application "Contacts" to get value of phones of person "Name"\`
+- Get emails: \`tell application "Contacts" to get value of emails of person "Name"\`
+- Get birthday: \`tell application "Contacts" to get birth date of person "Name"\`
+- Search: \`every person whose name contains "keyword"\``,
   input_schema: {
     type: 'object',
     properties: {
       action: {
         type: 'string',
-        enum: ['list_contacts', 'search_contacts', 'get_contact'],
+        enum: ['search_contacts', 'get_contact'],
         description: 'The action to perform'
       },
       query: {
         type: 'string',
-        description: 'Search query for search_contacts (matches name, email, phone)'
+        description: 'Search query for search_contacts (matches name)'
       },
       contact_id: {
         type: 'string',
         description: 'Contact ID for get_contact action'
-      },
-      limit: {
-        type: 'number',
-        description: 'Maximum number of contacts to return (default: 20, max: 100)'
       }
     },
     required: ['action']
+  }
+}
+
+/**
+ * App launcher tool - Ensure macOS apps are running before AppleScript operations
+ * Essential when using bash to run AppleScript directly
+ */
+export const appLauncherTool: Anthropic.Tool = {
+  name: 'macos_launch_app',
+  description: `Ensure a macOS app is running and ready before executing AppleScript commands.
+
+**IMPORTANT**: Call this tool BEFORE using bash with AppleScript to interact with macOS apps like Mail, Calendar, or Contacts. AppleScript will fail with error -600 if the app is not running.
+
+Supported apps: Mail, Calendar, Contacts, Safari, Notes, Reminders, Messages, Music, or any macOS app name.
+
+Example workflow:
+1. Call macos_launch_app with app_name="Contacts"
+2. Then use bash with AppleScript: \`osascript -e 'tell application "Contacts" to ...'\``,
+  input_schema: {
+    type: 'object',
+    properties: {
+      app_name: {
+        type: 'string',
+        description: 'Name of the macOS app to launch (e.g., "Mail", "Calendar", "Contacts", "Safari")'
+      }
+    },
+    required: ['app_name']
   }
 }
 
@@ -195,5 +214,5 @@ export function getMacOSTools(): Anthropic.Tool[] {
   if (!isMacOS()) {
     return []
   }
-  return [mailTool, calendarTool, contactsTool]
+  return [appLauncherTool, mailTool, calendarTool, contactsTool]
 }

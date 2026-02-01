@@ -5,7 +5,7 @@ import { proactiveStorage, type ChatPlatform, type ChatPlatformTimestamps } from
 import { computerUseTools } from '../tools/computer.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
 import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
-import { executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
+import { executeMacOSLaunchAppTool, executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
 import { mcpService } from './mcp.service'
 import { telegramBotService } from '../apps/telegram/bot.service'
 import { discordBotService } from '../apps/discord/bot.service'
@@ -843,6 +843,8 @@ class ProactiveService {
     // macOS-specific tools
     if (isMacOS()) {
       switch (name) {
+        case 'macos_launch_app':
+          return await executeMacOSLaunchAppTool(input as Parameters<typeof executeMacOSLaunchAppTool>[0])
         case 'macos_mail':
           return await executeMacOSMailTool(input as Parameters<typeof executeMacOSMailTool>[0])
         case 'macos_calendar':

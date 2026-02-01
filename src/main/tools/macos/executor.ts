@@ -33,44 +33,91 @@ APPLESCRIPT`, {
 }
 
 /**
+ * Check if an app is already running
+ */
+async function isAppRunning(appName: string): Promise<boolean> {
+  try {
+    const { stdout } = await execAsync(
+      `osascript -e 'tell application "System Events" to (name of processes) contains "${appName}"'`,
+      { timeout: 5000 }
+    )
+    return stdout.trim() === 'true'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Get the check script for verifying app is responsive
+ */
+function getAppCheckScript(appName: string): string {
+  switch (appName) {
+    case 'Contacts':
+      return `tell application "Contacts" to count of people`
+    case 'Calendar':
+      return `tell application "Calendar" to count of calendars`
+    case 'Mail':
+      return `tell application "Mail" to count of accounts`
+    default:
+      return `tell application "${appName}" to name`
+  }
+}
+
+/**
  * Ensure an app is running and responsive before executing scripts
  * Returns true if app is ready, false if it failed to start
  */
 async function ensureAppRunning(appName: string, maxRetries = 3): Promise<{ ready: boolean; error?: string }> {
+  const checkScript = getAppCheckScript(appName)
+  
+  // First, check if app is already running and responsive
+  const alreadyRunning = await isAppRunning(appName)
+  if (alreadyRunning) {
+    try {
+      await execAsync(`osascript -e '${checkScript}'`, { timeout: 10000 })
+      console.log(`[MacOS] ${appName} is already running and ready`)
+      return { ready: true }
+    } catch {
+      // App is running but not responsive, continue with normal flow
+      console.log(`[MacOS] ${appName} is running but not responsive, will retry...`)
+    }
+  }
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // First, launch the app if not running
+      // Launch the app
       await execAsync(`osascript -e 'tell application "${appName}" to launch'`, { timeout: 10000 })
       
-      // Give it a moment to start
-      await new Promise(resolve => setTimeout(resolve, 1000))
+      // Wait for app to initialize with polling
+      // Start with 2 seconds, then check every 1 second for up to 10 seconds
+      const maxWaitTime = 10000 // 10 seconds max wait
+      const pollInterval = 1000 // Check every 1 second
+      const initialWait = 2000 // Initial wait before first check
       
-      // Check if the app is responding with app-specific commands
-      let checkScript: string
-      switch (appName) {
-        case 'Contacts':
-          checkScript = `tell application "Contacts" to count of people`
-          break
-        case 'Calendar':
-          checkScript = `tell application "Calendar" to count of calendars`
-          break
-        case 'Mail':
-          checkScript = `tell application "Mail" to count of accounts`
-          break
-        default:
-          checkScript = `tell application "${appName}" to name`
+      await new Promise(resolve => setTimeout(resolve, initialWait))
+      
+      let elapsed = initialWait
+      while (elapsed < maxWaitTime) {
+        try {
+          await execAsync(`osascript -e '${checkScript}'`, { timeout: 5000 })
+          console.log(`[MacOS] ${appName} is ready (attempt ${attempt}, waited ${elapsed}ms)`)
+          return { ready: true }
+        } catch {
+          // App not ready yet, wait and retry
+          await new Promise(resolve => setTimeout(resolve, pollInterval))
+          elapsed += pollInterval
+        }
       }
       
-      await execAsync(`osascript -e '${checkScript}'`, { timeout: 15000 })
+      // If we get here, app didn't respond within maxWaitTime
+      throw new Error(`App did not respond within ${maxWaitTime}ms`)
       
-      console.log(`[MacOS] ${appName} is ready (attempt ${attempt})`)
-      return { ready: true }
     } catch (error) {
       console.log(`[MacOS] ${appName} not ready, attempt ${attempt}/${maxRetries}:`, error instanceof Error ? error.message : error)
       
       if (attempt < maxRetries) {
-        // Wait before retry, increasing delay each time
-        await new Promise(resolve => setTimeout(resolve, 2000 * attempt))
+        // Wait before next attempt
+        await new Promise(resolve => setTimeout(resolve, 3000))
       }
     }
   }
@@ -88,25 +135,60 @@ async function ensureAppRunning(appName: string, maxRetries = 3): Promise<{ read
 }
 
 // ============================================================================
+// APP LAUNCHER TOOL
+// ============================================================================
+
+interface LaunchAppInput {
+  app_name: string
+}
+
+/**
+ * Execute macOS App Launcher tool - ensures an app is running before AppleScript operations
+ */
+export async function executeMacOSLaunchAppTool(input: LaunchAppInput): Promise<ToolResult> {
+  if (!input.app_name) {
+    return { success: false, error: 'app_name is required' }
+  }
+  
+  const appName = input.app_name.trim()
+  console.log(`[MacOS] Launching app: ${appName}`)
+  
+  const result = await ensureAppRunning(appName)
+  
+  if (result.ready) {
+    return {
+      success: true,
+      data: {
+        app: appName,
+        status: 'ready',
+        message: `${appName} is running and ready for AppleScript commands`
+      }
+    }
+  } else {
+    return {
+      success: false,
+      error: result.error || `Failed to launch ${appName}`
+    }
+  }
+}
+
+// ============================================================================
 // MAIL TOOL
 // ============================================================================
 
 interface MailInput {
-  action: 'list_accounts' | 'list_mailboxes' | 'list_emails' | 'read_email' | 'send_email' | 'search_emails' | 'download_attachment'
+  action: 'list_accounts' | 'send_email' | 'read_email' | 'download_attachment'
   account?: string
-  mailbox?: string
   index?: number
-  count?: number
   to?: string
   subject?: string
   body?: string
-  query?: string
   attachments?: string[]  // File paths to attach when sending
   attachment_index?: number  // Which attachment to download (1-based)
 }
 
 /**
- * Execute macOS Mail tool
+ * Execute macOS Mail tool (simplified - for complex queries use bash with AppleScript)
  */
 export async function executeMacOSMailTool(input: MailInput): Promise<ToolResult> {
   try {
@@ -119,32 +201,23 @@ export async function executeMacOSMailTool(input: MailInput): Promise<ToolResult
     switch (input.action) {
       case 'list_accounts':
         return await listAccounts()
-      case 'list_mailboxes':
-        return await listMailboxes()
-      case 'list_emails':
-        return await listEmails(input.mailbox || 'INBOX', input.count || 10)
       case 'read_email':
         if (!input.index) {
           return { success: false, error: 'index is required for read_email action' }
         }
-        return await readEmail(input.mailbox || 'INBOX', input.index)
+        return await readEmail('INBOX', input.index)
       case 'send_email':
         if (!input.to || !input.subject || !input.body) {
           return { success: false, error: 'to, subject, and body are required for send_email action' }
         }
         return await sendEmail(input.to, input.subject, input.body, input.account, input.attachments)
-      case 'search_emails':
-        if (!input.query) {
-          return { success: false, error: 'query is required for search_emails action' }
-        }
-        return await searchEmails(input.mailbox || 'INBOX', input.query, input.count || 10)
       case 'download_attachment':
         if (!input.index) {
           return { success: false, error: 'index is required for download_attachment action' }
         }
-        return await downloadAttachment(input.mailbox || 'INBOX', input.index, input.attachment_index)
+        return await downloadAttachment('INBOX', input.index, input.attachment_index)
       default:
-        return { success: false, error: `Unknown action: ${input.action}` }
+        return { success: false, error: `Unknown action: ${input.action}. For complex queries, use bash with AppleScript.` }
     }
   } catch (error) {
     console.error('[MacOS Mail] Error:', error)
@@ -177,98 +250,33 @@ end tell`
   }
 }
 
-async function listMailboxes(): Promise<ToolResult> {
-  const script = `
-tell application "Mail"
-  set mailboxList to {}
-  repeat with acct in accounts
-    set acctName to name of acct
-    repeat with mb in mailboxes of acct
-      set end of mailboxList to acctName & "/" & name of mb
-    end repeat
-  end repeat
-  return mailboxList as string
-end tell`
-  
-  const result = await runAppleScriptMultiline(script)
-  const mailboxes = result.split(', ').filter(m => m.length > 0)
-  
-  return {
-    success: true,
-    data: {
-      mailboxes,
-      count: mailboxes.length
-    }
-  }
-}
-
-async function listEmails(mailbox: string, count: number): Promise<ToolResult> {
-  const safeCount = Math.min(Math.max(count, 1), 50)
-  
-  const script = `
-tell application "Mail"
-  set targetMailbox to mailbox "${mailbox}" of account 1
-  set msgList to {}
-  set msgCount to count of messages of targetMailbox
-  set fetchCount to ${safeCount}
-  if msgCount < fetchCount then set fetchCount to msgCount
-  
-  repeat with i from 1 to fetchCount
-    set msg to message i of targetMailbox
-    set msgInfo to "---" & return
-    set msgInfo to msgInfo & "Index: " & i & return
-    set msgInfo to msgInfo & "From: " & (sender of msg) & return
-    set msgInfo to msgInfo & "Subject: " & (subject of msg) & return
-    set msgInfo to msgInfo & "Date: " & (date received of msg as string) & return
-    set msgInfo to msgInfo & "Read: " & (read status of msg) & return
-    set end of msgList to msgInfo
-  end repeat
-  
-  return msgList as string
-end tell`
-  
-  try {
-    const result = await runAppleScriptMultiline(script)
-    
-    return {
-      success: true,
-      data: {
-        mailbox,
-        emails: result,
-        note: 'Use read_email action with index to get full content'
-      }
-    }
-  } catch (error) {
-    // Try alternative approach for different mailbox structures
-    return { 
-      success: false, 
-      error: `Failed to access mailbox "${mailbox}". Try using list_mailboxes to see available mailboxes.` 
-    }
-  }
-}
-
 async function readEmail(mailbox: string, index: number): Promise<ToolResult> {
-  const script = `
+  // First, get metadata (from, to, subject, date, attachments) - these are safer
+  const metadataScript = `
 tell application "Mail"
   set targetMailbox to mailbox "${mailbox}" of account 1
   set msg to message ${index} of targetMailbox
   
-  set msgContent to "From: " & (sender of msg) & return
-  set msgContent to msgContent & "To: " & (address of to recipient 1 of msg) & return
-  set msgContent to msgContent & "Subject: " & (subject of msg) & return
-  set msgContent to msgContent & "Date: " & (date received of msg as string) & return
+  set msgFrom to sender of msg
+  set msgSubject to subject of msg
+  set msgDate to date received of msg as string
+  
+  -- Get To address safely
+  set msgTo to ""
+  try
+    set msgTo to address of to recipient 1 of msg
+  end try
   
   -- Get attachment info
   set attachmentList to mail attachments of msg
   set attachmentCount to count of attachmentList
+  set attachmentInfo to ""
   if attachmentCount > 0 then
-    set msgContent to msgContent & return & "--- Attachments (" & attachmentCount & ") ---" & return
     set attIndex to 1
     repeat with att in attachmentList
       try
         set attName to name of att
         set attSize to file size of att
-        -- Convert bytes to human readable
         if attSize < 1024 then
           set sizeStr to (attSize as string) & " B"
         else if attSize < 1048576 then
@@ -276,29 +284,70 @@ tell application "Mail"
         else
           set sizeStr to (round (attSize / 1048576 * 10) rounding half up) / 10 & " MB"
         end if
-        set msgContent to msgContent & "  [" & attIndex & "] " & attName & " (" & sizeStr & ")" & return
+        set attachmentInfo to attachmentInfo & "[" & attIndex & "] " & attName & " (" & sizeStr & ")" & linefeed
       on error
-        set msgContent to msgContent & "  [" & attIndex & "] (unable to read attachment info)" & return
+        set attachmentInfo to attachmentInfo & "[" & attIndex & "] (unable to read)" & linefeed
       end try
       set attIndex to attIndex + 1
     end repeat
-    set msgContent to msgContent & return & "Use download_attachment action with attachment_index to save attachments." & return
   end if
   
-  set msgContent to msgContent & return & "--- Content ---" & return
-  set msgContent to msgContent & (content of msg)
-  
-  return msgContent
+  -- Return as delimited string (using ASCII 30 as delimiter - record separator)
+  return msgFrom & (ASCII character 30) & msgTo & (ASCII character 30) & msgSubject & (ASCII character 30) & msgDate & (ASCII character 30) & attachmentCount & (ASCII character 30) & attachmentInfo
 end tell`
   
-  const result = await runAppleScriptMultiline(script, 45000)
+  // Then get content separately - content may have special characters
+  const contentScript = `
+tell application "Mail"
+  set targetMailbox to mailbox "${mailbox}" of account 1
+  set msg to message ${index} of targetMailbox
+  return content of msg
+end tell`
   
-  return {
-    success: true,
-    data: {
-      mailbox,
-      index,
-      content: result
+  try {
+    const metadataResult = await runAppleScriptMultiline(metadataScript, 30000)
+    const parts = metadataResult.split(String.fromCharCode(30))
+    
+    const [from, to, subject, date, attachmentCountStr, attachmentInfo] = parts
+    const attachmentCount = parseInt(attachmentCountStr) || 0
+    
+    // Try to get content, but don't fail if it errors
+    let emailContent = ''
+    try {
+      emailContent = await runAppleScriptMultiline(contentScript, 30000)
+    } catch (contentError) {
+      console.log('[MacOS Mail] Could not read email content, may contain special characters:', contentError)
+      emailContent = '(Content could not be read - may contain special characters)'
+    }
+    
+    // Build the result string
+    let result = `From: ${from}\n`
+    result += `To: ${to}\n`
+    result += `Subject: ${subject}\n`
+    result += `Date: ${date}\n`
+    
+    if (attachmentCount > 0) {
+      result += `\n--- Attachments (${attachmentCount}) ---\n`
+      result += attachmentInfo
+      result += `\nUse download_attachment action with attachment_index to save attachments.\n`
+    }
+    
+    result += `\n--- Content ---\n`
+    result += emailContent
+    
+    return {
+      success: true,
+      data: {
+        mailbox,
+        index,
+        content: result
+      }
+    }
+  } catch (error) {
+    console.error('[MacOS Mail] Error reading email:', error)
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : String(error) 
     }
   }
 }
@@ -357,49 +406,6 @@ return "Email sent successfully"`
       message: attachedFiles.length > 0 
         ? `Email sent successfully with ${attachedFiles.length} attachment(s)`
         : 'Email sent successfully'
-    }
-  }
-}
-
-async function searchEmails(mailbox: string, query: string, count: number): Promise<ToolResult> {
-  const safeCount = Math.min(Math.max(count, 1), 50)
-  const escapedQuery = query.replace(/"/g, '\\"').toLowerCase()
-  
-  const script = `
-tell application "Mail"
-  set targetMailbox to mailbox "${mailbox}" of account 1
-  set matchingMsgs to {}
-  set msgCount to count of messages of targetMailbox
-  set foundCount to 0
-  
-  repeat with i from 1 to msgCount
-    if foundCount >= ${safeCount} then exit repeat
-    set msg to message i of targetMailbox
-    set msgSubject to subject of msg as string
-    set msgSender to sender of msg as string
-    
-    if msgSubject contains "${escapedQuery}" or msgSender contains "${escapedQuery}" then
-      set msgInfo to "---" & return
-      set msgInfo to msgInfo & "Index: " & i & return
-      set msgInfo to msgInfo & "From: " & msgSender & return
-      set msgInfo to msgInfo & "Subject: " & msgSubject & return
-      set msgInfo to msgInfo & "Date: " & (date received of msg as string) & return
-      set end of matchingMsgs to msgInfo
-      set foundCount to foundCount + 1
-    end if
-  end repeat
-  
-  return matchingMsgs as string
-end tell`
-  
-  const result = await runAppleScriptMultiline(script)
-  
-  return {
-    success: true,
-    data: {
-      mailbox,
-      query,
-      results: result || 'No matching emails found'
     }
   }
 }
@@ -526,21 +532,18 @@ end tell`
 // ============================================================================
 
 interface CalendarInput {
-  action: 'list_calendars' | 'list_events' | 'get_event' | 'create_event' | 'search_events'
+  action: 'list_calendars' | 'create_event'
   calendar?: string
-  days?: number
-  event_id?: string
   title?: string
   start_date?: string
   end_date?: string
   location?: string
   notes?: string
   all_day?: boolean
-  query?: string
 }
 
 /**
- * Execute macOS Calendar tool
+ * Execute macOS Calendar tool (simplified - for complex queries use bash with AppleScript)
  */
 export async function executeMacOSCalendarTool(input: CalendarInput): Promise<ToolResult> {
   try {
@@ -553,38 +556,17 @@ export async function executeMacOSCalendarTool(input: CalendarInput): Promise<To
     switch (input.action) {
       case 'list_calendars':
         return await listCalendars()
-      case 'list_events':
-        return await listEvents(input.calendar, input.days || 7)
-      case 'get_event':
-        if (!input.event_id) {
-          return { success: false, error: 'event_id is required for get_event action' }
-        }
-        return await getEvent(input.event_id)
       case 'create_event':
         if (!input.title || !input.start_date) {
           return { success: false, error: 'title and start_date are required for create_event action' }
         }
         return await createEvent(input)
-      case 'search_events':
-        if (!input.query) {
-          return { success: false, error: 'query is required for search_events action' }
-        }
-        return await searchEvents(input.query, input.calendar, input.days || 30)
       default:
-        return { success: false, error: `Unknown action: ${input.action}` }
+        return { success: false, error: `Unknown action: ${input.action}. For querying events, use bash with AppleScript.` }
     }
   } catch (error) {
     console.error('[MacOS Calendar] Error:', error)
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    
-    if (errorMsg.includes('timeout') || errorMsg.includes('SIGTERM')) {
-      return { 
-        success: false, 
-        error: 'Calendar app is not responding. Please try opening Calendar app manually first.'
-      }
-    }
-    
-    return { success: false, error: errorMsg }
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
@@ -606,90 +588,6 @@ end tell`
     data: {
       calendars,
       count: calendars.length
-    }
-  }
-}
-
-async function listEvents(calendarName: string | undefined, days: number): Promise<ToolResult> {
-  const safeDays = Math.min(Math.max(days, 1), 90)
-  
-  const calendarFilter = calendarName 
-    ? `set targetCal to calendar "${calendarName}"
-       set eventList to every event of targetCal whose start date >= startDate and start date <= endDate`
-    : `set eventList to {}
-       repeat with cal in calendars
-         set eventList to eventList & (every event of cal whose start date >= startDate and start date <= endDate)
-       end repeat`
-  
-  const script = `
-tell application "Calendar"
-  set startDate to current date
-  set endDate to startDate + (${safeDays} * days)
-  
-  ${calendarFilter}
-  
-  set resultList to {}
-  repeat with evt in eventList
-    set evtInfo to "---" & return
-    set evtInfo to evtInfo & "Title: " & (summary of evt) & return
-    set evtInfo to evtInfo & "Start: " & (start date of evt as string) & return
-    set evtInfo to evtInfo & "End: " & (end date of evt as string) & return
-    if location of evt is not missing value then
-      set evtInfo to evtInfo & "Location: " & (location of evt) & return
-    end if
-    set evtInfo to evtInfo & "ID: " & (uid of evt) & return
-    set end of resultList to evtInfo
-  end repeat
-  
-  return resultList as string
-end tell`
-  
-  const result = await runAppleScriptMultiline(script)
-  
-  return {
-    success: true,
-    data: {
-      calendar: calendarName || 'all',
-      days: safeDays,
-      events: result || 'No events found'
-    }
-  }
-}
-
-async function getEvent(eventId: string): Promise<ToolResult> {
-  const script = `
-tell application "Calendar"
-  repeat with cal in calendars
-    try
-      set evt to first event of cal whose uid is "${eventId}"
-      set evtInfo to "Title: " & (summary of evt) & return
-      set evtInfo to evtInfo & "Calendar: " & (name of cal) & return
-      set evtInfo to evtInfo & "Start: " & (start date of evt as string) & return
-      set evtInfo to evtInfo & "End: " & (end date of evt as string) & return
-      set evtInfo to evtInfo & "All Day: " & (allday event of evt) & return
-      if location of evt is not missing value then
-        set evtInfo to evtInfo & "Location: " & (location of evt) & return
-      end if
-      if description of evt is not missing value then
-        set evtInfo to evtInfo & "Notes: " & (description of evt) & return
-      end if
-      set evtInfo to evtInfo & "ID: " & (uid of evt)
-      return evtInfo
-    end try
-  end repeat
-  return "Event not found"
-end tell`
-  
-  const result = await runAppleScriptMultiline(script)
-  
-  if (result === 'Event not found') {
-    return { success: false, error: 'Event not found' }
-  }
-  
-  return {
-    success: true,
-    data: {
-      event: result
     }
   }
 }
@@ -743,67 +641,18 @@ end tell`
   }
 }
 
-async function searchEvents(query: string, calendarName: string | undefined, days: number): Promise<ToolResult> {
-  const safeDays = Math.min(Math.max(days, 1), 90)
-  const escapedQuery = query.replace(/"/g, '\\"').toLowerCase()
-  
-  const calendarFilter = calendarName 
-    ? `set calList to {calendar "${calendarName}"}`
-    : `set calList to calendars`
-  
-  const script = `
-tell application "Calendar"
-  set startDate to current date
-  set endDate to startDate + (${safeDays} * days)
-  
-  ${calendarFilter}
-  
-  set resultList to {}
-  repeat with cal in calList
-    set eventList to every event of cal whose start date >= startDate and start date <= endDate
-    repeat with evt in eventList
-      set evtTitle to summary of evt as string
-      if evtTitle contains "${escapedQuery}" then
-        set evtInfo to "---" & return
-        set evtInfo to evtInfo & "Title: " & evtTitle & return
-        set evtInfo to evtInfo & "Calendar: " & (name of cal) & return
-        set evtInfo to evtInfo & "Start: " & (start date of evt as string) & return
-        set evtInfo to evtInfo & "End: " & (end date of evt as string) & return
-        set evtInfo to evtInfo & "ID: " & (uid of evt) & return
-        set end of resultList to evtInfo
-      end if
-    end repeat
-  end repeat
-  
-  return resultList as string
-end tell`
-  
-  const result = await runAppleScriptMultiline(script)
-  
-  return {
-    success: true,
-    data: {
-      query,
-      calendar: calendarName || 'all',
-      days: safeDays,
-      results: result || 'No matching events found'
-    }
-  }
-}
-
 // ============================================================================
 // CONTACTS TOOL
 // ============================================================================
 
 interface ContactsInput {
-  action: 'list_contacts' | 'search_contacts' | 'get_contact'
+  action: 'search_contacts' | 'get_contact'
   query?: string
   contact_id?: string
-  limit?: number
 }
 
 /**
- * Execute macOS Contacts tool
+ * Execute macOS Contacts tool (simplified - for listing all contacts use bash with AppleScript)
  */
 export async function executeMacOSContactsTool(input: ContactsInput): Promise<ToolResult> {
   try {
@@ -814,98 +663,39 @@ export async function executeMacOSContactsTool(input: ContactsInput): Promise<To
     }
     
     switch (input.action) {
-      case 'list_contacts':
-        return await listContacts(input.limit || 20)
       case 'search_contacts':
         if (!input.query) {
           return { success: false, error: 'query is required for search_contacts action' }
         }
-        return await searchContacts(input.query, input.limit || 20)
+        return await searchContacts(input.query)
       case 'get_contact':
         if (!input.contact_id) {
           return { success: false, error: 'contact_id is required for get_contact action' }
         }
         return await getContact(input.contact_id)
       default:
-        return { success: false, error: `Unknown action: ${input.action}` }
+        return { success: false, error: `Unknown action: ${input.action}. For listing all contacts, use bash with AppleScript.` }
     }
   } catch (error) {
     console.error('[MacOS Contacts] Error:', error)
-    const errorMsg = error instanceof Error ? error.message : String(error)
-    
-    // Provide helpful error message for common issues
-    if (errorMsg.includes('timeout') || errorMsg.includes('SIGTERM')) {
-      return { 
-        success: false, 
-        error: 'Contacts app is not responding. Please try: 1) Open Contacts app manually, 2) Check System Settings > Privacy & Security > Contacts to ensure the app has permission.'
-      }
-    }
-    
-    return { success: false, error: errorMsg }
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
-async function listContacts(limit: number): Promise<ToolResult> {
-  const safeLimit = Math.min(Math.max(limit, 1), 50) // Reduced max for performance
-  
-  // Use a simpler, faster approach - just get names and IDs first
-  const script = `
-tell application "Contacts"
-  set output to ""
-  set pplList to people
-  set maxCount to ${safeLimit}
-  set totalCount to count of pplList
-  if totalCount < maxCount then set maxCount to totalCount
-  
-  repeat with i from 1 to maxCount
-    set p to item i of pplList
-    set output to output & "---" & linefeed
-    set output to output & "Name: " & (name of p) & linefeed
-    set output to output & "ID: " & (id of p) & linefeed
-    
-    try
-      if (count of emails of p) > 0 then
-        set output to output & "Email: " & (value of first email of p) & linefeed
-      end if
-    end try
-    
-    try
-      if (count of phones of p) > 0 then
-        set output to output & "Phone: " & (value of first phone of p) & linefeed
-      end if
-    end try
-  end repeat
-  
-  return output
-end tell`
-  
-  const result = await runAppleScriptMultiline(script, 60000) // 60s timeout
-  
-  return {
-    success: true,
-    data: {
-      contacts: result || 'No contacts found',
-      limit: safeLimit,
-      note: 'Use search_contacts to find specific people, or get_contact with ID for full details'
-    }
-  }
-}
-
-async function searchContacts(query: string, limit: number): Promise<ToolResult> {
-  const safeLimit = Math.min(Math.max(limit, 1), 20) // Lower limit for search
+async function searchContacts(query: string): Promise<ToolResult> {
+  const maxResults = 10 // Fast, focused search
   const escapedQuery = query.replace(/"/g, '\\"')
   
-  // Use 'whose' clause for faster native search on name
+  // Use 'whose' clause for fast native search on name
   const script = `
 tell application "Contacts"
   set output to ""
   set foundCount to 0
   
-  -- First search by name (fastest)
   set matchedPeople to (people whose name contains "${escapedQuery}")
   
   repeat with p in matchedPeople
-    if foundCount >= ${safeLimit} then exit repeat
+    if foundCount >= ${maxResults} then exit repeat
     
     set output to output & "---" & linefeed
     set output to output & "Name: " & (name of p) & linefeed
@@ -929,15 +719,14 @@ tell application "Contacts"
   return output
 end tell`
   
-  const result = await runAppleScriptMultiline(script, 45000) // 45s timeout
+  const result = await runAppleScriptMultiline(script, 30000) // 30s timeout (faster)
   
   return {
     success: true,
     data: {
       query,
       contacts: result || 'No matching contacts found',
-      limit: safeLimit,
-      note: 'Search matches contact names. Use get_contact with ID for full details.'
+      note: 'Use get_contact with ID for full details, or bash with AppleScript for advanced queries.'
     }
   }
 }

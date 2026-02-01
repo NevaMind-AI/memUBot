@@ -10,7 +10,7 @@ import { feishuTools } from '../tools/feishu.definitions'
 import { serviceTools } from '../tools/service.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
 import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
-import { executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
+import { executeMacOSLaunchAppTool, executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
 import { executeTelegramTool } from '../tools/telegram.executor'
 import { executeDiscordTool } from '../tools/discord.executor'
 import { executeWhatsAppTool } from '../tools/whatsapp.executor'
@@ -1399,6 +1399,8 @@ export class AgentService {
     // macOS-specific tools
     if (isMacOS()) {
       switch (name) {
+        case 'macos_launch_app':
+          return await executeMacOSLaunchAppTool(input as Parameters<typeof executeMacOSLaunchAppTool>[0])
         case 'macos_mail':
           return await executeMacOSMailTool(input as Parameters<typeof executeMacOSMailTool>[0])
         case 'macos_calendar':
