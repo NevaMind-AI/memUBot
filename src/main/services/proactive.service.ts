@@ -130,7 +130,8 @@ Guidelines:
 - Be proactive in suggesting next steps
 - Keep responses concise and actionable
 - If you complete a todo item, mention it explicitly
-- Use wait_user_confirm when you need user approval before destructive operations or important decisions`
+- Use wait_user_confirm when you need user approval before destructive operations or important decisions
+- If you have retried a todo multiple times but still do not make progress, mention it as unable to accomplish, and move to other todos`
 
 const MEMORIZE_OVERRIDE_CONFIG = {
   memory_types: ["record"],
@@ -142,7 +143,7 @@ const MEMORIZE_OVERRIDE_CONFIG = {
       },
       workflow: {
         ordinal: 20,
-        prompt: "# Workflow\nRead through the conversation and extract records. You should expecially focus on:\n- What the user ask the agent to do\n- What plan does the agent suggest\n- What the agent has done"
+        prompt: "# Workflow\nRead through the conversation and extract records. You should expecially focus on:\n- What the user ask the agent to do\n- What plan does the agent suggest\n- What the agent has done\n- What the agent has failed to do or considers unsolvable"
       },
       rules: {
         ordinal: -1,
@@ -150,7 +151,7 @@ const MEMORIZE_OVERRIDE_CONFIG = {
       },
       examples: {
         ordinal: 60,
-        prompt: "# Example\n## Output\n<item>\n    <memory>\n        <content>The user ask the agent to generate a code example for fastapi</content>\n        <categories>\n            <category>todo</category>\n        </categories>\n    </memory>\n    <memory>\n        <content>The agent suggest to use the code example from the document</content>\n        <categories>\n            <category>todo</category>\n        </categories>\n    </memory>\n    <memory>\n        <content>The agent ask the user to specify the response type</content>\n        <categories>\n            <category>todo</category>\n        </categories>\n    </memory>\n</item>"
+        prompt: "# Example\n## Output\n<item>\n    <memory>\n        <content>The user ask the agent to generate a code example for fastapi</content>\n        <categories>\n            <category>todo</category>\n        </categories>\n    </memory>\n    <memory>\n        <content>The agent suggest to use the code example from the document</content>\n        <categories>\n            <category>todo</category>\n        </categories>\n    </memory>\n    <memory>\n        <content>The agent ask the user to specify the response type</content>\n        <categories>\n            <category>todo</category>\n        </categories>\n    </memory>\n    <memory>\n        <content>The agent is unable to get the image that the user want, and decide to move to other tasks</content>\n        <categories>\n            <category>todo</category>\n        </categories>\n    </memory>\n</item>"
       }
     }
   },
@@ -166,15 +167,15 @@ const MEMORIZE_OVERRIDE_CONFIG = {
         },
         workflow: {
           ordinal: 20,
-          prompt: "# Workflow\nRead through the existing markdown file and the new records. Then update the markdown file to reflect:\n- What existing tasks are completed\n- What new tasks are added\n- What tasks are still in progress"
+          prompt: "# Workflow\nRead through the existing markdown file and the new records. Then update the markdown file to reflect:\n- What existing tasks are completed\n- What new tasks are added\n- What tasks are still in progress\n- What tasks are failed to be accomplished"
         },
         rules: {
           ordinal: 30,
-          prompt: "# Rules\nFor each action-like record, explictly mark it as [Done] or [Todo]."
+          prompt: "# Rules\nFor each action-like record, explictly mark it as [Done], [Todo], or [Failed]."
         },
         examples: {
           ordinal: 50,
-          prompt: "# Example\n## Output\n```markdown\n# Task\n## Task Objective\nThe user ask the agent to generate a code example for fastapi\n## Breakdown\n- [Done] The agent suggest to use the code example from the document\n- [Todo] The agent ask the user to specify the response type\n```"
+          prompt: "# Example\n## Output\n```markdown\n# Task\n## Task Objective\nThe user ask the agent to generate a code example for fastapi\n## Breakdown\n- [Done] The agent suggest to use the code example from the document\n- [Todo] The agent ask the user to specify the response type\n - [Failed] The agent is unable to get the image that the user want```"
         }
       }
     }
@@ -301,6 +302,41 @@ class ProactiveService {
       })
       const result = await response.json()
       return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Execute memu_todos tool to get todos
+   * This tool use proactive user/agent ids to retrieve todos from the proactive service.
+   */
+  private async executeMemuTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    try {
+      const memuConfig = await this.getMemuConfig()
+      const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/categories`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${memuConfig.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: memuConfig.proactiveUserId,
+          agent_id: memuConfig.proactiveAgentId
+        })
+      })
+      const result = await response.json() as { categories: Array<{ name: string; summary: string }> }
+      
+      // Extract todos from categories
+      let todos = ''
+      for (const category of result.categories || []) {
+        if (category.name === 'todo') {
+          todos = category.summary
+          break
+        }
+      }
+      
+      return { success: true, data: { todos } }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
@@ -566,41 +602,6 @@ class ProactiveService {
       console.error('[Proactive] Error in tick:', error)
     }
     // No need for finally block - setTimeout scheduling handles sequential execution
-  }
-
-  /**
-   * Execute memu_todos tool to get todos
-   * This tool use proactive user/agent ids to retrieve todos from the proactive service.
-   */
-  private async executeMemuTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
-    try {
-      const memuConfig = await this.getMemuConfig()
-      const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/categories`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${memuConfig.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user_id: memuConfig.proactiveUserId,
-          agent_id: memuConfig.proactiveAgentId
-        })
-      })
-      const result = await response.json() as { categories: Array<{ name: string; summary: string }> }
-      
-      // Extract todos from categories
-      let todos = ''
-      for (const category of result.categories || []) {
-        if (category.name === 'todo') {
-          todos = category.summary
-          break
-        }
-      }
-      
-      return { success: true, data: { todos } }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
   }
 
   /**
