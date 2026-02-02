@@ -17,7 +17,7 @@ type LLMProvider = 'claude' | 'minimax' | 'custom'
 
 const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
   { value: 'claude', label: 'Claude (Anthropic)' },
-  { value: 'minimax', label: 'MiniMax M2.1' },
+  { value: 'minimax', label: 'MiniMax' },
   { value: 'custom', label: 'Custom Provider' }
 ]
 
