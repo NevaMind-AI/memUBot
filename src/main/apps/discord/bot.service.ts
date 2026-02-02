@@ -10,6 +10,7 @@ type Message = import('discord.js').Message
 import { discordStorage } from './storage'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
+import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import { app } from 'electron'
@@ -366,6 +367,19 @@ export class DiscordBotService {
     const appMessage = this.convertToAppMessage(storedMsg)
     appEvents.emitDiscordNewMessage(appMessage)
 
+    // Publish incoming message event to infraService
+    infraService.publish('message:incoming', {
+      platform: 'discord',
+      timestamp: storedMsg.date,
+      message: { role: 'user', content: content || '' },
+      metadata: {
+        userId: message.author.id,
+        chatId: message.channelId,
+        messageId: message.id,
+        imageUrls: storedAttachments.filter(a => a.contentType?.startsWith('image/')).map(a => a.url)
+      }
+    })
+
     // Process with Agent and reply (if there's content or attachments)
     if (content || storedAttachments.length > 0) {
       console.log('[Discord] Sending to Agent, content:', content)
@@ -423,8 +437,13 @@ export class DiscordBotService {
     console.log('[Discord] Full message:', fullMessage.substring(0, 200) + '...')
 
     try {
+      // Check if message should be consumed by other services (e.g., proactive service)
+      if (await infraService.tryConsumeUserInput(fullMessage, 'discord')) {
+        console.log('[Discord] Message consumed by another service, returning silently')
+        return
+      }
+
       // Get response from Agent with Discord-specific tools
-      // Pass both text (with file paths) and image URLs for multimodal
       const response = await agentService.processMessage(fullMessage, 'discord', imageUrls)
 
       // Check if rejected due to cross-platform lock
@@ -467,6 +486,17 @@ export class DiscordBotService {
         // Emit event for bot's reply
         const appMessage = this.convertToAppMessage(botReply)
         appEvents.emitDiscordNewMessage(appMessage)
+
+        // Publish outgoing message event to infraService
+        infraService.publish('message:outgoing', {
+          platform: 'discord',
+          timestamp: botReply.date,
+          content: response.message,
+          metadata: {
+            messageId: sentMsg.id,
+            replyToId: originalMessage.id
+          }
+        })
       } else {
         console.error('[Discord] Agent error:', response.error)
         await originalMessage.reply(`Error: ${response.error || 'Unknown error'}`)

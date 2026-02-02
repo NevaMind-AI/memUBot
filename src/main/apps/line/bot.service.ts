@@ -1,6 +1,7 @@
 import { lineStorage } from './storage'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
+import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
@@ -142,6 +143,18 @@ export class LineBotService {
     const appMessage = this.convertToAppMessage(storedMsg)
     appEvents.emitLineNewMessage(appMessage)
 
+    // Publish incoming message event to infraService
+    infraService.publish('message:incoming', {
+      platform: 'line',
+      timestamp: Math.floor(event.timestamp / 1000),
+      message: { role: 'user', content: text || '' },
+      metadata: {
+        userId,
+        chatId: sourceId,
+        messageId: event.message.id
+      }
+    })
+
     // Process with Agent
     if (text && event.replyToken) {
       await this.processWithAgentAndReply(event.replyToken, sourceType, sourceId, text)
@@ -160,6 +173,12 @@ export class LineBotService {
     console.log('[Line] Sending to Agent:', userMessage.substring(0, 50) + '...')
 
     try {
+      // Check if message should be consumed by other services (e.g., proactive service)
+      if (await infraService.tryConsumeUserInput(userMessage, 'line')) {
+        console.log('[Line] Message consumed by another service, returning silently')
+        return
+      }
+
       const response = await agentService.processMessage(userMessage, 'line')
 
       // Check if rejected due to cross-platform lock
@@ -188,6 +207,16 @@ export class LineBotService {
         // Emit event
         const appMessage = this.convertToAppMessage(botReply)
         appEvents.emitLineNewMessage(appMessage)
+
+        // Publish outgoing message event to infraService
+        infraService.publish('message:outgoing', {
+          platform: 'line',
+          timestamp: botReply.date,
+          content: response.message,
+          metadata: {
+            messageId: botReply.messageId
+          }
+        })
       }
     } catch (error) {
       console.error('[Line] Error processing with Agent:', error)

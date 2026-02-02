@@ -9,6 +9,7 @@ import * as path from 'path'
 process.env.NTBA_FIX_350 = '1'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
+import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
@@ -500,6 +501,19 @@ export class TelegramBotService {
     const appMessage = this.convertToAppMessage(storedMsg)
     appEvents.emitNewMessage(appMessage)
 
+    // Publish incoming message event to infraService
+    infraService.publish('message:incoming', {
+      platform: 'telegram',
+      timestamp: msg.date,
+      message: { role: 'user', content: textContent || '' },
+      metadata: {
+        userId: msg.from?.id?.toString(),
+        chatId: msg.chat.id.toString(),
+        messageId: msg.message_id.toString(),
+        imageUrls
+      }
+    })
+
     // Process with Agent and reply if there's content (text, images, or files)
     if ((textContent || imageUrls.length > 0 || filePaths.length > 0) && this.bot) {
       await this.processWithAgentAndReply(msg.chat.id, textContent, imageUrls)
@@ -678,6 +692,12 @@ export class TelegramBotService {
     this.currentChatId = chatId
 
     try {
+      // Check if message should be consumed by other services (e.g., proactive service)
+      if (await infraService.tryConsumeUserInput(userMessage, 'telegram')) {
+        console.log('[Telegram] Message consumed by another service, returning silently')
+        return
+      }
+
       // Get response from Agent with Telegram-specific tools and images
       const response = await agentService.processMessage(userMessage, 'telegram', imageUrls)
 
@@ -725,6 +745,16 @@ export class TelegramBotService {
         // Emit event for bot's reply
         const appMessage = this.convertToAppMessage(botReply)
         appEvents.emitNewMessage(appMessage)
+
+        // Publish outgoing message event to infraService
+        infraService.publish('message:outgoing', {
+          platform: 'telegram',
+          timestamp: botReply.date,
+          content: response.message,
+          metadata: {
+            messageId: sentMsg.message_id.toString()
+          }
+        })
       } else {
         console.error('[Telegram] Agent error:', response.error)
         // Optionally send error message to user

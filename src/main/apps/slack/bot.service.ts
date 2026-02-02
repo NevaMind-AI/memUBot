@@ -2,6 +2,7 @@ import { App as SlackApp, LogLevel } from '@slack/bolt'
 import { slackStorage } from './storage'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
+import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import { app } from 'electron'
@@ -312,6 +313,19 @@ export class SlackBotService {
     const appMessage = this.convertToAppMessage(storedMsg)
     appEvents.emitSlackNewMessage(appMessage)
 
+    // Publish incoming message event to infraService
+    infraService.publish('message:incoming', {
+      platform: 'slack',
+      timestamp: storedMsg.date,
+      message: { role: 'user', content: cleanText || '' },
+      metadata: {
+        userId,
+        chatId: channelId,
+        messageId: messageTs,
+        imageUrls
+      }
+    })
+
     // Process with Agent and reply
     if (cleanText || imageUrls.length > 0 || downloadedFiles.length > 0) {
       // In DMs: only use thread if user is already in one, otherwise reply directly
@@ -487,6 +501,12 @@ export class SlackBotService {
     }
 
     try {
+      // Check if message should be consumed by other services (e.g., proactive service)
+      if (await infraService.tryConsumeUserInput(fullMessage, 'slack')) {
+        console.log('[Slack] Message consumed by another service, returning silently')
+        return
+      }
+
       const response = await agentService.processMessage(fullMessage, 'slack', imageUrls)
 
       // Check if rejected due to cross-platform lock
@@ -527,6 +547,16 @@ export class SlackBotService {
         // Emit event for bot's reply
         const appMessage = this.convertToAppMessage(botReply)
         appEvents.emitSlackNewMessage(appMessage)
+
+        // Publish outgoing message event to infraService
+        infraService.publish('message:outgoing', {
+          platform: 'slack',
+          timestamp: botReply.date,
+          content: response.message,
+          metadata: {
+            messageId: botReply.messageId
+          }
+        })
       }
     } catch (error) {
       console.error('[Slack] Error processing with Agent:', error)

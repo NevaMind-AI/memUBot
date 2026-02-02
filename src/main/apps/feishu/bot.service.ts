@@ -2,6 +2,7 @@ import * as lark from '@larksuiteoapi/node-sdk'
 import { feishuStorage } from './storage'
 import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
+import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import { app } from 'electron'
@@ -379,6 +380,19 @@ export class FeishuBotService {
     const appMessage = this.convertToAppMessage(storedMsg)
     appEvents.emitFeishuNewMessage(appMessage)
 
+    // Publish incoming message event to infraService
+    infraService.publish('message:incoming', {
+      platform: 'feishu',
+      timestamp: storedMsg.date,
+      message: { role: 'user', content: agentMessage || '' },
+      metadata: {
+        userId: senderId,
+        chatId,
+        messageId: event.message.message_id,
+        imageUrls
+      }
+    })
+
     // Process with Agent
     if ((agentMessage || imageUrls.length > 0) && this.client) {
       await this.processWithAgentAndReply(chatId, agentMessage, imageUrls)
@@ -601,6 +615,12 @@ export class FeishuBotService {
     this.currentChatId = chatId
 
     try {
+      // Check if message should be consumed by other services (e.g., proactive service)
+      if (await infraService.tryConsumeUserInput(userMessage, 'feishu')) {
+        console.log('[Feishu] Message consumed by another service, returning silently')
+        return
+      }
+
       const response = await agentService.processMessage(userMessage, 'feishu', imageUrls)
 
       if (!response.success && response.busyWith) {
@@ -641,6 +661,16 @@ export class FeishuBotService {
 
           const appMessage = this.convertToAppMessage(botReply)
           appEvents.emitFeishuNewMessage(appMessage)
+
+          // Publish outgoing message event to infraService
+          infraService.publish('message:outgoing', {
+            platform: 'feishu',
+            timestamp: botReply.date,
+            content: response.message,
+            metadata: {
+              messageId: result.messageId
+            }
+          })
         }
       } else {
         console.error('[Feishu] Agent error:', response.error)

@@ -1,5 +1,6 @@
 import { whatsappStorage } from './storage'
 import { agentService } from '../../services/agent.service'
+import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
@@ -135,6 +136,18 @@ export class WhatsAppBotService {
     const appMessage = this.convertToAppMessage(storedMsg)
     appEvents.emitWhatsAppNewMessage(appMessage)
 
+    // Publish incoming message event to infraService
+    infraService.publish('message:incoming', {
+      platform: 'whatsapp',
+      timestamp,
+      message: { role: 'user', content: text || '' },
+      metadata: {
+        userId: fromId,
+        chatId,
+        messageId
+      }
+    })
+
     // Process with Agent and reply
     if (text) {
       await this.processWithAgentAndReply(chatId, text)
@@ -148,6 +161,12 @@ export class WhatsAppBotService {
     console.log('[WhatsApp] Sending to Agent:', userMessage.substring(0, 50) + '...')
 
     try {
+      // Check if message should be consumed by other services (e.g., proactive service)
+      if (await infraService.tryConsumeUserInput(userMessage, 'whatsapp')) {
+        console.log('[WhatsApp] Message consumed by another service, returning silently')
+        return
+      }
+
       const response = await agentService.processMessage(userMessage, 'whatsapp')
 
       // Check if rejected due to cross-platform lock
@@ -176,6 +195,16 @@ export class WhatsAppBotService {
         // Emit event for bot's reply
         const appMessage = this.convertToAppMessage(botReply)
         appEvents.emitWhatsAppNewMessage(appMessage)
+
+        // Publish outgoing message event to infraService
+        infraService.publish('message:outgoing', {
+          platform: 'whatsapp',
+          timestamp: botReply.date,
+          content: response.message,
+          metadata: {
+            messageId: botReply.messageId
+          }
+        })
       }
     } catch (error) {
       console.error('[WhatsApp] Error processing with Agent:', error)

@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { loadSettings } from '../config/settings.config'
 import { agentService, type MessagePlatform, type UnmemorizedMessage } from './agent.service'
 import { proactiveStorage, type ChatPlatform, type ChatPlatformTimestamps } from './proactive.storage'
+import { infraService, type IncomingMessageEvent } from './infra.service'
 import { computerUseTools } from '../tools/computer.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
 import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
@@ -205,12 +206,12 @@ interface ChatMemorizationTask {
 }
 
 class ProactiveService {
-  private intervalId: NodeJS.Timeout | null = null
   private isRunning = false
+  private tickIntervalMs = DEFAULT_INTERVAL_MS
   private conversationHistory: Anthropic.MessageParam[] = []
   private unmemorizedMessages: Anthropic.MessageParam[] = []
-  private isProcessing = false // Internal lock to prevent concurrent processing
   private isWaitingUserInput = false // Flag to indicate if waiting for user input
+  private waitingUserInputFromPlatform: MessagePlatform | null = null
   private userInput: string | null = null
   
   // Chat memorization state
@@ -218,6 +219,9 @@ class ProactiveService {
   private chatUnmemorizedMessages: ChatMessageForMemorize[] = [] // Messages waiting to be memorized
   private chatUnmemorizedTimestamps: ChatPlatformTimestamps = {} // Timestamps of the first message in the unmemorized messages
   private chatMemorizationTasks: Map<string, ChatMemorizationTask> = new Map() // Map of task_id -> task info
+
+  // InfraService subscription
+  private unsubscribeFromInfra: (() => void) | null = null
 
   /**
    * Get memu configuration from settings
@@ -249,7 +253,14 @@ class ProactiveService {
   }
 
   /**
-   * Set user input (called by AgentService when user responds)
+   * Get the platform from which we're waiting for user input
+   */
+  getWaitingPlatform(): MessagePlatform | null {
+    return this.waitingUserInputFromPlatform
+  }
+
+  /**
+   * Set user input (called by InfraService when user responds)
    */
   setUserInput(input: string): void {
     console.log('[Proactive] User input received:', input.substring(0, 50) + (input.length > 50 ? '...' : ''))
@@ -301,7 +312,20 @@ class ProactiveService {
    */
   private async executeWaitUserConfirm(prompt: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     console.log(`[Proactive] Waiting for user confirmation: ${prompt}`)
-    
+
+    if (prompt.length > 0) {
+      const sentPlatform = await this.sendToCurrentPlatform(prompt)
+      if (sentPlatform) {
+        this.waitingUserInputFromPlatform = sentPlatform
+      }
+      else {
+        return { success: false, error: 'Failed to send prompt to platform' }
+      }
+    }
+    else {
+      return { success: false, error: 'No prompt provided' }
+    }
+
     // Set waiting state and clear previous input
     this.isWaitingUserInput = true
     this.userInput = null
@@ -328,6 +352,7 @@ class ProactiveService {
     } finally {
       // Always reset waiting state
       this.isWaitingUserInput = false
+      this.waitingUserInputFromPlatform = null
       this.userInput = null
     }
   }
@@ -355,17 +380,47 @@ class ProactiveService {
 
     console.log(`[Proactive] Starting service with ${intervalMs}ms interval`)
     this.isRunning = true
+    this.tickIntervalMs = intervalMs
 
-    // Set up interval (first tick will happen after intervalMs)
-    this.intervalId = setInterval(() => {
-      this.tick()
-    }, intervalMs)
+    // Subscribe to infraService for real-time message notifications
+    this.unsubscribeFromInfra = infraService.subscribe('message:incoming', (event) => {
+      this.handleIncomingMessage(event)
+    })
+    console.log('[Proactive] Subscribed to infraService for incoming messages')
+
+    // Start the tick loop using setTimeout self-scheduling
+    // First tick will happen after intervalMs
+    this.scheduleTick()
 
     return true
   }
 
   /**
+   * Schedule the next tick using setTimeout
+   * This ensures ticks run sequentially with a fixed delay AFTER each completion
+   */
+  private scheduleTick(): void {
+    if (!this.isRunning) {
+      console.log('[Proactive] Service stopped, not scheduling next tick')
+      return
+    }
+
+    setTimeout(async () => {
+      if (!this.isRunning) {
+        console.log('[Proactive] Service stopped during wait, not executing tick')
+        return
+      }
+
+      await this.tick()
+      
+      // Schedule next tick after this one completes
+      this.scheduleTick()
+    }, this.tickIntervalMs)
+  }
+
+  /**
    * Stop the background polling loop
+   * The next scheduled tick will see isRunning=false and stop the loop
    */
   stop(): void {
     if (!this.isRunning) {
@@ -375,12 +430,17 @@ class ProactiveService {
 
     console.log('[Proactive] Stopping service')
     
-    if (this.intervalId) {
-      clearInterval(this.intervalId)
-      this.intervalId = null
+    // Setting isRunning to false will stop the setTimeout loop naturally
+    this.isRunning = false
+    
+    // Unsubscribe from infraService
+    if (this.unsubscribeFromInfra) {
+      this.unsubscribeFromInfra()
+      this.unsubscribeFromInfra = null
+      console.log('[Proactive] Unsubscribed from infraService')
     }
     
-    this.isRunning = false
+    console.log('[Proactive] Service stopped (pending tick will be cancelled)')
   }
 
   /**
@@ -391,18 +451,44 @@ class ProactiveService {
   }
 
   /**
+   * Handle incoming message from infraService subscription
+   * This is called in real-time when any platform publishes a new message
+   */
+  private handleIncomingMessage(event: IncomingMessageEvent): void {
+    console.log(`[Proactive] Received message via infraService from ${event.platform}`)
+
+    // Push to unmemorizedMessages for proactive memorization
+    this.unmemorizedMessages.push(event.message)
+
+    // Also push to chatUnmemorizedMessages for chat memorization (if not 'none' platform)
+    if (event.platform !== 'none') {
+      const content = typeof event.message.content === 'string'
+        ? event.message.content
+        : JSON.stringify(event.message.content)
+
+      this.chatUnmemorizedMessages.push({
+        platform: event.platform as ChatPlatform,
+        role: event.message.role,
+        content,
+        date: event.timestamp
+      })
+
+      // Update timestamps - only set if not already set for this platform
+      if (!this.chatUnmemorizedTimestamps[event.platform as ChatPlatform]) {
+        this.chatUnmemorizedTimestamps[event.platform as ChatPlatform] = event.timestamp
+      }
+
+      console.log(`[Proactive] Added message from ${event.platform} to chat memorization queue (total: ${this.chatUnmemorizedMessages.length})`)
+    }
+  }
+
+  /**
    * Single tick of the polling loop
+   * With setTimeout self-scheduling, ticks are guaranteed to run sequentially
+   * (next tick only starts after previous one completes + interval delay)
    */
   private async tick(): Promise<void> {
-    // Prevent concurrent tick execution
-    if (this.isProcessing) {
-      console.log('[Proactive] Previous tick still processing, skipping')
-      return
-    }
-
     try {
-      this.isProcessing = true
-
       // Step 1: Check if AgentService is idle
       const agentStatus = agentService.getStatus()
       if (agentStatus.status !== 'idle') {
@@ -410,40 +496,7 @@ class ProactiveService {
         return
       }
 
-      // Step 2: Get unmemorized messages from agentService and merge into own
-      const agentUnmemorizedMessages = agentService.getUnmemorizedMessages()
-      if (agentUnmemorizedMessages.length > 0) {
-        console.log(`[Proactive] Received ${agentUnmemorizedMessages.length} unmemorized messages from agentService`)
-        
-        // Process each message
-        for (const unmemorized of agentUnmemorizedMessages) {
-          // Push pure message to unmemorizedMessages for proactive memorization
-          this.unmemorizedMessages.push(unmemorized.message)
-          
-          // Also push to chatUnmemorizedMessages for chat memorization
-          const platform = unmemorized.platform !== 'none' ? unmemorized.platform : null
-          if (platform) {
-            // Convert to ChatMessageForMemorize format
-            const content = typeof unmemorized.message.content === 'string'
-              ? unmemorized.message.content
-              : JSON.stringify(unmemorized.message.content)
-            
-            this.chatUnmemorizedMessages.push({
-              platform: platform as ChatPlatform,
-              role: unmemorized.message.role,
-              content,
-              date: unmemorized.timestamp
-            })
-            
-            // Update timestamps - only set if not already set for this platform
-            if (!this.chatUnmemorizedTimestamps[platform as ChatPlatform]) {
-              this.chatUnmemorizedTimestamps[platform as ChatPlatform] = unmemorized.timestamp
-            }
-          }
-        }
-      }
-
-      // Step 2.5: Check if we should trigger chat memorization
+      // Step 2: Check if we should trigger chat memorization
       if (this.chatUnmemorizedMessages.length > 0 && !this.isMemorizingChat) {
         const lastMessage = this.chatUnmemorizedMessages[this.chatUnmemorizedMessages.length - 1]
         const timeSinceLastMessage = Date.now() - (lastMessage.date * 1000)
@@ -511,9 +564,8 @@ class ProactiveService {
     } catch (error) {
       // Log error but don't stop the loop
       console.error('[Proactive] Error in tick:', error)
-    } finally {
-      this.isProcessing = false
     }
+    // No need for finally block - setTimeout scheduling handles sequential execution
   }
 
   /**
@@ -727,9 +779,6 @@ class ProactiveService {
         const textContent = response.content.find((block) => block.type === 'text')
         const message = textContent && textContent.type === 'text' ? textContent.text : ''
 
-        // Get the platform before sending (for storage)
-        const platform = agentService.getRecentReplyPlatform()
-
         // Add assistant response to history and track for memorization
         const assistantMessage: Anthropic.MessageParam = {
           role: 'assistant',
@@ -741,16 +790,18 @@ class ProactiveService {
         console.log('[Proactive] Final response:', message.substring(0, 100) + '...')
 
         // Send message to current platform if one is active
-        let sentPlatform: MessagePlatform = 'none'
+        let sentPlatform: MessagePlatform | null = null
         if (message) {
-          const sent = await this.sendToCurrentPlatform(message)
-          if (sent) {
+          const platform = await this.sendToCurrentPlatform(message)
+          if (platform) {
             sentPlatform = platform
           }
         }
 
         // Store with platform info if it was sent successfully
-        await proactiveStorage.storeMessage(assistantMessage, sentPlatform)
+        if (sentPlatform) {
+          await proactiveStorage.storeMessage(assistantMessage, sentPlatform)
+        }
 
         return {
           success: true,
@@ -884,15 +935,16 @@ class ProactiveService {
    * @param message The text message to send
    * @returns true if sent successfully, false otherwise
    */
-  private async sendToCurrentPlatform(message: string): Promise<boolean> {
+  private async sendToCurrentPlatform(message: string): Promise<MessagePlatform | null> {
     const platform = agentService.getRecentReplyPlatform()
     
     if (platform === 'none') {
       console.log('[Proactive] No active platform, skipping message send')
-      return false
+      return null
     }
 
     console.log(`[Proactive] Sending message to ${platform}`)
+    this.waitingUserInputFromPlatform = platform
 
     try {
       switch (platform) {
@@ -900,84 +952,84 @@ class ProactiveService {
           const chatId = telegramBotService.getCurrentChatId()
           if (!chatId) {
             console.log('[Proactive] No current Telegram chat ID')
-            return false
+            return null
           }
           const result = await telegramBotService.sendText(chatId, message)
           if (result.success) {
             console.log('[Proactive] Message sent to Telegram successfully')
-            return true
+            return platform
           }
           console.error('[Proactive] Failed to send to Telegram:', result.error)
-          return false
+          return null
         }
 
         case 'discord': {
           const channelId = discordBotService.getCurrentChannelId()
           if (!channelId) {
             console.log('[Proactive] No current Discord channel ID')
-            return false
+            return null
           }
           const result = await discordBotService.sendText(channelId, message)
           if (result.success) {
             console.log('[Proactive] Message sent to Discord successfully')
-            return true
+            return platform
           }
           console.error('[Proactive] Failed to send to Discord:', result.error)
-          return false
+          return null
         }
 
         case 'slack': {
           const channelId = slackBotService.getCurrentChannelId()
           if (!channelId) {
             console.log('[Proactive] No current Slack channel ID')
-            return false
+            return null
           }
           const result = await slackBotService.sendText(channelId, message)
           if (result.success) {
             console.log('[Proactive] Message sent to Slack successfully')
-            return true
+            return platform
           }
           console.error('[Proactive] Failed to send to Slack:', result.error)
-          return false
+          return null
         }
 
         case 'whatsapp': {
           const chatId = whatsappBotService.getCurrentChatId()
           if (!chatId) {
             console.log('[Proactive] No current WhatsApp chat ID')
-            return false
+            return null
           }
           const result = await whatsappBotService.sendText(chatId, message)
           if (result.success) {
             console.log('[Proactive] Message sent to WhatsApp successfully')
-            return true
+            return platform
           }
           console.error('[Proactive] Failed to send to WhatsApp:', result.error)
-          return false
+          return null
         }
 
         case 'line': {
           const source = lineBotService.getCurrentSource()
           if (!source.id) {
             console.log('[Proactive] No current Line source ID')
-            return false
+            return null
           }
           const result = await lineBotService.sendText(source.id, message)
           if (result.success) {
             console.log('[Proactive] Message sent to Line successfully')
-            return true
+            return platform
           }
           console.error('[Proactive] Failed to send to Line:', result.error)
-          return false
+          return null
         }
 
         default:
           console.log(`[Proactive] Unknown platform: ${platform}`)
-          return false
+          return null
       }
     } catch (error) {
       console.error(`[Proactive] Error sending to ${platform}:`, error)
-      return false
+      return null
     }
   }
 
