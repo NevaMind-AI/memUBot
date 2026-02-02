@@ -896,6 +896,7 @@ function DataSettings(): JSX.Element {
       telegram: t('settings.data.folders.telegram'),
       discord: t('settings.data.folders.discord'),
       slack: t('settings.data.folders.slack'),
+      feishu: t('settings.data.folders.feishu'),
       mcpOutput: t('settings.data.folders.mcpOutput'),
       agentOutput: t('settings.data.folders.agentOutput'),
       skills: t('settings.data.folders.skills'),
@@ -982,9 +983,7 @@ function DataSettings(): JSX.Element {
               onClick={() => handleOpenMessagesFolder('telegram')}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0088cc]/10 border border-[#0088cc]/20 text-[12px] text-[#0088cc] font-medium hover:bg-[#0088cc]/20 transition-all"
             >
-              <div className="w-4 h-4 rounded bg-gradient-to-br from-[#0088cc] to-[#229ED9] flex items-center justify-center">
-                <span className="text-white text-[8px] font-bold">T</span>
-              </div>
+              <TelegramIcon className="w-4 h-4" />
               Telegram
             </button>
             {/* Discord */}
@@ -992,9 +991,7 @@ function DataSettings(): JSX.Element {
               onClick={() => handleOpenMessagesFolder('discord')}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#5865F2]/10 border border-[#5865F2]/20 text-[12px] text-[#5865F2] font-medium hover:bg-[#5865F2]/20 transition-all"
             >
-              <div className="w-4 h-4 rounded bg-gradient-to-br from-[#5865F2] to-[#7289DA] flex items-center justify-center">
-                <span className="text-white text-[8px] font-bold">D</span>
-              </div>
+              <DiscordIcon className="w-4 h-4" />
               Discord
             </button>
             {/* Slack */}
@@ -1002,10 +999,16 @@ function DataSettings(): JSX.Element {
               onClick={() => handleOpenMessagesFolder('slack')}
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#611F69]/10 border border-[#611F69]/20 text-[12px] text-[#611F69] dark:text-[#E0B3E6] font-medium hover:bg-[#611F69]/20 transition-all"
             >
-              <div className="w-4 h-4 rounded bg-gradient-to-br from-[#611F69] to-[#E01E5A] flex items-center justify-center">
-                <span className="text-white text-[8px] font-bold">S</span>
-              </div>
+              <SlackIcon className="w-4 h-4" />
               Slack
+            </button>
+            {/* Feishu */}
+            <button
+              onClick={() => handleOpenMessagesFolder('feishu')}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#3370FF]/10 border border-[#3370FF]/20 text-[12px] text-[#3370FF] font-medium hover:bg-[#3370FF]/20 transition-all"
+            >
+              <FeishuIcon className="w-4 h-4" />
+              Feishu
             </button>
           </div>
         </div>

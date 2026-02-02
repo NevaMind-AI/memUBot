@@ -292,7 +292,8 @@ export function setupSettingsHandlers(): void {
         const platformPaths: Record<string, string> = {
           telegram: 'telegram-data',
           discord: 'discord-data',
-          slack: 'slack-data'
+          slack: 'slack-data',
+          feishu: 'feishu-data'
         }
 
         let messagesPath: string
