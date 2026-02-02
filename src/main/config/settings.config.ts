@@ -20,7 +20,7 @@ export const PROVIDER_CONFIGS: Record<LLMProvider, { name: string; baseUrl: stri
     defaultModel: 'claude-opus-4-5'
   },
   minimax: {
-    name: 'MiniMax M2.1',
+    name: 'MiniMax',
     baseUrl: 'https://api.minimaxi.com/anthropic',
     defaultModel: 'MiniMax-M2.1'
   },
