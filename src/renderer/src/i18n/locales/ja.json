@@ -99,6 +99,13 @@
       "themeDark": "ダーク",
       "themeSystem": "システム設定に従う"
     },
+    "llm": {
+      "provider": "LLM プロバイダー",
+      "providerHint": "LLM プロバイダーを選択（Anthropic 互換 API）",
+      "model": "モデル名",
+      "baseUrl": "API ベース URL",
+      "minimaxInfo": "MiniMax M2.1（Anthropic 互換 API）を使用。platform.minimaxi.com で API キーを取得してください"
+    },
     "platforms": {
       "telegram": {
         "title": "Telegram",

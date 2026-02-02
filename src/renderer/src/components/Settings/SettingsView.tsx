@@ -13,9 +13,28 @@ import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIc
 
 type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'about'
 
+type LLMProvider = 'claude' | 'minimax' | 'custom'
+
+const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
+  { value: 'claude', label: 'Claude (Anthropic)' },
+  { value: 'minimax', label: 'MiniMax M2.1' },
+  { value: 'custom', label: 'Custom Provider' }
+]
+
 interface AppSettings {
+  // LLM Provider selection
+  llmProvider: LLMProvider
+  // Claude settings
   claudeApiKey: string
   claudeModel: string
+  // MiniMax settings
+  minimaxApiKey: string
+  minimaxModel: string
+  // Custom provider settings
+  customApiKey: string
+  customBaseUrl: string
+  customModel: string
+  // Shared settings
   maxTokens: number
   temperature: number
   systemPrompt: string
@@ -164,7 +183,19 @@ function GeneralSettings(): JSX.Element {
   }
 
   const hasChanges =
+    // LLM Provider settings
+    settings.llmProvider !== originalSettings.llmProvider ||
+    // Claude settings
     settings.claudeApiKey !== originalSettings.claudeApiKey ||
+    settings.claudeModel !== originalSettings.claudeModel ||
+    // MiniMax settings
+    settings.minimaxApiKey !== originalSettings.minimaxApiKey ||
+    settings.minimaxModel !== originalSettings.minimaxModel ||
+    // Custom provider settings
+    settings.customApiKey !== originalSettings.customApiKey ||
+    settings.customBaseUrl !== originalSettings.customBaseUrl ||
+    settings.customModel !== originalSettings.customModel ||
+    // Other settings
     settings.memuApiKey !== originalSettings.memuApiKey ||
     settings.memuUserId !== originalSettings.memuUserId ||
     settings.memuAgentId !== originalSettings.memuAgentId ||
@@ -172,9 +203,6 @@ function GeneralSettings(): JSX.Element {
     settings.discordBotToken !== originalSettings.discordBotToken ||
     settings.slackBotToken !== originalSettings.slackBotToken ||
     settings.slackAppToken !== originalSettings.slackAppToken ||
-    // Line settings temporarily disabled
-    // settings.lineChannelAccessToken !== originalSettings.lineChannelAccessToken ||
-    // settings.lineChannelSecret !== originalSettings.lineChannelSecret ||
     settings.feishuAppId !== originalSettings.feishuAppId ||
     settings.feishuAppSecret !== originalSettings.feishuAppSecret ||
     settings.language !== originalSettings.language
@@ -184,17 +212,24 @@ function GeneralSettings(): JSX.Element {
     setMessage(null)
     try {
       const result = await window.settings.save({
+        // LLM Provider selection
+        llmProvider: settings.llmProvider,
+        // Claude settings
         claudeApiKey: settings.claudeApiKey,
+        claudeModel: settings.claudeModel,
+        // MiniMax settings
+        minimaxApiKey: settings.minimaxApiKey,
+        minimaxModel: settings.minimaxModel,
+        // Custom provider settings
+        customApiKey: settings.customApiKey,
+        customBaseUrl: settings.customBaseUrl,
+        customModel: settings.customModel,
+        // Other settings
         memuApiKey: settings.memuApiKey,
-        // memuUserId: settings.memuUserId,
-        // memuAgentId: settings.memuAgentId,
         telegramBotToken: settings.telegramBotToken,
         discordBotToken: settings.discordBotToken,
         slackBotToken: settings.slackBotToken,
         slackAppToken: settings.slackAppToken,
-        // Line settings temporarily disabled
-        // lineChannelAccessToken: settings.lineChannelAccessToken,
-        // lineChannelSecret: settings.lineChannelSecret,
         feishuAppId: settings.feishuAppId,
         feishuAppSecret: settings.feishuAppSecret,
         language: settings.language
@@ -228,19 +263,120 @@ function GeneralSettings(): JSX.Element {
       </div>
 
       <div className="space-y-3">
-        {/* API Key */}
+        {/* LLM Provider Selection */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="mb-3">
-            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">Claude {t('settings.general.apiKey')}</h4>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.general.apiKeyHint')}</p>
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.llm.provider')}</h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.llm.providerHint')}</p>
           </div>
-          <input
-            type="password"
-            placeholder={t('settings.general.apiKeyPlaceholder')}
-            value={settings.claudeApiKey || ''}
-            onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
-          />
+          
+          {/* Provider Selector */}
+          <div className="mb-4">
+            <select
+              value={settings.llmProvider || 'claude'}
+              onChange={(e) => setSettings({ ...settings, llmProvider: e.target.value as LLMProvider })}
+              className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
+            >
+              {PROVIDER_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Claude Settings */}
+          {(settings.llmProvider || 'claude') === 'claude' && (
+            <div className="space-y-3 p-3 rounded-xl bg-[var(--bg-secondary)]/50 border border-[var(--border-color)]/50">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.general.apiKey')}</label>
+                <input
+                  type="password"
+                  placeholder="sk-ant-api03-..."
+                  value={settings.claudeApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, claudeApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.model')}</label>
+                <input
+                  type="text"
+                  placeholder="claude-opus-4-5"
+                  value={settings.claudeModel || ''}
+                  onChange={(e) => setSettings({ ...settings, claudeModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* MiniMax Settings */}
+          {settings.llmProvider === 'minimax' && (
+            <div className="space-y-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.general.apiKey')}</label>
+                <input
+                  type="password"
+                  placeholder="MiniMax API Key"
+                  value={settings.minimaxApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, minimaxApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.model')}</label>
+                <input
+                  type="text"
+                  placeholder="MiniMax-M2.1"
+                  value={settings.minimaxModel || ''}
+                  onChange={(e) => setSettings({ ...settings, minimaxModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                />
+              </div>
+              <div className="p-2 rounded-lg bg-blue-500/10">
+                <p className="text-[11px] text-blue-400">
+                  {t('settings.llm.minimaxInfo')}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Provider Settings */}
+          {settings.llmProvider === 'custom' && (
+            <div className="space-y-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.baseUrl')}</label>
+                <input
+                  type="text"
+                  placeholder="https://api.example.com/anthropic"
+                  value={settings.customBaseUrl || ''}
+                  onChange={(e) => setSettings({ ...settings, customBaseUrl: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.general.apiKey')}</label>
+                <input
+                  type="password"
+                  placeholder="API Key"
+                  value={settings.customApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, customApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.model')}</label>
+                <input
+                  type="text"
+                  placeholder="model-name"
+                  value={settings.customModel || ''}
+                  onChange={(e) => setSettings({ ...settings, customModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/10 transition-all"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Memu Settings */}

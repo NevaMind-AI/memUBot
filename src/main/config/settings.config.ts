@@ -6,12 +6,52 @@ const CONFIG_DIR = 'config'
 const SETTINGS_FILE = 'settings.json'
 
 /**
+ * LLM Provider type
+ */
+export type LLMProvider = 'claude' | 'minimax' | 'custom'
+
+/**
+ * Provider configurations
+ */
+export const PROVIDER_CONFIGS: Record<LLMProvider, { name: string; baseUrl: string; defaultModel: string }> = {
+  claude: {
+    name: 'Claude (Anthropic)',
+    baseUrl: '',  // Empty = use Anthropic default
+    defaultModel: 'claude-opus-4-5'
+  },
+  minimax: {
+    name: 'MiniMax M2.1',
+    baseUrl: 'https://api.minimaxi.com/anthropic',
+    defaultModel: 'MiniMax-M2.1'
+  },
+  custom: {
+    name: 'Custom Provider',
+    baseUrl: '',
+    defaultModel: ''
+  }
+}
+
+/**
  * Application settings
  */
 export interface AppSettings {
-  // Claude API settings
+  // LLM Provider selection
+  llmProvider: LLMProvider
+  
+  // Claude (Anthropic) settings
   claudeApiKey: string
   claudeModel: string
+  
+  // MiniMax settings
+  minimaxApiKey: string
+  minimaxModel: string
+  
+  // Custom provider settings
+  customApiKey: string
+  customBaseUrl: string
+  customModel: string
+  
+  // Shared LLM settings
   maxTokens: number
   temperature: number
   systemPrompt: string
@@ -49,8 +89,23 @@ export interface AppSettings {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
+  // LLM Provider selection
+  llmProvider: 'claude',
+  
+  // Claude settings
   claudeApiKey: '',
   claudeModel: 'claude-opus-4-5',
+  
+  // MiniMax settings
+  minimaxApiKey: '',
+  minimaxModel: 'MiniMax-M2.1',
+  
+  // Custom provider settings
+  customApiKey: '',
+  customBaseUrl: '',
+  customModel: '',
+  
+  // Shared LLM settings
   maxTokens: 8192,
   temperature: 0.7,
   systemPrompt: '',
@@ -105,6 +160,14 @@ class SettingsManager {
 
       // Merge with defaults to ensure all fields exist
       this.settings = { ...DEFAULT_SETTINGS, ...saved }
+      
+      // Migration: ensure provider is set (for existing users)
+      if (!saved.llmProvider && saved.claudeApiKey) {
+        console.log('[Settings] Setting default LLM provider to Claude (existing user)')
+        this.settings.llmProvider = 'claude'
+        await this.saveToFile()
+      }
+      
       console.log('[Settings] Loaded settings')
     } catch {
       // File doesn't exist, use defaults
@@ -141,16 +204,20 @@ class SettingsManager {
   }
 
   /**
+   * Save current settings to file
+   */
+  private async saveToFile(): Promise<void> {
+    const filePath = path.join(this.configPath, SETTINGS_FILE)
+    await fs.writeFile(filePath, JSON.stringify(this.settings, null, 2), 'utf-8')
+  }
+
+  /**
    * Update settings
    */
   async updateSettings(updates: Partial<AppSettings>): Promise<void> {
     await this.ensureInitialized()
-
     this.settings = { ...this.settings, ...updates }
-
-    const filePath = path.join(this.configPath, SETTINGS_FILE)
-    await fs.writeFile(filePath, JSON.stringify(this.settings, null, 2), 'utf-8')
-
+    await this.saveToFile()
     console.log('[Settings] Settings saved')
   }
 
@@ -159,9 +226,46 @@ class SettingsManager {
    */
   async resetSettings(): Promise<void> {
     this.settings = { ...DEFAULT_SETTINGS }
-    const filePath = path.join(this.configPath, SETTINGS_FILE)
-    await fs.writeFile(filePath, JSON.stringify(this.settings, null, 2), 'utf-8')
+    await this.saveToFile()
     console.log('[Settings] Settings reset to defaults')
+  }
+
+  /**
+   * Get effective LLM configuration based on current provider
+   */
+  getEffectiveLLMConfig(): { apiKey: string; baseUrl: string; model: string; provider: LLMProvider } {
+    const provider = this.settings.llmProvider || 'claude'
+    
+    switch (provider) {
+      case 'claude':
+        return {
+          apiKey: this.settings.claudeApiKey,
+          baseUrl: '',  // Use Anthropic default
+          model: this.settings.claudeModel || 'claude-opus-4-5',
+          provider
+        }
+      case 'minimax':
+        return {
+          apiKey: this.settings.minimaxApiKey,
+          baseUrl: 'https://api.minimaxi.com/anthropic',
+          model: this.settings.minimaxModel || 'MiniMax-M2.1',
+          provider
+        }
+      case 'custom':
+        return {
+          apiKey: this.settings.customApiKey,
+          baseUrl: this.settings.customBaseUrl,
+          model: this.settings.customModel,
+          provider
+        }
+      default:
+        return {
+          apiKey: this.settings.claudeApiKey,
+          baseUrl: '',
+          model: this.settings.claudeModel || 'claude-opus-4-5',
+          provider: 'claude'
+        }
+    }
   }
 }
 

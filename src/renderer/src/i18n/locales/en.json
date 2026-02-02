@@ -99,6 +99,13 @@
       "themeDark": "Dark",
       "themeSystem": "System"
     },
+    "llm": {
+      "provider": "LLM Provider",
+      "providerHint": "Choose your LLM provider (Anthropic-compatible API)",
+      "model": "Model Name",
+      "baseUrl": "API Base URL",
+      "minimaxInfo": "Using MiniMax M2.1 via Anthropic-compatible API. Get your API key from platform.minimaxi.com"
+    },
     "platforms": {
       "telegram": {
         "title": "Telegram",

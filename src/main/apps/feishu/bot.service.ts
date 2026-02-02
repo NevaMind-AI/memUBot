@@ -819,18 +819,27 @@ export class FeishuBotService {
 
     try {
       // First upload the image
+      console.log(`[Feishu] Uploading image: ${imagePath}`)
       const imageData = await fs.readFile(imagePath)
+      console.log(`[Feishu] Image data size: ${imageData.length} bytes`)
+      
       const uploadResponse = (await this.client.im.image.create({
         data: {
           image_type: 'message',
           image: imageData
         }
-      })) as { data?: { image_key?: string } }
+      })) as { image_key?: string; data?: { image_key?: string }; code?: number; msg?: string }
+      
+      console.log(`[Feishu] Upload response:`, JSON.stringify(uploadResponse, null, 2))
 
-      const imageKey = uploadResponse?.data?.image_key
+      // Handle both response formats: { image_key: "..." } or { data: { image_key: "..." } }
+      const imageKey = uploadResponse?.image_key || uploadResponse?.data?.image_key
       if (!imageKey) {
-        return { success: false, error: 'Failed to upload image' }
+        const errorMsg = uploadResponse?.msg || 'Failed to upload image (no image_key returned)'
+        console.error(`[Feishu] Image upload failed: ${errorMsg}`)
+        return { success: false, error: errorMsg }
       }
+      console.log(`[Feishu] Image uploaded successfully, image_key: ${imageKey}`)
 
       // Then send the message
       const response = await this.client.im.message.create({
@@ -869,10 +878,20 @@ export class FeishuBotService {
           appEvents.emitFeishuNewMessage(this.convertToAppMessage(storedMsg))
         }
 
+        console.log(`[Feishu] Image sent successfully: ${messageId}`)
         return { success: true, messageId }
       }
+      console.error(`[Feishu] Failed to send image message, response:`, JSON.stringify(response, null, 2))
       return { success: false, error: 'Failed to send image' }
     } catch (error) {
+      // Log full error details
+      console.error(`[Feishu] sendImage error:`, error)
+      if (error && typeof error === 'object') {
+        const errObj = error as Record<string, unknown>
+        if (errObj.code || errObj.msg) {
+          console.error(`[Feishu] API error code: ${errObj.code}, msg: ${errObj.msg}`)
+        }
+      }
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
@@ -891,7 +910,9 @@ export class FeishuBotService {
 
     try {
       const fileName = options?.filename || path.basename(filePath)
+      console.log(`[Feishu] Uploading file: ${filePath} as ${fileName}`)
       const fileData = await fs.readFile(filePath)
+      console.log(`[Feishu] File data size: ${fileData.length} bytes`)
 
       // Upload file
       const uploadResponse = (await this.client.im.file.create({
@@ -900,12 +921,18 @@ export class FeishuBotService {
           file_name: fileName,
           file: fileData
         }
-      })) as { data?: { file_key?: string } }
+      })) as { file_key?: string; data?: { file_key?: string }; code?: number; msg?: string }
+      
+      console.log(`[Feishu] File upload response:`, JSON.stringify(uploadResponse, null, 2))
 
-      const fileKey = uploadResponse?.data?.file_key
+      // Handle both response formats: { file_key: "..." } or { data: { file_key: "..." } }
+      const fileKey = uploadResponse?.file_key || uploadResponse?.data?.file_key
       if (!fileKey) {
-        return { success: false, error: 'Failed to upload file' }
+        const errorMsg = uploadResponse?.msg || 'Failed to upload file (no file_key returned)'
+        console.error(`[Feishu] File upload failed: ${errorMsg}`)
+        return { success: false, error: errorMsg }
       }
+      console.log(`[Feishu] File uploaded successfully, file_key: ${fileKey}`)
 
       // Send message
       const response = await this.client.im.message.create({
@@ -944,10 +971,20 @@ export class FeishuBotService {
           appEvents.emitFeishuNewMessage(this.convertToAppMessage(storedMsg))
         }
 
+        console.log(`[Feishu] File sent successfully: ${messageId}`)
         return { success: true, messageId }
       }
+      console.error(`[Feishu] Failed to send file message, response:`, JSON.stringify(response, null, 2))
       return { success: false, error: 'Failed to send file' }
     } catch (error) {
+      // Log full error details
+      console.error(`[Feishu] sendFile error:`, error)
+      if (error && typeof error === 'object') {
+        const errObj = error as Record<string, unknown>
+        if (errObj.code || errObj.msg) {
+          console.error(`[Feishu] API error code: ${errObj.code}, msg: ${errObj.msg}`)
+        }
+      }
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }

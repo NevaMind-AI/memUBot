@@ -58,10 +58,24 @@ interface BotStatus {
   error?: string
 }
 
+// LLM Provider type
+type LLMProvider = 'claude' | 'minimax' | 'custom'
+
 // App settings type
 interface AppSettings {
+  // LLM Provider selection
+  llmProvider: LLMProvider
+  // Claude settings
   claudeApiKey: string
   claudeModel: string
+  // MiniMax settings
+  minimaxApiKey: string
+  minimaxModel: string
+  // Custom provider settings
+  customApiKey: string
+  customBaseUrl: string
+  customModel: string
+  // Shared settings
   maxTokens: number
   temperature: number
   systemPrompt: string

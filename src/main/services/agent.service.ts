@@ -342,22 +342,54 @@ You are an expert assistant that can help with:
 
 /**
  * Create Anthropic client with current settings
+ * Supports multiple providers: Claude, MiniMax, or custom Anthropic-compatible API
  */
-async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number }> {
+async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number; provider: string }> {
   const settings = await loadSettings()
+  const provider = settings.llmProvider || 'claude'
 
-  if (!settings.claudeApiKey) {
-    throw new Error('Claude API key not configured. Please set it in Settings.')
+  // Get API key and base URL based on provider
+  let apiKey: string
+  let baseURL: string | undefined
+  let model: string
+
+  switch (provider) {
+    case 'claude':
+      apiKey = settings.claudeApiKey
+      baseURL = undefined  // Use Anthropic default
+      model = settings.claudeModel || 'claude-opus-4-5'
+      break
+    case 'minimax':
+      apiKey = settings.minimaxApiKey
+      baseURL = 'https://api.minimaxi.com/anthropic'
+      model = settings.minimaxModel || 'MiniMax-M2.1'
+      break
+    case 'custom':
+      apiKey = settings.customApiKey
+      baseURL = settings.customBaseUrl || undefined
+      model = settings.customModel
+      break
+    default:
+      apiKey = settings.claudeApiKey
+      model = settings.claudeModel || 'claude-opus-4-5'
+  }
+
+  if (!apiKey) {
+    throw new Error(`API key not configured for ${provider}. Please set it in Settings.`)
   }
 
   const client = new Anthropic({
-    apiKey: settings.claudeApiKey
+    apiKey,
+    ...(baseURL && { baseURL })
   })
+
+  console.log(`[Agent] Using LLM provider: ${provider}, model: ${model}${baseURL ? `, baseURL: ${baseURL}` : ''}`)
 
   return {
     client,
-    model: settings.claudeModel,
-    maxTokens: settings.maxTokens
+    model,
+    maxTokens: settings.maxTokens,
+    provider
   }
 }
 

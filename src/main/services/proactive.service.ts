@@ -723,21 +723,52 @@ class ProactiveService {
 
   /**
    * Create Anthropic client with current settings
+   * Supports multiple providers: Claude, MiniMax, or custom Anthropic-compatible API
    */
   private async createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number }> {
     const settings = await loadSettings()
+    const provider = settings.llmProvider || 'claude'
 
-    if (!settings.claudeApiKey) {
-      throw new Error('Claude API key not configured. Please set it in Settings.')
+    // Get API key and base URL based on provider
+    let apiKey: string
+    let baseURL: string | undefined
+    let model: string
+
+    switch (provider) {
+      case 'claude':
+        apiKey = settings.claudeApiKey
+        baseURL = undefined
+        model = settings.claudeModel || 'claude-sonnet-4-20250514'
+        break
+      case 'minimax':
+        apiKey = settings.minimaxApiKey
+        baseURL = 'https://api.minimaxi.com/anthropic'
+        model = settings.minimaxModel || 'MiniMax-M2.1'
+        break
+      case 'custom':
+        apiKey = settings.customApiKey
+        baseURL = settings.customBaseUrl || undefined
+        model = settings.customModel
+        break
+      default:
+        apiKey = settings.claudeApiKey
+        model = settings.claudeModel || 'claude-sonnet-4-20250514'
+    }
+
+    if (!apiKey) {
+      throw new Error(`API key not configured for ${provider}. Please set it in Settings.`)
     }
 
     const client = new Anthropic({
-      apiKey: settings.claudeApiKey
+      apiKey,
+      ...(baseURL && { baseURL })
     })
+
+    console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
 
     return {
       client,
-      model: settings.claudeModel || 'claude-sonnet-4-20250514',
+      model,
       maxTokens: settings.maxTokens || 4096
     }
   }
