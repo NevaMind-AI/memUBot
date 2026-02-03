@@ -23,6 +23,8 @@
     "@aws-sdk/client-s3": "^3.978.0",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
+    "@grafana/faro-web-sdk": "^2.2.2",
+    "@grafana/faro-web-tracing": "^2.2.2",
     "@larksuiteoapi/node-sdk": "^1.58.0",
     "@slack/bolt": "^4.6.0",
     "discord.js": "^14.25.1",

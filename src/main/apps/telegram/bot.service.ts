@@ -11,6 +11,7 @@ import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
+import { trackUserMessage } from '../../services/analytics.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
 import type { StoredTelegramMessage, StoredTelegramAttachment, TelegramMessage } from './types'
@@ -496,6 +497,12 @@ export class TelegramBotService {
     }
     await telegramStorage.storeMessage(storedMsg)
     console.log('[Telegram] Message stored:', storedMsg.messageId, attachments.length > 0 ? `with ${attachments.length} attachments` : '')
+
+    // Track user message event for analytics
+    const queryForAnalytics = attachments.length > 0
+      ? `${textContent || ''} [attachments: ${attachments.map(a => a.name || a.contentType).join(', ')}]`.trim()
+      : textContent || ''
+    trackUserMessage(queryForAnalytics, 'telegram', msg.date * 1000)
 
     // Emit event for new message (to update UI)
     const appMessage = this.convertToAppMessage(storedMsg)

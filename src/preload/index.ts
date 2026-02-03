@@ -211,6 +211,22 @@ const servicesApi = {
   }
 }
 
+// Analytics API (for receiving events from main process)
+const analyticsApi = {
+  // Get initial analytics config (user_id, common params)
+  getConfig: () => ipcRenderer.invoke('analytics:get-config'),
+  // Event listener for tracking events from main process
+  onTrack: (callback: (data: { eventName: string; attributes?: Record<string, string> }) => void) => {
+    ipcRenderer.on('analytics:track', (_event, data) => callback(data))
+    return () => ipcRenderer.removeAllListeners('analytics:track')
+  },
+  // Event listener for setting user info
+  onSetUser: (callback: (data: { userId: string; attributes?: Record<string, string> }) => void) => {
+    ipcRenderer.on('analytics:set-user', (_event, data) => callback(data))
+    return () => ipcRenderer.removeAllListeners('analytics:set-user')
+  }
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -229,6 +245,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('startup', startupApi)
     contextBridge.exposeInMainWorld('skills', skillsApi)
     contextBridge.exposeInMainWorld('services', servicesApi)
+    contextBridge.exposeInMainWorld('analytics', analyticsApi)
   } catch (error) {
     console.error(error)
   }
@@ -263,4 +280,6 @@ if (process.contextIsolated) {
   window.skills = skillsApi
   // @ts-ignore (define in dts)
   window.services = servicesApi
+  // @ts-ignore (define in dts)
+  window.analytics = analyticsApi
 }

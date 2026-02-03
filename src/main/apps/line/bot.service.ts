@@ -3,6 +3,7 @@ import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
+import { trackUserMessage } from '../../services/analytics.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
 import type { StoredLineMessage } from './types'
@@ -138,6 +139,9 @@ export class LineBotService {
       isFromBot: false
     }
     await lineStorage.storeMessage(storedMsg)
+
+    // Track user message event for analytics
+    trackUserMessage(text, 'line', event.timestamp)
 
     // Emit event
     const appMessage = this.convertToAppMessage(storedMsg)

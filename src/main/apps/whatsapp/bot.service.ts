@@ -2,6 +2,7 @@ import { whatsappStorage } from './storage'
 import { agentService } from '../../services/agent.service'
 import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
+import { trackUserMessage } from '../../services/analytics.service'
 import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
 import type { StoredWhatsAppMessage, WhatsAppConnectionStatus } from './types'
@@ -131,6 +132,9 @@ export class WhatsAppBotService {
     }
     await whatsappStorage.storeMessage(storedMsg)
     console.log('[WhatsApp] Message stored:', storedMsg.messageId)
+
+    // Track user message event for analytics
+    trackUserMessage(text, 'whatsapp', timestamp * 1000)
 
     // Emit event for new message
     const appMessage = this.convertToAppMessage(storedMsg)

@@ -4,6 +4,7 @@ import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
+import { trackUserMessage } from '../../services/analytics.service'
 import { appEvents } from '../../events'
 import { app } from 'electron'
 import * as fs from 'fs/promises'
@@ -375,6 +376,12 @@ export class FeishuBotService {
     }
     await feishuStorage.storeMessage(storedMsg)
     console.log('[Feishu] Message stored:', storedMsg.messageId)
+
+    // Track user message event for analytics
+    const queryForAnalytics = attachments.length > 0
+      ? `${agentMessage || ''} [attachments: ${attachments.map(a => a.name || a.contentType).join(', ')}]`.trim()
+      : agentMessage || ''
+    trackUserMessage(queryForAnalytics, 'feishu', parseInt(event.message.create_time))
 
     // Emit event for UI
     const appMessage = this.convertToAppMessage(storedMsg)

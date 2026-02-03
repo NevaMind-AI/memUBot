@@ -12,6 +12,7 @@ import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
+import { trackUserMessage } from '../../services/analytics.service'
 import { appEvents } from '../../events'
 import { app } from 'electron'
 import * as fs from 'fs/promises'
@@ -362,6 +363,12 @@ export class DiscordBotService {
     }
     await discordStorage.storeMessage(storedMsg)
     console.log('[Discord] Message stored:', storedMsg.messageId)
+
+    // Track user message event for analytics
+    const queryForAnalytics = storedAttachments.length > 0
+      ? `${content || ''} [attachments: ${storedAttachments.map(a => a.name || a.contentType).join(', ')}]`.trim()
+      : content || ''
+    trackUserMessage(queryForAnalytics, 'discord', message.createdTimestamp)
 
     // Emit event for new message
     const appMessage = this.convertToAppMessage(storedMsg)

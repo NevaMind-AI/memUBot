@@ -9,6 +9,7 @@ import { loggerService } from './services/logger.service'
 import { proactiveService } from './services/proactive.service'
 import { localApiService } from './services/local-api.service'
 import { serviceManagerService } from './services/service-manager.service'
+import { analyticsService, trackAppStart } from './services/analytics.service'
 import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
 import { requestAllPermissions } from './utils/permissions'
@@ -67,6 +68,14 @@ function createWindow(): BrowserWindow {
     mainWindow.show()
   })
 
+  // Track app start after renderer is ready
+  mainWindow.webContents.on('did-finish-load', () => {
+    // Small delay to ensure Faro SDK is initialized in renderer
+    setTimeout(() => {
+      trackAppStart()
+    }, 1000)
+  })
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     const { url } = details
     // Handle local-file:// protocol - open file with default app
@@ -117,6 +126,9 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(async () => {
   // Initialize logger service (captures console output in production)
   loggerService.initialize()
+
+  // Initialize Analytics service (Grafana Faro) - IPC handlers only
+  await analyticsService.initialize()
 
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
@@ -305,4 +317,7 @@ app.on('will-quit', async () => {
   
   // Shutdown MCP servers
   await mcpService.shutdown()
+  
+  // Shutdown Analytics service (flush remaining events)
+  await analyticsService.shutdown()
 })

@@ -4,6 +4,7 @@ import { getSetting } from '../../config/settings.config'
 import { agentService } from '../../services/agent.service'
 import { infraService } from '../../services/infra.service'
 import { securityService } from '../../services/security.service'
+import { trackUserMessage } from '../../services/analytics.service'
 import { appEvents } from '../../events'
 import { app } from 'electron'
 import * as fs from 'fs'
@@ -308,6 +309,12 @@ export class SlackBotService {
     }
     await slackStorage.storeMessage(storedMsg)
     console.log('[Slack] Message stored:', storedMsg.messageId)
+
+    // Track user message event for analytics
+    const queryForAnalytics = storedAttachments.length > 0
+      ? `${cleanText || ''} [attachments: ${storedAttachments.map(a => a.name || a.mimetype).join(', ')}]`.trim()
+      : cleanText || ''
+    trackUserMessage(queryForAnalytics, 'slack', storedMsg.date * 1000)
 
     // Emit event for new message
     const appMessage = this.convertToAppMessage(storedMsg)
