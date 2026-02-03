@@ -743,12 +743,23 @@ export class AgentService {
       console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens}`)
 
       // Call Claude API with platform-specific tools
-      const response = await client.messages.create({
+      // Use beta API with context management for automatic tool result clearing
+      const response = await client.beta.messages.create({
         model,
         max_tokens: maxTokens,
         system: systemPrompt,
         tools,
-        messages: this.conversationHistory
+        messages: this.conversationHistory,
+        // Enable context editing to automatically clear old tool results when approaching token limit
+        betas: ['context-management-2025-06-27'],
+        context_management: {
+          edits: [{
+            type: 'clear_tool_uses_20250919',
+            trigger: { type: 'input_tokens', value: 100000 },
+            keep: { type: 'tool_uses', value: 5 },
+            clear_at_least: { type: 'input_tokens', value: 10000 }
+          }]
+        }
       })
 
       // Check if aborted after API call
@@ -760,21 +771,33 @@ export class AgentService {
       if (response.usage) {
         console.log(`[Agent] Actual tokens - input: ${response.usage.input_tokens}, output: ${response.usage.output_tokens}`)
       }
+      
+      // Log context editing if applied (beta API feature)
+      const contextMgmt = (response as unknown as { context_management?: { applied_edits?: Array<{ cleared_tool_uses?: number; cleared_input_tokens?: number }> } }).context_management
+      if (contextMgmt?.applied_edits?.length) {
+        for (const edit of contextMgmt.applied_edits) {
+          console.log(`[Agent] Context editing applied: cleared ${edit.cleared_tool_uses ?? 0} tool uses (${edit.cleared_input_tokens ?? 0} tokens)`)
+        }
+      }
+      
       console.log('[Agent] Response received, stop_reason:', response.stop_reason)
 
+      // Cast response to standard Message type for compatibility
+      const standardResponse = response as unknown as Anthropic.Message
+
       // Check if we need to use tools
-      if (response.stop_reason === 'tool_use') {
+      if (standardResponse.stop_reason === 'tool_use') {
         // Process tool calls
-        await this.processToolUse(response)
+        await this.processToolUse(standardResponse)
       } else {
         // Extract final text response
-        const textContent = response.content.find((block) => block.type === 'text')
+        const textContent = standardResponse.content.find((block) => block.type === 'text')
         const message = textContent && textContent.type === 'text' ? textContent.text : ''
 
         // Add assistant response to history (sanitize to remove extra fields)
         const assistantMessage: Anthropic.MessageParam = {
           role: 'assistant',
-          content: this.sanitizeContentBlocks(response.content)
+          content: this.sanitizeContentBlocks(standardResponse.content)
         }
         this.conversationHistory.push(assistantMessage)
 

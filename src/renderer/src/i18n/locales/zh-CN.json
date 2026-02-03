@@ -77,6 +77,7 @@
     "title": "设置",
     "tabs": {
       "general": "通用",
+      "platforms": "平台",
       "security": "安全",
       "model": "AI 模型",
       "mcp": "MCP",
@@ -108,6 +109,7 @@
       "minimaxInfo": "使用 MiniMax M2.1（Anthropic 兼容 API）。请在 platform.minimaxi.com 获取 API Key"
     },
     "platforms": {
+      "description": "配置消息平台连接",
       "autoConnect": "自动连接",
       "telegram": {
         "title": "Telegram",

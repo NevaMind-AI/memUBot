@@ -77,12 +77,14 @@
     "title": "設定",
     "tabs": {
       "general": "一般",
+      "platforms": "プラットフォーム",
       "security": "セキュリティ",
       "model": "AI モデル",
       "mcp": "MCP",
       "skills": "Skills",
       "services": "サービス",
       "data": "データ",
+      "experimental": "実験的機能",
       "about": "バージョン情報"
     },
     "general": {
@@ -107,6 +109,8 @@
       "minimaxInfo": "MiniMax M2.1（Anthropic 互換 API）を使用。platform.minimaxi.com で API キーを取得してください"
     },
     "platforms": {
+      "description": "メッセージングプラットフォームの接続設定",
+      "autoConnect": "自動接続",
       "telegram": {
         "title": "Telegram",
         "botToken": "Bot Token",

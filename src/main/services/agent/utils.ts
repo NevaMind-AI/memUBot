@@ -9,11 +9,16 @@ import { loadSettings } from '../../config/settings.config'
 export const MAX_CONTEXT_MESSAGES = 20
 
 /**
- * Maximum tokens for context (leave room for response, Claude limit is 200k)
- * We use 100k to leave room for system prompt (~5k), tools (~10k), and response (~20k)
- * Also accounting for token estimation inaccuracy
+ * Maximum tokens for context (client-side fallback)
+ * 
+ * For Claude API: Server-side context editing triggers at 100k tokens
+ * This client-side limit (150k) serves as a fallback for:
+ * - Non-Claude providers (MiniMax, Custom) that don't support context editing
+ * - Edge cases where server-side editing doesn't trigger
+ * 
+ * Claude's limit is 200k, we leave room for system prompt (~5k), tools (~10k), and response (~20k)
  */
-export const MAX_CONTEXT_TOKENS = 100000
+export const MAX_CONTEXT_TOKENS = 150000
 
 /**
  * Estimate token count for a message

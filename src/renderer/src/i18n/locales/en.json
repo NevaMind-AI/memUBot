@@ -77,6 +77,7 @@
     "title": "Settings",
     "tabs": {
       "general": "General",
+      "platforms": "Platforms",
       "security": "Security",
       "model": "AI Model",
       "mcp": "MCP",
@@ -108,6 +109,7 @@
       "minimaxInfo": "Using MiniMax M2.1 via Anthropic-compatible API. Get your API key from platform.minimaxi.com"
     },
     "platforms": {
+      "description": "Configure messaging platform connections",
       "autoConnect": "Auto Connect",
       "telegram": {
         "title": "Telegram",

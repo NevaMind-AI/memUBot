@@ -7,6 +7,14 @@ export interface ConversationMessage {
 // Tool input types
 export interface ReadFileInput {
   path: string
+  start_line?: number  // 1-based start line (optional)
+  end_line?: number    // 1-based end line (optional)
+}
+
+export interface GrepFileInput {
+  pattern: string
+  path: string
+  max_results?: number  // Default: 20
 }
 
 export interface WriteFileInput {
