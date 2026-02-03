@@ -668,7 +668,6 @@ function ModelSettings(): JSX.Element {
   }
 
   const hasChanges =
-    settings.claudeModel !== originalSettings.claudeModel ||
     settings.maxTokens !== originalSettings.maxTokens ||
     settings.temperature !== originalSettings.temperature ||
     settings.systemPrompt !== originalSettings.systemPrompt
@@ -678,7 +677,6 @@ function ModelSettings(): JSX.Element {
     setMessage(null)
     try {
       const result = await window.settings.save({
-        claudeModel: settings.claudeModel,
         maxTokens: settings.maxTokens,
         temperature: settings.temperature,
         systemPrompt: settings.systemPrompt
@@ -714,25 +712,6 @@ function ModelSettings(): JSX.Element {
       </div>
 
       <div className="space-y-3">
-        {/* Model Selection */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.model.model')}</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.model.modelHint')}</p>
-            </div>
-            <select
-              value={settings.claudeModel || 'claude-sonnet-4-5'}
-              onChange={(e) => setSettings({ ...settings, claudeModel: e.target.value })}
-              className="w-auto min-w-[180px] px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--primary)]/50"
-            >
-              <option value="claude-sonnet-4-5">Claude Sonnet 4.5</option>
-              <option value="claude-opus-4-5">Claude Opus 4.5</option>
-              <option value="claude-haiku-4-5">Claude Haiku 4.5</option>
-            </select>
-          </div>
-        </div>
-
         {/* Max Tokens */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
