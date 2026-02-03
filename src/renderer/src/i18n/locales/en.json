@@ -157,6 +157,10 @@
       "userId": "User ID",
       "agentId": "Agent ID"
     },
+    "tavily": {
+      "title": "Tavily Search API",
+      "hint": "Get API Key from tavily.com (1000 free searches/month)"
+    },
     "security": {
       "title": "Security",
       "description": "Manage device binding and access control",

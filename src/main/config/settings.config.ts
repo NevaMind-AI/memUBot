@@ -94,6 +94,9 @@ export interface AppSettings {
   // Experimental features
   experimentalVisualMode: boolean
   experimentalComputerUse: boolean
+
+  // Search settings
+  tavilyApiKey: string
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -147,7 +150,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 
   // Experimental features
   experimentalVisualMode: false,
-  experimentalComputerUse: false
+  experimentalComputerUse: false,
+
+  // Search settings
+  tavilyApiKey: ''
 }
 
 /**

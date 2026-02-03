@@ -164,21 +164,24 @@ Available commands:
   }
 }
 
-// Web search tool - for searching the internet
+// Web search tool - powered by Tavily AI search
 export const webSearchTool: Anthropic.Tool = {
   name: 'web_search',
-  description: `Search the web using DuckDuckGo. Use this to find current information, look up facts, research topics, or find recent news.
+  description: `Search the web using Tavily AI-powered search. This is a reliable search tool that returns comprehensive results with full content excerpts (not just snippets).
 
-Returns a list of search results with titles, URLs, and snippets.
+Returns search results with:
+- Title and URL
+- Full content excerpt (detailed summary of the page content)
+- Relevance score
 
-IMPORTANT: This is a basic/limited search that only returns titles and snippets, NOT full page content. Results may be incomplete or unhelpful. If no useful results after 3 attempts with different keywords, STOP using this tool and find other ways to help the user.
-
-Good for:
+This is a high-quality search tool. Use it confidently for:
 - Finding current/recent information
-- Researching topics
-- Looking up facts, definitions, how-tos
+- Researching any topic
+- Looking up facts, definitions, tutorials
 - Finding news and updates
-- Getting multiple perspectives on a topic`,
+- Getting detailed information from multiple sources
+
+Note: If search returns no useful results after 2-3 attempts with different keywords, consider alternative approaches (ask user for more context, use your built-in knowledge, etc.)`,
   input_schema: {
     type: 'object',
     properties: {

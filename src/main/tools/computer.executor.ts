@@ -571,28 +571,42 @@ function downloadFile(url: string, maxRedirects = 5): Promise<{
 }
 
 /**
- * Search result structure
+ * Search result interface
  */
 interface SearchResult {
   title: string
   url: string
-  snippet: string
+  content: string  // Full content snippet from Tavily
+  score?: number   // Relevance score
 }
 
 /**
- * Execute web search using DuckDuckGo
+ * Execute web search using Tavily API
+ * Tavily provides AI-optimized search with full content extraction
  */
 export async function executeWebSearchTool(input: {
   query: string
   max_results?: number
 }): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  // Import settings dynamically to avoid circular dependencies
+  const { loadSettings } = await import('../config/settings.config')
+  const settings = await loadSettings()
+  
+  const apiKey = settings.tavilyApiKey
+  if (!apiKey) {
+    return {
+      success: false,
+      error: 'Tavily API key not configured. Please add your Tavily API key in Settings to enable web search.'
+    }
+  }
+
   try {
     const query = input.query
     const maxResults = Math.min(input.max_results || 5, 10)
     
-    console.log('[WebSearch] Searching for:', query)
+    console.log('[WebSearch] Searching with Tavily:', query)
 
-    const results = await searchDuckDuckGo(query, maxResults)
+    const results = await searchTavily(apiKey, query, maxResults)
     
     if (results.length === 0) {
       return {
@@ -605,7 +619,7 @@ export async function executeWebSearchTool(input: {
       }
     }
 
-    console.log(`[WebSearch] Found ${results.length} results`)
+    console.log(`[WebSearch] Found ${results.length} results from Tavily`)
 
     return {
       success: true,
@@ -616,155 +630,77 @@ export async function executeWebSearchTool(input: {
       }
     }
   } catch (error) {
-    console.error('[WebSearch] Error:', error)
+    console.error('[WebSearch] Tavily error:', error)
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }
 
 /**
- * Search DuckDuckGo and parse results
+ * Search using Tavily API
  */
-function searchDuckDuckGo(query: string, maxResults: number): Promise<SearchResult[]> {
+function searchTavily(apiKey: string, query: string, maxResults: number): Promise<SearchResult[]> {
   return new Promise((resolve, reject) => {
-    const encodedQuery = encodeURIComponent(query)
-    const url = `https://html.duckduckgo.com/html/?q=${encodedQuery}`
+    const requestBody = JSON.stringify({
+      api_key: apiKey,
+      query: query,
+      search_depth: 'basic',
+      max_results: maxResults,
+      include_answer: false,
+      include_raw_content: false
+    })
 
-    const request = https.get(url, {
-      timeout: 15000,
+    const options = {
+      hostname: 'api.tavily.com',
+      port: 443,
+      path: '/search',
+      method: 'POST',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5'
-      }
-    }, (response) => {
-      if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        // Follow redirect
-        const redirectUrl = response.headers.location
-        https.get(redirectUrl, {
-          timeout: 15000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-          }
-        }, (redirectResponse) => {
-          handleResponse(redirectResponse, maxResults, resolve, reject)
-        }).on('error', reject)
-        return
-      }
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(requestBody)
+      },
+      timeout: 30000
+    }
 
-      handleResponse(response, maxResults, resolve, reject)
+    const request = https.request(options, (response) => {
+      const chunks: Buffer[] = []
+      
+      response.on('data', (chunk: Buffer) => {
+        chunks.push(chunk)
+      })
+
+      response.on('end', () => {
+        try {
+          const body = Buffer.concat(chunks).toString('utf-8')
+          const data = JSON.parse(body)
+          
+          if (data.error) {
+            reject(new Error(data.error))
+            return
+          }
+          
+          const results: SearchResult[] = (data.results || []).map((r: { title: string; url: string; content: string; score?: number }) => ({
+            title: r.title || '',
+            url: r.url || '',
+            content: r.content || '',
+            score: r.score
+          }))
+          
+          resolve(results)
+        } catch (error) {
+          reject(error instanceof Error ? error : new Error(String(error)))
+        }
+      })
+
+      response.on('error', reject)
     })
 
     request.on('error', reject)
     request.on('timeout', () => {
       request.destroy()
-      reject(new Error('Search request timeout'))
+      reject(new Error('Tavily search request timeout'))
     })
+
+    request.write(requestBody)
+    request.end()
   })
-}
-
-/**
- * Handle HTTP response and parse search results
- */
-function handleResponse(
-  response: http.IncomingMessage,
-  maxResults: number,
-  resolve: (results: SearchResult[]) => void,
-  reject: (error: Error) => void
-): void {
-  const chunks: Buffer[] = []
-  
-  response.on('data', (chunk: Buffer) => {
-    chunks.push(chunk)
-  })
-
-  response.on('end', () => {
-    try {
-      const html = Buffer.concat(chunks).toString('utf-8')
-      const results = parseDuckDuckGoResults(html, maxResults)
-      resolve(results)
-    } catch (error) {
-      reject(error instanceof Error ? error : new Error(String(error)))
-    }
-  })
-
-  response.on('error', reject)
-}
-
-/**
- * Parse DuckDuckGo HTML results
- */
-function parseDuckDuckGoResults(html: string, maxResults: number): SearchResult[] {
-  const results: SearchResult[] = []
-  
-  // Match result blocks - DuckDuckGo uses class="result" for each result
-  // Each result has: a.result__a (title/link), a.result__snippet (snippet)
-  
-  // Simple regex-based parsing (no external dependencies)
-  // Match result links
-  const resultRegex = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([^<]*)<\/a>/gi
-  const snippetRegex = /<a[^>]*class="result__snippet"[^>]*>([^<]*(?:<[^>]*>[^<]*)*)<\/a>/gi
-  
-  // Alternative: match the full result block
-  const blockRegex = /<div[^>]*class="[^"]*result[^"]*"[^>]*>([\s\S]*?)<\/div>\s*<\/div>/gi
-  
-  let match
-  const links: { url: string; title: string }[] = []
-  const snippets: string[] = []
-  
-  // Extract links and titles
-  while ((match = resultRegex.exec(html)) !== null && links.length < maxResults) {
-    let url = match[1]
-    const title = decodeHtmlEntities(match[2].trim())
-    
-    // DuckDuckGo uses redirect URLs, extract actual URL
-    if (url.includes('uddg=')) {
-      const urlMatch = url.match(/uddg=([^&]+)/)
-      if (urlMatch) {
-        url = decodeURIComponent(urlMatch[1])
-      }
-    }
-    
-    if (title && url && url.startsWith('http')) {
-      links.push({ url, title })
-    }
-  }
-  
-  // Extract snippets
-  while ((match = snippetRegex.exec(html)) !== null && snippets.length < maxResults) {
-    const snippet = decodeHtmlEntities(match[1].replace(/<[^>]*>/g, '').trim())
-    if (snippet) {
-      snippets.push(snippet)
-    }
-  }
-  
-  // Combine results
-  for (let i = 0; i < Math.min(links.length, maxResults); i++) {
-    results.push({
-      title: links[i].title,
-      url: links[i].url,
-      snippet: snippets[i] || ''
-    })
-  }
-  
-  return results
-}
-
-/**
- * Decode HTML entities
- */
-function decodeHtmlEntities(text: string): string {
-  const entities: Record<string, string> = {
-    '&amp;': '&',
-    '&lt;': '<',
-    '&gt;': '>',
-    '&quot;': '"',
-    '&#39;': "'",
-    '&apos;': "'",
-    '&nbsp;': ' ',
-    '&#x27;': "'",
-    '&#x2F;': '/',
-    '&#32;': ' '
-  }
-  
-  return text.replace(/&[^;]+;/g, (match) => entities[match] || match)
 }

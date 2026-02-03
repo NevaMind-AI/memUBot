@@ -99,6 +99,7 @@ interface AppSettings {
   language: string
   experimentalVisualMode: boolean
   experimentalComputerUse: boolean
+  tavilyApiKey: string
 }
 
 // Agent API interface
