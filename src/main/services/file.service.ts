@@ -93,7 +93,12 @@ export class FileService {
    * Get file or directory info
    */
   async getFileInfo(filePath: string): Promise<FileInfo> {
-    const absolutePath = path.resolve(filePath)
+    // Expand ~ to home directory
+    let expandedPath = filePath
+    if (filePath.startsWith('~')) {
+      expandedPath = filePath.replace(/^~/, process.env.HOME || '')
+    }
+    const absolutePath = path.resolve(expandedPath)
     const stats = await fs.stat(absolutePath)
 
     return {

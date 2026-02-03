@@ -61,11 +61,35 @@ function getCurrentChatId(): string | null {
 }
 
 /**
+ * Expand ~ to home directory and resolve to absolute path
+ */
+function expandPath(filePath: string): string {
+  let expanded = filePath
+  if (filePath.startsWith('~')) {
+    expanded = filePath.replace(/^~/, process.env.HOME || '')
+  }
+  return path.isAbsolute(expanded) ? expanded : path.resolve(expanded)
+}
+
+/**
  * Check if a path exists
  */
 function fileExists(filePath: string): boolean {
-  const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath)
+  const absolutePath = expandPath(filePath)
   return fs.existsSync(absolutePath)
+}
+
+/**
+ * Get file size from local path
+ */
+function getFileSize(filePath: string): number {
+  try {
+    const absolutePath = expandPath(filePath)
+    const stats = fs.statSync(absolutePath)
+    return stats.size
+  } catch {
+    return 0
+  }
 }
 
 // ========== Tool Executors ==========
@@ -99,7 +123,7 @@ export async function executeFeishuSendImage(input: SendImageInput): Promise<Too
     return { success: false, error: 'No active Feishu chat. User must send a message first.' }
   }
 
-  const absolutePath = path.isAbsolute(input.image) ? input.image : path.resolve(input.image)
+  const absolutePath = expandPath(input.image)
   if (!fileExists(absolutePath)) {
     return { success: false, error: `File not found: ${absolutePath}` }
   }
@@ -112,7 +136,8 @@ export async function executeFeishuSendImage(input: SendImageInput): Promise<Too
         id: result.messageId,
         name: path.basename(absolutePath),
         url: absolutePath,
-        contentType: 'image/png'
+        contentType: 'image/png',
+        size: getFileSize(absolutePath)
       }
     ])
     return { success: true, data: { messageId: result.messageId } }
@@ -131,7 +156,7 @@ export async function executeFeishuSendFile(input: SendFileInput): Promise<ToolR
     return { success: false, error: 'No active Feishu chat. User must send a message first.' }
   }
 
-  const absolutePath = path.isAbsolute(input.file) ? input.file : path.resolve(input.file)
+  const absolutePath = expandPath(input.file)
   if (!fileExists(absolutePath)) {
     return { success: false, error: `File not found: ${absolutePath}` }
   }
@@ -147,7 +172,8 @@ export async function executeFeishuSendFile(input: SendFileInput): Promise<ToolR
         id: result.messageId,
         name: fileName,
         url: absolutePath,
-        contentType: 'application/octet-stream'
+        contentType: 'application/octet-stream',
+        size: getFileSize(absolutePath)
       }
     ])
     return { success: true, data: { messageId: result.messageId } }

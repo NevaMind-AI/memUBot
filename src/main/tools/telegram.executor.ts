@@ -9,6 +9,27 @@ import type { StoredTelegramMessage, StoredTelegramAttachment } from '../apps/te
 type ToolResult = { success: boolean; data?: unknown; error?: string }
 
 /**
+ * Get file size from local path
+ * Returns 0 if file doesn't exist or is a URL
+ */
+function getLocalFileSize(filePath: string): number {
+  if (isUrl(filePath)) return 0
+  try {
+    // Expand ~ to home directory
+    let expandedPath = filePath
+    if (filePath.startsWith('~')) {
+      expandedPath = filePath.replace(/^~/, process.env.HOME || '')
+    }
+    const absolutePath = path.isAbsolute(expandedPath) ? expandedPath : path.resolve(expandedPath)
+    const stats = fs.statSync(absolutePath)
+    return stats.size
+  } catch (err) {
+    console.log(`[Telegram] Failed to get file size for ${filePath}:`, err)
+    return 0
+  }
+}
+
+/**
  * Store a sent message and emit event to update UI
  */
 async function storeSentMessage(
@@ -58,12 +79,13 @@ async function storeSentMessage(
 function extractPhotoAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
   if (!msg.photo || msg.photo.length === 0) return undefined
   const photo = msg.photo[msg.photo.length - 1] // Get largest photo
+  const size = photo.file_size || getLocalFileSize(inputPath)
   return {
     id: photo.file_id,
     name: path.basename(inputPath),
     url: inputPath, // Store original path/URL for reference
     contentType: 'image/jpeg',
-    size: photo.file_size,
+    size,
     width: photo.width,
     height: photo.height
   }
@@ -74,12 +96,14 @@ function extractPhotoAttachment(msg: TelegramBot.Message, inputPath: string): St
  */
 function extractDocumentAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
   if (!msg.document) return undefined
+  // Use Telegram's file_size if available, otherwise get from local file
+  const size = msg.document.file_size || getLocalFileSize(inputPath)
   return {
     id: msg.document.file_id,
     name: msg.document.file_name || path.basename(inputPath),
     url: inputPath,
     contentType: msg.document.mime_type,
-    size: msg.document.file_size
+    size
   }
 }
 
@@ -88,12 +112,13 @@ function extractDocumentAttachment(msg: TelegramBot.Message, inputPath: string):
  */
 function extractVideoAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
   if (!msg.video) return undefined
+  const size = msg.video.file_size || getLocalFileSize(inputPath)
   return {
     id: msg.video.file_id,
     name: path.basename(inputPath),
     url: inputPath,
     contentType: msg.video.mime_type || 'video/mp4',
-    size: msg.video.file_size,
+    size,
     width: msg.video.width,
     height: msg.video.height
   }
@@ -104,12 +129,13 @@ function extractVideoAttachment(msg: TelegramBot.Message, inputPath: string): St
  */
 function extractAudioAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
   if (!msg.audio) return undefined
+  const size = msg.audio.file_size || getLocalFileSize(inputPath)
   return {
     id: msg.audio.file_id,
     name: msg.audio.title || path.basename(inputPath),
     url: inputPath,
     contentType: msg.audio.mime_type || 'audio/mpeg',
-    size: msg.audio.file_size
+    size
   }
 }
 
@@ -118,12 +144,13 @@ function extractAudioAttachment(msg: TelegramBot.Message, inputPath: string): St
  */
 function extractVoiceAttachment(msg: TelegramBot.Message, inputPath: string): StoredTelegramAttachment | undefined {
   if (!msg.voice) return undefined
+  const size = msg.voice.file_size || getLocalFileSize(inputPath)
   return {
     id: msg.voice.file_id,
     name: path.basename(inputPath),
     url: inputPath,
     contentType: msg.voice.mime_type || 'audio/ogg',
-    size: msg.voice.file_size
+    size
   }
 }
 
@@ -159,8 +186,13 @@ function resolveFile(filePath: string): ResolvedFile {
   if (isUrl(filePath)) {
     return { content: filePath }
   }
+  // Expand ~ to home directory
+  let expandedPath = filePath
+  if (filePath.startsWith('~')) {
+    expandedPath = filePath.replace(/^~/, process.env.HOME || '')
+  }
   // Resolve absolute path
-  const absolutePath = path.isAbsolute(filePath) ? filePath : path.resolve(filePath)
+  const absolutePath = path.isAbsolute(expandedPath) ? expandedPath : path.resolve(expandedPath)
   if (!fs.existsSync(absolutePath)) {
     throw new Error(`File not found: ${absolutePath}`)
   }
@@ -212,7 +244,8 @@ export async function executeTelegramSendPhoto(input: SendPhotoInput): Promise<T
     })
 
     if (result.success && result.message) {
-      const attachment = extractPhotoAttachment(result.message, input.photo)
+      const resolvedPath = typeof resolved.content === 'string' ? resolved.content : input.photo
+      const attachment = extractPhotoAttachment(result.message, resolvedPath)
       await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
@@ -242,7 +275,9 @@ export async function executeTelegramSendDocument(input: SendDocumentInput): Pro
     })
 
     if (result.success && result.message) {
-      const attachment = extractDocumentAttachment(result.message, input.document)
+      // Use resolved path (expanded ~) for file size lookup
+      const resolvedPath = typeof resolved.content === 'string' ? resolved.content : input.document
+      const attachment = extractDocumentAttachment(result.message, resolvedPath)
       await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
@@ -277,7 +312,8 @@ export async function executeTelegramSendVideo(input: SendVideoInput): Promise<T
     })
 
     if (result.success && result.message) {
-      const attachment = extractVideoAttachment(result.message, input.video)
+      const resolvedPath = typeof resolved.content === 'string' ? resolved.content : input.video
+      const attachment = extractVideoAttachment(result.message, resolvedPath)
       await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
@@ -312,7 +348,8 @@ export async function executeTelegramSendAudio(input: SendAudioInput): Promise<T
     })
 
     if (result.success && result.message) {
-      const attachment = extractAudioAttachment(result.message, input.audio)
+      const resolvedPath = typeof resolved.content === 'string' ? resolved.content : input.audio
+      const attachment = extractAudioAttachment(result.message, resolvedPath)
       await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }
@@ -343,7 +380,8 @@ export async function executeTelegramSendVoice(input: SendVoiceInput): Promise<T
     })
 
     if (result.success && result.message) {
-      const attachment = extractVoiceAttachment(result.message, input.voice)
+      const resolvedPath = typeof resolved.content === 'string' ? resolved.content : input.voice
+      const attachment = extractVoiceAttachment(result.message, resolvedPath)
       await storeSentMessage(result.message, input.caption, attachment ? [attachment] : undefined)
       return { success: true, data: { messageId: result.messageId } }
     }

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { User, Bot } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -45,9 +46,39 @@ interface MessageBubbleProps {
  * Format file size for display
  */
 function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '...'
   if (bytes < 1024) return bytes + ' B'
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+/**
+ * Check if path is a local file (not URL)
+ */
+function isLocalPath(path: string): boolean {
+  return !path.startsWith('http://') && !path.startsWith('https://')
+}
+
+/**
+ * Component to display file size, fetching from local file if needed
+ */
+function FileSizeDisplay({ size, url }: { size: number; url: string }): JSX.Element {
+  const [displaySize, setDisplaySize] = useState(size)
+
+  useEffect(() => {
+    // If size is 0 and it's a local file, try to get size from file system
+    if (size === 0 && isLocalPath(url)) {
+      window.file.info(url).then((result) => {
+        if (result.success && result.data?.size) {
+          setDisplaySize(result.data.size)
+        }
+      }).catch(() => {
+        // Ignore errors, keep showing 0
+      })
+    }
+  }, [size, url])
+
+  return <>{formatFileSize(displaySize)}</>
 }
 
 /**
@@ -309,7 +340,7 @@ export function MessageBubble({ message, botAvatarUrl, userAvatarUrl, colors }: 
                           {att.name}
                         </p>
                         <p className="text-[10px] text-[var(--text-muted)]">
-                          {formatFileSize(att.size)}
+                          <FileSizeDisplay size={att.size} url={att.url} />
                         </p>
                       </div>
                     </a>
