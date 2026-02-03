@@ -171,6 +171,8 @@ export const webSearchTool: Anthropic.Tool = {
 
 Returns a list of search results with titles, URLs, and snippets.
 
+IMPORTANT: This is a basic/limited search that only returns titles and snippets, NOT full page content. Results may be incomplete or unhelpful. If no useful results after 3 attempts with different keywords, STOP using this tool and find other ways to help the user.
+
 Good for:
 - Finding current/recent information
 - Researching topics
