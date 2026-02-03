@@ -650,7 +650,8 @@ export class FeishuBotService {
 
       if (response.success && response.message) {
         console.log('[Feishu] Agent response:', response.message.substring(0, 100) + '...')
-        const result = await this.sendText(chatId, response.message)
+        // Use sendMarkdown for better formatting (interactive card with markdown support)
+        const result = await this.sendMarkdown(chatId, response.message, { storeInHistory: false })
 
         if (result.success && result.messageId) {
           // Store bot's reply
@@ -807,6 +808,71 @@ export class FeishuBotService {
         return { success: true, messageId }
       }
       return { success: false, error: 'Failed to send message' }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a markdown message using interactive card
+   * This provides better formatting for Agent responses
+   */
+  async sendMarkdown(
+    chatId: string,
+    markdown: string,
+    options?: { storeInHistory?: boolean }
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+
+    try {
+      // Build card with markdown content
+      const card = {
+        config: {
+          wide_screen_mode: true
+        },
+        elements: [
+          {
+            tag: 'markdown',
+            content: markdown
+          }
+        ]
+      }
+
+      const response = await this.client.im.message.create({
+        params: {
+          receive_id_type: 'chat_id'
+        },
+        data: {
+          receive_id: chatId,
+          content: JSON.stringify(card),
+          msg_type: 'interactive'
+        }
+      })
+
+      if (response.data?.message_id) {
+        const messageId = response.data.message_id
+
+        // Store in history if requested
+        if (options?.storeInHistory !== false) {
+          const storedMsg: StoredFeishuMessage = {
+            messageId,
+            chatId,
+            chatType: 'p2p',
+            fromId: this.botOpenId || 'bot',
+            fromName: this.status.botName || 'Bot',
+            text: markdown,
+            date: Math.floor(Date.now() / 1000),
+            isFromBot: true
+          }
+          await feishuStorage.storeMessage(storedMsg)
+          appEvents.emitFeishuNewMessage(this.convertToAppMessage(storedMsg))
+        }
+
+        return { success: true, messageId }
+      }
+      return { success: false, error: 'Failed to send markdown message' }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : String(error) }
     }

@@ -405,12 +405,19 @@ function GeneralSettings(): JSX.Element {
                 {t('settings.memu.title')}
               </h4>
             </div>
-            <p className="text-[11px] text-[var(--text-muted)] mt-1">{t('settings.memu.hint')}</p>
+            <a 
+              href="https://app.memu.so/api-key" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-[11px] text-[#2596D1] hover:underline mt-1 inline-block"
+            >
+              {t('settings.memu.hint')} →
+            </a>
           </div>
           <div className="space-y-3">
             {/* API Key */}
             <div>
-              <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.memu.apiKey')}</label>
+              {/* <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.memu.apiKey')}</label> */}
               <input
                 type="password"
                 placeholder="mu_..."

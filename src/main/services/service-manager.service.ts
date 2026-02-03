@@ -345,52 +345,75 @@ class ServiceManagerService {
   ): Promise<{ success: boolean; error?: string }> {
     const command = metadata.runtime === 'node' ? 'node' : 'python3'
 
-    const childProcess = spawn(command, [entryPath], {
-      cwd: serviceDir,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-      env: {
-        ...process.env,
-        MEMU_SERVICE_ID: serviceId,
-        MEMU_API_URL: 'http://127.0.0.1:31415'
-      }
+    return new Promise((resolve) => {
+      const childProcess = spawn(command, [entryPath], {
+        cwd: serviceDir,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+        shell: true, // Use shell to find command in PATH (especially important on Windows)
+        env: {
+          ...process.env,
+          MEMU_SERVICE_ID: serviceId,
+          MEMU_API_URL: 'http://127.0.0.1:31415'
+        }
+      })
+
+      // Handle spawn error (e.g., command not found)
+      childProcess.on('error', (error) => {
+        console.error(`[ServiceManager] Failed to start service ${serviceId}:`, error.message)
+        this.runningServices.delete(serviceId)
+        appEvents.emitServiceStatusChanged(serviceId, 'stopped')
+        
+        if (error.message.includes('ENOENT')) {
+          resolve({
+            success: false,
+            error: `Runtime '${command}' not found. Please ensure ${metadata.runtime === 'node' ? 'Node.js' : 'Python 3'} is installed and available in your system PATH.`
+          })
+        } else {
+          resolve({ success: false, error: error.message })
+        }
+      })
+
+      // Store running service
+      this.runningServices.set(serviceId, {
+        process: childProcess,
+        metadata,
+        startedAt: new Date().toISOString()
+      })
+
+      // Handle process exit
+      childProcess.on('exit', async (code, signal) => {
+        console.log(`[ServiceManager] Service ${serviceId} exited with code ${code}, signal ${signal}`)
+        this.runningServices.delete(serviceId)
+        appEvents.emitServiceStatusChanged(serviceId, 'stopped')
+
+        // If service exited on its own (code 0, no signal), it completed its task
+        // Mark as disabled to prevent auto-restart on next app launch
+        if (code === 0 && !signal) {
+          console.log(`[ServiceManager] Service ${serviceId} completed normally, disabling auto-start`)
+          await this.updateServiceEnabled(serviceId, false)
+        }
+        // If killed by signal (SIGTERM/SIGKILL), the caller (stopService) handles enabled state
+        // If crashed (code !== 0), keep enabled so it can be manually restarted or debugged
+      })
+
+      // Log stdout/stderr
+      childProcess.stdout?.on('data', (data) => {
+        console.log(`[Service:${serviceId}] ${data.toString().trim()}`)
+      })
+      childProcess.stderr?.on('data', (data) => {
+        console.error(`[Service:${serviceId}] ERROR: ${data.toString().trim()}`)
+      })
+
+      // Give the process a moment to potentially error out, then consider it started
+      setTimeout(() => {
+        if (this.runningServices.has(serviceId)) {
+          console.log(`[ServiceManager] Started service: ${serviceId}, PID: ${childProcess.pid}`)
+          appEvents.emitServiceStatusChanged(serviceId, 'running')
+          resolve({ success: true })
+        }
+      }, 100)
     })
-
-    // Store running service
-    this.runningServices.set(serviceId, {
-      process: childProcess,
-      metadata,
-      startedAt: new Date().toISOString()
-    })
-
-    // Handle process exit
-    childProcess.on('exit', async (code, signal) => {
-      console.log(`[ServiceManager] Service ${serviceId} exited with code ${code}, signal ${signal}`)
-      this.runningServices.delete(serviceId)
-      appEvents.emitServiceStatusChanged(serviceId, 'stopped')
-
-      // If service exited on its own (code 0, no signal), it completed its task
-      // Mark as disabled to prevent auto-restart on next app launch
-      if (code === 0 && !signal) {
-        console.log(`[ServiceManager] Service ${serviceId} completed normally, disabling auto-start`)
-        await this.updateServiceEnabled(serviceId, false)
-      }
-      // If killed by signal (SIGTERM/SIGKILL), the caller (stopService) handles enabled state
-      // If crashed (code !== 0), keep enabled so it can be manually restarted or debugged
-    })
-
-    // Log stdout/stderr
-    childProcess.stdout?.on('data', (data) => {
-      console.log(`[Service:${serviceId}] ${data.toString().trim()}`)
-    })
-    childProcess.stderr?.on('data', (data) => {
-      console.error(`[Service:${serviceId}] ERROR: ${data.toString().trim()}`)
-    })
-
-    console.log(`[ServiceManager] Started service: ${serviceId}, PID: ${childProcess.pid}`)
-    appEvents.emitServiceStatusChanged(serviceId, 'running')
-
-    return { success: true }
   }
 
   /**

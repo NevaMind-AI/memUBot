@@ -184,8 +184,11 @@ export class DiscordBotService {
       // Remove bot mention from content to get the actual command/message
       let content = message.content
       if (this.client?.user) {
+        // Remove user mention (<@123> or <@!123>)
         content = content.replace(new RegExp(`<@!?${this.client.user.id}>`, 'g'), '').trim()
       }
+      // Also remove any role mentions (<@&123>) that might be used to trigger the bot
+      content = content.replace(/<@&\d+>/g, '').trim()
 
       console.log('[Discord] Content after removing mention:', content)
 
@@ -326,8 +329,11 @@ export class DiscordBotService {
     // Remove bot mention from content
     let content = message.content
     if (this.client?.user) {
+      // Remove user mention (<@123> or <@!123>)
       content = content.replace(new RegExp(`<@!?${this.client.user.id}>`, 'g'), '').trim()
     }
+    // Also remove any role mentions (<@&123>) that might be used to trigger the bot
+    content = content.replace(/<@&\d+>/g, '').trim()
     console.log('[Discord] Content (cleaned):', content)
 
     // Extract attachments

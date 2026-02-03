@@ -112,6 +112,31 @@ export class AgentService {
   }
 
   /**
+   * Sanitize content blocks for storage in conversation history
+   * Removes extra fields that some model providers don't accept
+   */
+  private sanitizeContentBlocks(content: Anthropic.ContentBlock[]): Anthropic.ContentBlockParam[] {
+    return content
+      .filter((block) => block.type !== 'thinking')
+      .map((block) => {
+        if (block.type === 'text') {
+          // Only keep type and text
+          return { type: 'text' as const, text: block.text }
+        } else if (block.type === 'tool_use') {
+          // Only keep type, id, name, input
+          return {
+            type: 'tool_use' as const,
+            id: block.id,
+            name: block.name,
+            input: block.input as Record<string, unknown>
+          }
+        }
+        // For other types, return as-is (shouldn't happen normally)
+        return block as unknown as Anthropic.ContentBlockParam
+      })
+  }
+
+  /**
    * Truncate conversation history if it exceeds token limit
    * Removes oldest messages while ensuring tool_use/tool_result pairs stay together
    */
@@ -706,6 +731,10 @@ export class AgentService {
 
       // Check and truncate context if too large
       this.truncateContextIfNeeded()
+      
+      // Verify tool_use/tool_result pairs before API call
+      // This handles cases where previous session was interrupted mid-tool-execution
+      this.verifyAndFixToolPairs()
 
       // Call Claude API with platform-specific tools
       const response = await client.messages.create({
@@ -732,10 +761,10 @@ export class AgentService {
         const textContent = response.content.find((block) => block.type === 'text')
         const message = textContent && textContent.type === 'text' ? textContent.text : ''
 
-        // Add assistant response to history
+        // Add assistant response to history (sanitize to remove extra fields)
         const assistantMessage: Anthropic.MessageParam = {
           role: 'assistant',
-          content: response.content
+          content: this.sanitizeContentBlocks(response.content)
         }
         this.conversationHistory.push(assistantMessage)
 
@@ -763,10 +792,10 @@ export class AgentService {
       throw new Error('Aborted')
     }
 
-    // Add assistant's response (with tool use) to history
+    // Add assistant's response (with tool use) to history (sanitize to remove extra fields)
     const assistantToolUseMessage: Anthropic.MessageParam = {
       role: 'assistant',
-      content: response.content
+      content: this.sanitizeContentBlocks(response.content)
     }
     this.conversationHistory.push(assistantToolUseMessage)
 
