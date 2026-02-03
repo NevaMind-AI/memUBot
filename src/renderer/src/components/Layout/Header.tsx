@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Power, Loader2, Circle, Users, Square, Brain, Wrench, ExternalLink } from 'lucide-react'
+import { Power, Loader2, Circle, Users, Square, Brain, Wrench, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '../Toast'
 import { BoundUsersModal } from '../Shared'
@@ -12,6 +12,7 @@ interface HeaderProps {
   showDiscordStatus?: boolean
   showSlackStatus?: boolean
   showFeishuStatus?: boolean
+  onShowActivity?: () => void
 }
 
 type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
@@ -90,12 +91,12 @@ interface BotStatus {
 }
 
 interface LLMStatusInfo {
-  status: 'idle' | 'thinking' | 'tool_executing'
+  status: 'idle' | 'thinking' | 'tool_executing' | 'complete' | 'aborted'
   currentTool?: string
   iteration?: number
 }
 
-export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus }: HeaderProps): JSX.Element {
+export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus, onShowActivity }: HeaderProps): JSX.Element {
   const { t } = useTranslation()
   const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
   const [discordStatus, setDiscordStatus] = useState<BotStatus | null>(null)
@@ -316,7 +317,9 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   }
 
   const isConnected = status?.isConnected
-  const isLLMProcessing = llmStatus.status !== 'idle'
+  const isLLMProcessing = llmStatus.status === 'thinking' || llmStatus.status === 'tool_executing'
+  const isLLMFinished = llmStatus.status === 'complete' || llmStatus.status === 'aborted'
+  const showLLMStatus = isLLMProcessing || isLLMFinished
   const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus || showFeishuStatus
 
   // Get display info based on connection status
@@ -393,28 +396,54 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
         {showStatus && (
           <>
             {/* LLM Status Indicator */}
-            {isLLMProcessing && (
+            {showLLMStatus && (
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 dark:bg-amber-500/20 backdrop-blur-sm border border-amber-500/30 whitespace-nowrap">
+                <button
+                  onClick={onShowActivity}
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full backdrop-blur-sm border whitespace-nowrap transition-all cursor-pointer ${
+                    isLLMProcessing
+                      ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30 hover:bg-amber-500/20'
+                      : llmStatus.status === 'complete'
+                      ? 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/30 hover:bg-emerald-500/20'
+                      : 'bg-orange-500/10 dark:bg-orange-500/20 border-orange-500/30 hover:bg-orange-500/20'
+                  }`}
+                  title={t('messages.viewActivity') || 'View Activity'}
+                >
                   {llmStatus.status === 'thinking' ? (
                     <Brain className="w-3 h-3 text-amber-500 animate-pulse flex-shrink-0" />
-                  ) : (
+                  ) : llmStatus.status === 'tool_executing' ? (
                     <Wrench className="w-3 h-3 text-amber-500 animate-pulse flex-shrink-0" />
+                  ) : llmStatus.status === 'complete' ? (
+                    <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-3 h-3 text-orange-500 flex-shrink-0" />
                   )}
-                  <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  <span className={`text-[11px] font-medium ${
+                    isLLMProcessing
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : llmStatus.status === 'complete'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-orange-600 dark:text-orange-400'
+                  }`}>
                     {llmStatus.status === 'thinking'
                       ? `${t('messages.thinking')}${llmStatus.iteration ? ` (${llmStatus.iteration})` : ''}`
-                      : llmStatus.currentTool || t('messages.generating')}
+                      : llmStatus.status === 'tool_executing'
+                      ? llmStatus.currentTool || t('messages.generating')
+                      : llmStatus.status === 'complete'
+                      ? t('messages.complete')
+                      : t('messages.aborted')}
                   </span>
-                </div>
-                {/* Stop Button */}
-                <button
-                  onClick={handleAbortLLM}
-                  className="p-1 rounded-md bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all flex-shrink-0"
-                  title={t('common.stop')}
-                >
-                  <Square className="w-3 h-3 fill-current" />
                 </button>
+                {/* Stop Button - only show when processing */}
+                {isLLMProcessing && (
+                  <button
+                    onClick={handleAbortLLM}
+                    className="p-1 rounded-md bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all flex-shrink-0"
+                    title={t('common.stop')}
+                  >
+                    <Square className="w-3 h-3 fill-current" />
+                  </button>
+                )}
               </div>
             )}
 

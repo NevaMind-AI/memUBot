@@ -43,8 +43,13 @@ export interface EvaluationData {
 
 /**
  * LLM processing status
+ * - idle: App started but never processed any message
+ * - thinking: Currently processing, waiting for LLM response
+ * - tool_executing: Currently executing a tool
+ * - complete: Last request completed successfully
+ * - aborted: Last request was aborted/interrupted
  */
-export type LLMStatus = 'idle' | 'thinking' | 'tool_executing'
+export type LLMStatus = 'idle' | 'thinking' | 'tool_executing' | 'complete' | 'aborted'
 
 export interface LLMStatusInfo {
   status: LLMStatus
@@ -59,4 +64,28 @@ export interface ToolResult {
   success: boolean
   data?: unknown
   error?: string
+}
+
+/**
+ * Agent activity item - represents a single step in the agent's processing
+ */
+export type AgentActivityType = 'thinking' | 'tool_call' | 'tool_result' | 'response'
+
+export interface AgentActivityItem {
+  id: string
+  type: AgentActivityType
+  timestamp: number
+  iteration?: number
+  // For thinking
+  content?: string
+  // For tool_call
+  toolName?: string
+  toolInput?: Record<string, unknown>
+  // For tool_result
+  toolUseId?: string
+  success?: boolean
+  result?: string
+  error?: string
+  // For response
+  message?: string
 }

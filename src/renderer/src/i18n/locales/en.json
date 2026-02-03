@@ -384,6 +384,9 @@
     "yesterday": "Yesterday",
     "thinking": "Thinking...",
     "generating": "Generating...",
+    "complete": "Complete",
+    "aborted": "Aborted",
+    "viewActivity": "View Activity",
     "attachment": "Attachment",
     "attachments": "Attachments",
     "image": "Image",
@@ -455,5 +458,20 @@
     "daysAgo": "{{count}} days ago",
     "today": "Today",
     "yesterday": "Yesterday"
+  },
+  "activity": {
+    "title": "Agent Activity",
+    "thinking": "Thinking",
+    "processing": "Processing",
+    "executing": "Executing",
+    "iteration": "Iteration {{count}}",
+    "completed": "completed",
+    "failed": "failed",
+    "finalResponse": "Final Response",
+    "noActivity": "No activity yet",
+    "noActivityHint": "Activity will appear here when the agent starts processing",
+    "count": "{{count}} activities",
+    "count_one": "{{count}} activity",
+    "scrollToBottom": "Scroll to bottom"
   }
 }

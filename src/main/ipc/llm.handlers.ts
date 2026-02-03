@@ -21,5 +21,16 @@ export function setupLLMHandlers(): void {
     return agentService.isProcessing()
   })
 
+  // Get activity log
+  ipcMain.handle('llm:get-activity-log', () => {
+    return agentService.getActivityLog()
+  })
+
+  // Clear activity log
+  ipcMain.handle('llm:clear-activity-log', () => {
+    agentService.clearActivityLog()
+    return { success: true }
+  })
+
   console.log('[IPC] LLM handlers registered')
 }

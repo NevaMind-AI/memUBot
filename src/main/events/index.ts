@@ -1,15 +1,29 @@
 import { EventEmitter } from 'events'
 import { BrowserWindow } from 'electron'
 import type { AppMessage } from '../apps/types'
+import type { AgentActivityItem } from '../services/agent/types'
+
+/**
+ * LLM status type
+ * - idle: App started but never processed any message
+ * - thinking: Currently processing, waiting for LLM response
+ * - tool_executing: Currently executing a tool
+ * - complete: Last request completed successfully
+ * - aborted: Last request was aborted/interrupted
+ */
+export type LLMStatus = 'idle' | 'thinking' | 'tool_executing' | 'complete' | 'aborted'
 
 /**
  * LLM status info type
  */
 export interface LLMStatusInfo {
-  status: 'idle' | 'thinking' | 'tool_executing'
+  status: LLMStatus
   currentTool?: string
   iteration?: number
 }
+
+// Re-export AgentActivityItem for convenience
+export type { AgentActivityItem } from '../services/agent/types'
 
 /**
  * Service status type
@@ -33,6 +47,7 @@ export type AppEventType =
   | 'feishu:new-message'
   | 'feishu:status-changed'
   | 'llm:status-changed'
+  | 'llm:activity-changed'
   | 'service:status-changed'
   | 'service:list-changed'
 
@@ -85,6 +100,16 @@ class AppEventEmitter extends EventEmitter {
     console.log('[Events] Emitting LLM status changed:', status)
     this.emit('llm:status-changed', status)
     this.sendToRenderer('llm:status-changed', status)
+  }
+
+  /**
+   * Emit agent activity changed event
+   */
+  emitAgentActivityChanged(activity: AgentActivityItem): void {
+    // Don't log full activity to avoid noise
+    console.log(`[Events] Emitting agent activity: ${activity.type}${activity.toolName ? ` (${activity.toolName})` : ''}`)
+    this.emit('llm:activity-changed', activity)
+    this.sendToRenderer('llm:activity-changed', activity)
   }
 
   /**

@@ -382,6 +382,9 @@
     "yesterday": "昨天",
     "thinking": "思考中...",
     "generating": "生成中...",
+    "complete": "已完成",
+    "aborted": "已中断",
+    "viewActivity": "查看活动",
     "attachment": "附件",
     "attachments": "附件",
     "image": "图片",
@@ -453,5 +456,19 @@
     "daysAgo": "{{count}} 天前",
     "today": "今天",
     "yesterday": "昨天"
+  },
+  "activity": {
+    "title": "Agent 活动",
+    "thinking": "思考中",
+    "processing": "处理中",
+    "executing": "执行",
+    "iteration": "第 {{count}} 轮",
+    "completed": "完成",
+    "failed": "失败",
+    "finalResponse": "最终回复",
+    "noActivity": "暂无活动",
+    "noActivityHint": "Agent 开始处理时，活动会显示在这里",
+    "count": "{{count}} 条活动",
+    "scrollToBottom": "滚动到底部"
   }
 }

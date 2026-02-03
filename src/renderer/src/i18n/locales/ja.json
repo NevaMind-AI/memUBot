@@ -363,6 +363,9 @@
     "yesterday": "昨日",
     "thinking": "考え中...",
     "generating": "生成中...",
+    "complete": "完了",
+    "aborted": "中断",
+    "viewActivity": "アクティビティを表示",
     "attachment": "添付ファイル",
     "attachments": "添付ファイル",
     "image": "画像",
@@ -434,5 +437,19 @@
     "daysAgo": "{{count}} 日前",
     "today": "今日",
     "yesterday": "昨日"
+  },
+  "activity": {
+    "title": "Agent アクティビティ",
+    "thinking": "考え中",
+    "processing": "処理中",
+    "executing": "実行中",
+    "iteration": "第 {{count}} 回",
+    "completed": "完了",
+    "failed": "失敗",
+    "finalResponse": "最終回答",
+    "noActivity": "アクティビティはありません",
+    "noActivityHint": "Agent が処理を開始すると、ここにアクティビティが表示されます",
+    "count": "{{count}} 件のアクティビティ",
+    "scrollToBottom": "一番下へスクロール"
   }
 }

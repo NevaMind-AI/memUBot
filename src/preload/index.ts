@@ -156,10 +156,17 @@ const llmApi = {
   getStatus: () => ipcRenderer.invoke('llm:get-status'),
   abort: () => ipcRenderer.invoke('llm:abort'),
   isProcessing: () => ipcRenderer.invoke('llm:is-processing'),
+  getActivityLog: () => ipcRenderer.invoke('llm:get-activity-log'),
+  clearActivityLog: () => ipcRenderer.invoke('llm:clear-activity-log'),
   // Event listener for status changes
   onStatusChanged: (callback: (status: unknown) => void) => {
     ipcRenderer.on('llm:status-changed', (_event, status) => callback(status))
     return () => ipcRenderer.removeAllListeners('llm:status-changed')
+  },
+  // Event listener for activity changes
+  onActivityChanged: (callback: (activity: unknown) => void) => {
+    ipcRenderer.on('llm:activity-changed', (_event, activity) => callback(activity))
+    return () => ipcRenderer.removeAllListeners('llm:activity-changed')
   }
 }
 

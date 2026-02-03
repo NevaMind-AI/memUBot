@@ -28,7 +28,9 @@ export type {
   EvaluationContext,
   EvaluationData,
   LLMStatus,
-  LLMStatusInfo
+  LLMStatusInfo,
+  AgentActivityType,
+  AgentActivityItem
 } from './agent/types'
 
 import type {
@@ -37,7 +39,8 @@ import type {
   LLMStatusInfo,
   EvaluationContext,
   EvaluationData,
-  EvaluationDecision
+  EvaluationDecision,
+  AgentActivityItem
 } from './agent/types'
 
 /**
@@ -53,6 +56,8 @@ export class AgentService {
   private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
   private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from
   private processingLock: MessagePlatform | null = null // Global lock for processMessage - only one platform at a time
+  private activityLog: AgentActivityItem[] = [] // Track agent activity for UI display
+  private activityIdCounter = 0 // Counter for generating unique activity IDs
 
   /**
    * Get current LLM status
@@ -81,6 +86,42 @@ export class AgentService {
   private setStatus(status: LLMStatus, currentTool?: string, iteration?: number): void {
     this.currentStatus = { status, currentTool, iteration }
     appEvents.emitLLMStatusChanged(this.currentStatus)
+  }
+
+  /**
+   * Generate a unique activity ID
+   */
+  private generateActivityId(): string {
+    this.activityIdCounter++
+    return `activity-${Date.now()}-${this.activityIdCounter}`
+  }
+
+  /**
+   * Add an activity item and emit event
+   */
+  private addActivity(item: Omit<AgentActivityItem, 'id' | 'timestamp'>): void {
+    const activity: AgentActivityItem = {
+      ...item,
+      id: this.generateActivityId(),
+      timestamp: Date.now()
+    }
+    this.activityLog.push(activity)
+    appEvents.emitAgentActivityChanged(activity)
+  }
+
+  /**
+   * Get activity log
+   */
+  getActivityLog(): AgentActivityItem[] {
+    return [...this.activityLog]
+  }
+
+  /**
+   * Clear activity log (called when starting new processing)
+   */
+  clearActivityLog(): void {
+    this.activityLog = []
+    this.activityIdCounter = 0
   }
 
   /**
@@ -544,6 +585,9 @@ export class AgentService {
     this.abortController = new AbortController()
     this.currentPlatform = platform
     
+    // Clear activity log for new processing session
+    this.clearActivityLog()
+    
     // Track the platform the user most recently sent a message from
     if (platform !== 'none') {
       this.recentReplyPlatform = platform
@@ -670,21 +714,22 @@ export class AgentService {
       // Run the agentic loop
       const response = await this.runAgentLoop()
 
-      // Set status back to idle
-      this.setStatus('idle')
+      // Set status to complete
+      this.setStatus('complete')
       return response
     } catch (error) {
-      this.setStatus('idle')
-
       // Check if it was an abort
       if (this.isAborted) {
         console.log('[Agent] Processing was aborted')
+        this.setStatus('aborted')
         return {
           success: true,
           message: '[Processing stopped by user]'
         }
       }
 
+      // Set status to complete even on error (it finished, just with an error)
+      this.setStatus('complete')
       console.error('[Agent] Error:', error)
       return {
         success: false,
@@ -703,7 +748,7 @@ export class AgentService {
    */
   private async runAgentLoop(): Promise<AgentResponse> {
     // Create client with current settings (re-read each time in case settings changed)
-    const { client, model, maxTokens } = await createClient()
+    const { client, model, maxTokens, provider } = await createClient()
     const settings = await loadSettings()
     const systemPrompt = await getSystemPromptForPlatform(this.currentPlatform)
     const tools = getToolsForPlatform(this.currentPlatform, {
@@ -728,6 +773,13 @@ export class AgentService {
       iterations++
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
       this.setStatus('thinking', undefined, iterations)
+      
+      // Add thinking activity
+      this.addActivity({
+        type: 'thinking',
+        iteration: iterations,
+        content: `Processing iteration ${iterations}...`
+      })
 
       // Check and truncate context if too large
       this.truncateContextIfNeeded()
@@ -743,24 +795,49 @@ export class AgentService {
       console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens}`)
 
       // Call Claude API with platform-specific tools
-      // Use beta API with context management for automatic tool result clearing
-      const response = await client.beta.messages.create({
-        model,
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        tools,
-        messages: this.conversationHistory,
-        // Enable context editing to automatically clear old tool results when approaching token limit
-        betas: ['context-management-2025-06-27'],
-        context_management: {
-          edits: [{
-            type: 'clear_tool_uses_20250919',
-            trigger: { type: 'input_tokens', value: 100000 },
-            keep: { type: 'tool_uses', value: 5 },
-            clear_at_least: { type: 'input_tokens', value: 10000 }
-          }]
+      // Only use beta API with context management for official Claude provider
+      // Custom providers (minimax, custom) may not support beta features
+      let response: Anthropic.Message
+      
+      if (provider === 'claude') {
+        // Use beta API with context management for automatic tool result clearing
+        const betaResponse = await client.beta.messages.create({
+          model,
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          tools,
+          messages: this.conversationHistory,
+          // Enable context editing to automatically clear old tool results when approaching token limit
+          betas: ['context-management-2025-06-27'],
+          context_management: {
+            edits: [{
+              type: 'clear_tool_uses_20250919',
+              trigger: { type: 'input_tokens', value: 100000 },
+              keep: { type: 'tool_uses', value: 5 },
+              clear_at_least: { type: 'input_tokens', value: 10000 }
+            }]
+          }
+        })
+        
+        // Log context editing if applied (beta API feature)
+        const contextMgmt = (betaResponse as unknown as { context_management?: { applied_edits?: Array<{ cleared_tool_uses?: number; cleared_input_tokens?: number }> } }).context_management
+        if (contextMgmt?.applied_edits?.length) {
+          for (const edit of contextMgmt.applied_edits) {
+            console.log(`[Agent] Context editing applied: cleared ${edit.cleared_tool_uses ?? 0} tool uses (${edit.cleared_input_tokens ?? 0} tokens)`)
+          }
         }
-      })
+        
+        response = betaResponse as unknown as Anthropic.Message
+      } else {
+        // Use standard API for non-Claude providers
+        response = await client.messages.create({
+          model,
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          tools,
+          messages: this.conversationHistory
+        })
+      }
 
       // Check if aborted after API call
       if (this.isAborted) {
@@ -772,18 +849,10 @@ export class AgentService {
         console.log(`[Agent] Actual tokens - input: ${response.usage.input_tokens}, output: ${response.usage.output_tokens}`)
       }
       
-      // Log context editing if applied (beta API feature)
-      const contextMgmt = (response as unknown as { context_management?: { applied_edits?: Array<{ cleared_tool_uses?: number; cleared_input_tokens?: number }> } }).context_management
-      if (contextMgmt?.applied_edits?.length) {
-        for (const edit of contextMgmt.applied_edits) {
-          console.log(`[Agent] Context editing applied: cleared ${edit.cleared_tool_uses ?? 0} tool uses (${edit.cleared_input_tokens ?? 0} tokens)`)
-        }
-      }
-      
       console.log('[Agent] Response received, stop_reason:', response.stop_reason)
 
-      // Cast response to standard Message type for compatibility
-      const standardResponse = response as unknown as Anthropic.Message
+      // Use response directly (already Anthropic.Message type)
+      const standardResponse = response
 
       // Check if we need to use tools
       if (standardResponse.stop_reason === 'tool_use') {
@@ -802,6 +871,12 @@ export class AgentService {
         this.conversationHistory.push(assistantMessage)
 
         console.log('[Agent] Final response:', message.substring(0, 100) + '...')
+
+        // Add response activity
+        this.addActivity({
+          type: 'response',
+          message: message
+        })
 
         return {
           success: true,
@@ -850,7 +925,29 @@ export class AgentService {
 
       console.log('[Agent] Executing tool:', toolUse.name)
       this.setStatus('tool_executing', toolUse.name)
+      
+      // Add tool_call activity
+      this.addActivity({
+        type: 'tool_call',
+        toolName: toolUse.name,
+        toolInput: toolUse.input as Record<string, unknown>,
+        toolUseId: toolUse.id
+      })
+      
       const result = await this.executeToolInternal(toolUse.name, toolUse.input)
+
+      // Add tool_result activity
+      const resultSummary = result.success 
+        ? (typeof result.data === 'string' ? result.data.substring(0, 500) : JSON.stringify(result.data).substring(0, 500))
+        : result.error || 'Unknown error'
+      this.addActivity({
+        type: 'tool_result',
+        toolUseId: toolUse.id,
+        toolName: toolUse.name,
+        success: result.success,
+        result: result.success ? resultSummary : undefined,
+        error: result.success ? undefined : result.error
+      })
 
       // Handle screenshot specially - include image in response
       if (toolUse.name === 'computer' && (toolUse.input as { action: string }).action === 'screenshot') {

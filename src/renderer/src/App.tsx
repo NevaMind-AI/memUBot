@@ -9,6 +9,7 @@ import { LineView } from './components/Line'
 import { FeishuView } from './components/Feishu'
 import { SettingsView } from './components/Settings'
 import { ToastContainer } from './components/Toast'
+import { AgentActivityPanel } from './components/AgentActivity'
 import { useThemeStore, applyTheme } from './stores/themeStore'
 import appIcon from './assets/app-icon.png'
 
@@ -43,6 +44,7 @@ function App(): JSX.Element {
     message: '',
     progress: 0
   })
+  const [showActivityPanel, setShowActivityPanel] = useState(false)
 
   // Apply theme on mount and when mode changes
   useEffect(() => {
@@ -230,6 +232,12 @@ function App(): JSX.Element {
       {/* Toast Container */}
       <ToastContainer />
 
+      {/* Agent Activity Panel */}
+      <AgentActivityPanel 
+        isOpen={showActivityPanel} 
+        onClose={() => setShowActivityPanel(false)} 
+      />
+
       {/* Sidebar */}
       <Sidebar activeNav={activeNav} onNavChange={handleNavChange} />
 
@@ -243,6 +251,7 @@ function App(): JSX.Element {
           showDiscordStatus={headerInfo.showDiscordStatus}
           showSlackStatus={headerInfo.showSlackStatus}
           showFeishuStatus={headerInfo.showFeishuStatus}
+          onShowActivity={() => setShowActivityPanel(true)}
         />
 
         {/* Content */}

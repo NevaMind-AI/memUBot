@@ -105,7 +105,7 @@ export function ExperimentalSettings(): JSX.Element {
             <button
               onClick={() => handleToggle('experimentalVisualMode', !features.experimentalVisualMode)}
               disabled={saving}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 focus:ring-offset-[var(--bg-primary)] disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:ring-offset-2 focus:ring-offset-[var(--bg-card-solid)] disabled:opacity-50 disabled:cursor-not-allowed ${
                 features.experimentalVisualMode ? 'bg-purple-500' : 'bg-[var(--bg-input)]'
               }`}
             >
@@ -157,7 +157,7 @@ export function ExperimentalSettings(): JSX.Element {
             <button
               onClick={() => handleToggle('experimentalComputerUse', !features.experimentalComputerUse)}
               disabled={saving}
-              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-[var(--bg-primary)] disabled:opacity-50 disabled:cursor-not-allowed ${
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:ring-offset-2 focus:ring-offset-[var(--bg-card-solid)] disabled:opacity-50 disabled:cursor-not-allowed ${
                 features.experimentalComputerUse ? 'bg-blue-500' : 'bg-[var(--bg-input)]'
               }`}
             >

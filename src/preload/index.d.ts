@@ -276,7 +276,12 @@ interface SecurityApi {
 }
 
 // LLM status type
-type LLMStatus = 'idle' | 'thinking' | 'tool_executing'
+// - idle: App started but never processed any message
+// - thinking: Currently processing, waiting for LLM response
+// - tool_executing: Currently executing a tool
+// - complete: Last request completed successfully
+// - aborted: Last request was aborted/interrupted
+type LLMStatus = 'idle' | 'thinking' | 'tool_executing' | 'complete' | 'aborted'
 
 // LLM status info type
 interface LLMStatusInfo {
@@ -285,12 +290,37 @@ interface LLMStatusInfo {
   iteration?: number
 }
 
+// Agent activity types
+type AgentActivityType = 'thinking' | 'tool_call' | 'tool_result' | 'response'
+
+interface AgentActivityItem {
+  id: string
+  type: AgentActivityType
+  timestamp: number
+  iteration?: number
+  // For thinking
+  content?: string
+  // For tool_call
+  toolName?: string
+  toolInput?: Record<string, unknown>
+  // For tool_result
+  toolUseId?: string
+  success?: boolean
+  result?: string
+  error?: string
+  // For response
+  message?: string
+}
+
 // LLM API interface
 interface LLMApi {
   getStatus: () => Promise<LLMStatusInfo>
   abort: () => Promise<{ success: boolean }>
   isProcessing: () => Promise<boolean>
+  getActivityLog: () => Promise<AgentActivityItem[]>
+  clearActivityLog: () => Promise<{ success: boolean }>
   onStatusChanged: (callback: (status: LLMStatusInfo) => void) => () => void
+  onActivityChanged: (callback: (activity: AgentActivityItem) => void) => () => void
 }
 
 // Startup status type
