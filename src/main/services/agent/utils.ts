@@ -10,38 +10,40 @@ export const MAX_CONTEXT_MESSAGES = 20
 
 /**
  * Maximum tokens for context (leave room for response, Claude limit is 200k)
- * We use 150k to leave room for system prompt, tools, and response
+ * We use 100k to leave room for system prompt (~5k), tools (~10k), and response (~20k)
+ * Also accounting for token estimation inaccuracy
  */
-export const MAX_CONTEXT_TOKENS = 150000
+export const MAX_CONTEXT_TOKENS = 100000
 
 /**
  * Estimate token count for a message
- * Rough estimation: ~4 chars per token for text, base64 images are much larger
+ * Using conservative estimation: ~3 chars per token (instead of 4) to avoid underestimation
+ * Real tokenizers vary but being conservative prevents "prompt too long" errors
  */
 export function estimateTokens(message: Anthropic.MessageParam): number {
   if (typeof message.content === 'string') {
-    return Math.ceil(message.content.length / 4)
+    // Conservative: 3 chars per token instead of 4
+    return Math.ceil(message.content.length / 3)
   }
   
   let tokens = 0
   for (const block of message.content) {
     if (block.type === 'text') {
-      tokens += Math.ceil(block.text.length / 4)
+      tokens += Math.ceil(block.text.length / 3)
     } else if (block.type === 'image') {
       // Base64 images are expensive - estimate based on data size
-      // Each base64 char is ~0.75 bytes, and images cost more tokens
       if (block.source.type === 'base64') {
-        // Base64 data length / 4 chars per token * 1.5 (images cost more)
-        tokens += Math.ceil(block.source.data.length / 4 * 1.5)
+        // Base64 images: more conservative estimation
+        tokens += Math.ceil(block.source.data.length / 3 * 1.5)
       } else {
-        // URL-based images - estimate ~1000 tokens per image
-        tokens += 1000
+        // URL-based images - estimate ~1500 tokens per image
+        tokens += 1500
       }
     } else if (block.type === 'tool_use') {
-      tokens += Math.ceil(JSON.stringify(block).length / 4)
+      tokens += Math.ceil(JSON.stringify(block).length / 3)
     } else if (block.type === 'tool_result') {
       const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
-      tokens += Math.ceil(content.length / 4)
+      tokens += Math.ceil(content.length / 3)
     }
   }
   return tokens

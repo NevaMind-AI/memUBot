@@ -736,6 +736,12 @@ export class AgentService {
       // This handles cases where previous session was interrupted mid-tool-execution
       this.verifyAndFixToolPairs()
 
+      // Estimate tokens before API call for debugging
+      const estimatedMsgTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
+      const estimatedSystemTokens = Math.ceil(systemPrompt.length / 3)
+      const estimatedToolsTokens = Math.ceil(JSON.stringify(tools).length / 3)
+      console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens}`)
+
       // Call Claude API with platform-specific tools
       const response = await client.messages.create({
         model,
@@ -750,6 +756,10 @@ export class AgentService {
         throw new Error('Aborted')
       }
 
+      // Log actual token usage from API response
+      if (response.usage) {
+        console.log(`[Agent] Actual tokens - input: ${response.usage.input_tokens}, output: ${response.usage.output_tokens}`)
+      }
       console.log('[Agent] Response received, stop_reason:', response.stop_reason)
 
       // Check if we need to use tools
