@@ -469,6 +469,15 @@
     "noActivity": "暂无活动",
     "noActivityHint": "Agent 开始处理时，活动会显示在这里",
     "count": "{{count}} 条活动",
-    "scrollToBottom": "滚动到底部"
+    "scrollToBottom": "滚动到底部",
+    "tokens": {
+      "estimated": "预估",
+      "actual": "实际",
+      "messages": "消息",
+      "system": "系统",
+      "tools": "工具",
+      "input": "输入",
+      "output": "输出"
+    }
   }
 }

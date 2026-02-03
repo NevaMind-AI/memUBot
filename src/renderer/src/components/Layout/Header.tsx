@@ -105,6 +105,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
   const [llmStatus, setLLMStatus] = useState<LLMStatusInfo>({ status: 'idle' })
+  const [showAgentActivityEnabled, setShowAgentActivityEnabled] = useState(false)
 
   // Determine current platform
   const platform: Platform | null = showTelegramStatus
@@ -144,6 +145,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     })
     window.llm.getStatus().then(setLLMStatus)
     return () => unsubscribe()
+  }, [])
+
+  // Load showAgentActivity setting
+  useEffect(() => {
+    window.settings.get().then(result => {
+      if (result.success && result.data) {
+        setShowAgentActivityEnabled(result.data.showAgentActivity ?? false)
+      }
+    })
   }, [])
 
   // Subscribe to Telegram status
@@ -316,6 +326,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }
 
+  const handleShowActivity = async () => {
+    // Re-fetch setting on click to get latest value
+    const result = await window.settings.get()
+    if (result.success && result.data?.showAgentActivity) {
+      setShowAgentActivityEnabled(true)
+      onShowActivity?.()
+    }
+  }
+
   const isConnected = status?.isConnected
   const isLLMProcessing = llmStatus.status === 'thinking' || llmStatus.status === 'tool_executing'
   const isLLMFinished = llmStatus.status === 'complete' || llmStatus.status === 'aborted'
@@ -399,7 +418,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
             {showLLMStatus && (
               <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
-                  onClick={onShowActivity}
+                  onClick={handleShowActivity}
                   className={`flex items-center gap-1 px-2 py-0.5 rounded-full backdrop-blur-sm border whitespace-nowrap transition-all cursor-pointer ${
                     isLLMProcessing
                       ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30 hover:bg-amber-500/20'
@@ -452,10 +471,10 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
               onClick={isConnected ? handleDisconnect : handleConnect}
               disabled={connecting}
               title={connecting ? t('common.connecting') : isConnected ? t('common.disconnect') : t('common.connect')}
-              className={`p-2 rounded-lg transition-all duration-200 ${
+              className={`w-9 h-9 flex items-center justify-center rounded-lg transition-all duration-200 border ${
                 isConnected
-                  ? 'bg-red-500/10 dark:bg-red-500/20 backdrop-blur-sm border border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20 hover:shadow-md'
-                  : ''
+                  ? 'bg-red-500/10 dark:bg-red-500/20 backdrop-blur-sm border-red-500/20 text-red-600 dark:text-red-400 hover:bg-red-500/20 hover:shadow-md'
+                  : 'border-transparent'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
               style={!isConnected ? {
                 background: `linear-gradient(to right, ${platformColors.from}, ${platformColors.to})`,

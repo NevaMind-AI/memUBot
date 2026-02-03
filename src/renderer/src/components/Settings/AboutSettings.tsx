@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import appIcon from '../../assets/app-icon.png'
 
@@ -13,8 +13,18 @@ export function AboutSettings(): JSX.Element {
   const [clickCount, setClickCount] = useState(0)
   const [showLogs, setShowLogs] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [showAgentActivity, setShowAgentActivity] = useState(false)
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const logsEndRef = useRef<HTMLDivElement | null>(null)
+  const logsContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // Load showAgentActivity setting
+  useEffect(() => {
+    window.settings.get().then(result => {
+      if (result.success && result.data) {
+        setShowAgentActivity(result.data.showAgentActivity ?? false)
+      }
+    })
+  }, [])
 
   const handleVersionClick = async (): Promise<void> => {
     // Reset timeout on each click
@@ -27,16 +37,17 @@ export function AboutSettings(): JSX.Element {
 
     if (newCount >= 3) {
       setClickCount(0)
-      // Check if production - show logs viewer, otherwise open DevTools
+      // Always show logs viewer
       const result = await window.settings.getLogs()
       if (result.success && result.data) {
-        if (result.data.isProduction) {
-          setLogs(result.data.logs)
-          setShowLogs(true)
-        } else {
-          // Dev mode - open DevTools
-          window.settings.openDevTools()
-        }
+        setLogs(result.data.logs)
+        setShowLogs(true)
+        // Scroll to bottom after logs are shown
+        setTimeout(() => {
+          if (logsContainerRef.current) {
+            logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight
+          }
+        }, 50)
       }
     } else {
       // Reset count after 1 second of no clicks
@@ -52,9 +63,17 @@ export function AboutSettings(): JSX.Element {
       setLogs(result.data.logs)
       // Scroll to bottom after update
       setTimeout(() => {
-        logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      }, 100)
+        if (logsContainerRef.current) {
+          logsContainerRef.current.scrollTop = logsContainerRef.current.scrollHeight
+        }
+      }, 50)
     }
+  }
+
+  const handleToggleAgentActivity = async (): Promise<void> => {
+    const newValue = !showAgentActivity
+    setShowAgentActivity(newValue)
+    await window.settings.save({ showAgentActivity: newValue })
   }
 
   const clearLogs = async (): Promise<void> => {
@@ -113,7 +132,28 @@ export function AboutSettings(): JSX.Element {
               </button>
             </div>
           </div>
-          <div className="h-64 overflow-y-auto p-2 font-mono text-[11px]">
+          
+          {/* Agent Activity Toggle */}
+          <div className="flex items-center justify-between px-4 py-2 bg-[#202020] border-b border-[var(--border-color)]">
+            <span className="text-[11px] text-[var(--text-muted)]">Show Agent Activity Panel</span>
+            <button
+              onClick={handleToggleAgentActivity}
+              className={`relative w-9 h-5 rounded-full transition-colors ${
+                showAgentActivity ? 'bg-emerald-500' : 'bg-[#444]'
+              }`}
+            >
+              <span 
+                className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                  showAgentActivity ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+          
+          <div 
+            ref={logsContainerRef}
+            className="h-64 overflow-y-auto p-2 font-mono text-[11px]"
+          >
             {logs.length === 0 ? (
               <div className="text-[var(--text-muted)] text-center py-8">No logs yet</div>
             ) : (
@@ -125,7 +165,6 @@ export function AboutSettings(): JSX.Element {
                 </div>
               ))
             )}
-            <div ref={logsEndRef} />
           </div>
         </div>
       )}

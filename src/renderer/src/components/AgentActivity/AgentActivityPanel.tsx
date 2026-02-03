@@ -2,11 +2,26 @@ import { useState, useEffect, useRef } from 'react'
 import { X, Brain, Wrench, CheckCircle, XCircle, MessageSquare, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
+interface TokenUsage {
+  estimated?: {
+    messages: number
+    system: number
+    tools: number
+    total: number
+  }
+  actual?: {
+    input: number
+    output: number
+    total: number
+  }
+}
+
 interface AgentActivityItem {
   id: string
   type: 'thinking' | 'tool_call' | 'tool_result' | 'response'
   timestamp: number
   iteration?: number
+  tokenUsage?: TokenUsage
   content?: string
   toolName?: string
   toolInput?: Record<string, unknown>
@@ -160,8 +175,34 @@ export function AgentActivityPanel({ isOpen, onClose }: AgentActivityPanelProps)
     switch (activity.type) {
       case 'thinking':
         return (
-          <div className="text-sm text-[var(--text-secondary)]">
-            {activity.content || t('activity.iteration', { count: activity.iteration })}
+          <div>
+            <div className="text-sm text-[var(--text-secondary)]">
+              {activity.content || t('activity.iteration', { count: activity.iteration })}
+            </div>
+            {activity.tokenUsage && (
+              <div className="mt-1.5 flex flex-col gap-0.5 text-[10px] text-[var(--text-muted)]">
+                {activity.tokenUsage.estimated && (
+                  <div>
+                    {t('activity.tokens.estimated')}:
+                    <span className="font-mono text-violet-600 dark:text-violet-400 ml-1">{activity.tokenUsage.estimated.messages.toLocaleString()}</span>
+                    <span className="mx-0.5 opacity-50">+</span>
+                    <span className="font-mono text-orange-600 dark:text-orange-400">{activity.tokenUsage.estimated.system.toLocaleString()}</span>
+                    <span className="mx-0.5 opacity-50">+</span>
+                    <span className="font-mono text-cyan-600 dark:text-cyan-400">{activity.tokenUsage.estimated.tools.toLocaleString()}</span>
+                    <span className="ml-1 opacity-60">= {activity.tokenUsage.estimated.total.toLocaleString()}</span>
+                  </div>
+                )}
+                {activity.tokenUsage.actual && (
+                  <div>
+                    {t('activity.tokens.actual')}:
+                    <span className="font-mono text-emerald-600 dark:text-emerald-400 ml-1">{activity.tokenUsage.actual.input.toLocaleString()}</span>
+                    <span className="mx-0.5 opacity-50">+</span>
+                    <span className="font-mono text-blue-600 dark:text-blue-400">{activity.tokenUsage.actual.output.toLocaleString()}</span>
+                    <span className="ml-1 opacity-60">= {activity.tokenUsage.actual.total.toLocaleString()}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )
 
@@ -232,7 +273,8 @@ export function AgentActivityPanel({ isOpen, onClose }: AgentActivityPanelProps)
 
   if (!shouldRender) return <></>
 
-  const isProcessing = llmStatus.status !== 'idle'
+  // Only thinking and tool_executing are considered "processing"
+  const isProcessing = llmStatus.status === 'thinking' || llmStatus.status === 'tool_executing'
 
   return (
     <div 

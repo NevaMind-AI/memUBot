@@ -99,6 +99,7 @@ interface AppSettings {
   language: string
   experimentalVisualMode: boolean
   experimentalComputerUse: boolean
+  showAgentActivity: boolean
   tavilyApiKey: string
 }
 
@@ -290,6 +291,21 @@ interface LLMStatusInfo {
   iteration?: number
 }
 
+// Token usage information
+interface TokenUsage {
+  estimated?: {
+    messages: number
+    system: number
+    tools: number
+    total: number
+  }
+  actual?: {
+    input: number
+    output: number
+    total: number
+  }
+}
+
 // Agent activity types
 type AgentActivityType = 'thinking' | 'tool_call' | 'tool_result' | 'response'
 
@@ -298,6 +314,8 @@ interface AgentActivityItem {
   type: AgentActivityType
   timestamp: number
   iteration?: number
+  // Token usage for this step
+  tokenUsage?: TokenUsage
   // For thinking
   content?: string
   // For tool_call

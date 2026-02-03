@@ -450,6 +450,15 @@
     "noActivity": "アクティビティはありません",
     "noActivityHint": "Agent が処理を開始すると、ここにアクティビティが表示されます",
     "count": "{{count}} 件のアクティビティ",
-    "scrollToBottom": "一番下へスクロール"
+    "scrollToBottom": "一番下へスクロール",
+    "tokens": {
+      "estimated": "推定",
+      "actual": "実際",
+      "messages": "メッセージ",
+      "system": "システム",
+      "tools": "ツール",
+      "input": "入力",
+      "output": "出力"
+    }
   }
 }

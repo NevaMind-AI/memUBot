@@ -98,15 +98,29 @@ export class AgentService {
 
   /**
    * Add an activity item and emit event
+   * Returns the activity ID for later updates
    */
-  private addActivity(item: Omit<AgentActivityItem, 'id' | 'timestamp'>): void {
+  private addActivity(item: Omit<AgentActivityItem, 'id' | 'timestamp'>): string {
+    const id = this.generateActivityId()
     const activity: AgentActivityItem = {
       ...item,
-      id: this.generateActivityId(),
+      id,
       timestamp: Date.now()
     }
     this.activityLog.push(activity)
     appEvents.emitAgentActivityChanged(activity)
+    return id
+  }
+
+  /**
+   * Update an existing activity item and emit event
+   */
+  private updateActivity(id: string, updates: Partial<Omit<AgentActivityItem, 'id' | 'timestamp'>>): void {
+    const index = this.activityLog.findIndex(a => a.id === id)
+    if (index !== -1) {
+      this.activityLog[index] = { ...this.activityLog[index], ...updates }
+      appEvents.emitAgentActivityChanged(this.activityLog[index])
+    }
   }
 
   /**
@@ -773,13 +787,6 @@ export class AgentService {
       iterations++
       console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
       this.setStatus('thinking', undefined, iterations)
-      
-      // Add thinking activity
-      this.addActivity({
-        type: 'thinking',
-        iteration: iterations,
-        content: `Processing iteration ${iterations}...`
-      })
 
       // Check and truncate context if too large
       this.truncateContextIfNeeded()
@@ -792,7 +799,23 @@ export class AgentService {
       const estimatedMsgTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
       const estimatedSystemTokens = Math.ceil(systemPrompt.length / 3)
       const estimatedToolsTokens = Math.ceil(JSON.stringify(tools).length / 3)
-      console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens}`)
+      const estimatedTotalTokens = estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens
+      console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedTotalTokens}`)
+      
+      // Store thinking activity ID so we can update it with actual tokens later
+      const thinkingActivityId = this.addActivity({
+        type: 'thinking',
+        iteration: iterations,
+        content: `Processing iteration ${iterations}...`,
+        tokenUsage: {
+          estimated: {
+            messages: estimatedMsgTokens,
+            system: estimatedSystemTokens,
+            tools: estimatedToolsTokens,
+            total: estimatedTotalTokens
+          }
+        }
+      })
 
       // Call Claude API with platform-specific tools
       // Only use beta API with context management for official Claude provider
@@ -844,9 +867,28 @@ export class AgentService {
         throw new Error('Aborted')
       }
 
-      // Log actual token usage from API response
+      // Log actual token usage from API response and update thinking activity
       if (response.usage) {
-        console.log(`[Agent] Actual tokens - input: ${response.usage.input_tokens}, output: ${response.usage.output_tokens}`)
+        const actualInput = response.usage.input_tokens
+        const actualOutput = response.usage.output_tokens
+        console.log(`[Agent] Actual tokens - input: ${actualInput}, output: ${actualOutput}`)
+        
+        // Update the thinking activity with actual token usage
+        this.updateActivity(thinkingActivityId, {
+          tokenUsage: {
+            estimated: {
+              messages: estimatedMsgTokens,
+              system: estimatedSystemTokens,
+              tools: estimatedToolsTokens,
+              total: estimatedTotalTokens
+            },
+            actual: {
+              input: actualInput,
+              output: actualOutput,
+              total: actualInput + actualOutput
+            }
+          }
+        })
       }
       
       console.log('[Agent] Response received, stop_reason:', response.stop_reason)

@@ -95,6 +95,9 @@ export interface AppSettings {
   experimentalVisualMode: boolean
   experimentalComputerUse: boolean
 
+  // Debug/Dev features
+  showAgentActivity: boolean
+
   // Search settings
   tavilyApiKey: string
 }
@@ -151,6 +154,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Experimental features
   experimentalVisualMode: false,
   experimentalComputerUse: false,
+
+  // Debug/Dev features
+  showAgentActivity: false,
 
   // Search settings
   tavilyApiKey: ''

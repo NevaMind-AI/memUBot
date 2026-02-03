@@ -67,6 +67,25 @@ export interface ToolResult {
 }
 
 /**
+ * Token usage information for an activity
+ */
+export interface TokenUsage {
+  // Estimated tokens (before API call)
+  estimated?: {
+    messages: number
+    system: number
+    tools: number
+    total: number
+  }
+  // Actual tokens (from API response)
+  actual?: {
+    input: number
+    output: number
+    total: number
+  }
+}
+
+/**
  * Agent activity item - represents a single step in the agent's processing
  */
 export type AgentActivityType = 'thinking' | 'tool_call' | 'tool_result' | 'response'
@@ -76,6 +95,8 @@ export interface AgentActivityItem {
   type: AgentActivityType
   timestamp: number
   iteration?: number
+  // Token usage for this step
+  tokenUsage?: TokenUsage
   // For thinking
   content?: string
   // For tool_call

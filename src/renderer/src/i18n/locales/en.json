@@ -472,6 +472,15 @@
     "noActivityHint": "Activity will appear here when the agent starts processing",
     "count": "{{count}} activities",
     "count_one": "{{count}} activity",
-    "scrollToBottom": "Scroll to bottom"
+    "scrollToBottom": "Scroll to bottom",
+    "tokens": {
+      "estimated": "Estimated",
+      "actual": "Actual",
+      "messages": "Messages",
+      "system": "System",
+      "tools": "Tools",
+      "input": "Input",
+      "output": "Output"
+    }
   }
 }
