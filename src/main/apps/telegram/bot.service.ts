@@ -918,6 +918,10 @@ export class TelegramBotService {
         else if (ext === 'gif') fileOptions.contentType = 'image/gif'
         else if (ext === 'webp') fileOptions.contentType = 'image/webp'
       }
+      // Set content length for Buffer to display correct file size
+      if (Buffer.isBuffer(photo)) {
+        ;(fileOptions as TelegramBot.FileOptions & { contentLength?: number }).contentLength = photo.length
+      }
       const msg = await this.bot.sendPhoto(chatId, photo, sendOptions, fileOptions)
       return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
@@ -947,6 +951,10 @@ export class TelegramBotService {
         contentType: 'application/octet-stream'
       }
       if (options?.filename) fileOptions.filename = options.filename
+      // Set content length for Buffer to display correct file size
+      if (Buffer.isBuffer(document)) {
+        ;(fileOptions as TelegramBot.FileOptions & { contentLength?: number }).contentLength = document.length
+      }
       const msg = await this.bot.sendDocument(chatId, document, sendOptions, fileOptions)
       return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
@@ -979,6 +987,10 @@ export class TelegramBotService {
         contentType: 'video/mp4'
       }
       if (options?.filename) fileOptions.filename = options.filename
+      // Set content length for Buffer to display correct file size
+      if (Buffer.isBuffer(video)) {
+        ;(fileOptions as TelegramBot.FileOptions & { contentLength?: number }).contentLength = video.length
+      }
       const msg = await this.bot.sendVideo(chatId, video, sendOptions, fileOptions)
       return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
@@ -1018,6 +1030,10 @@ export class TelegramBotService {
         else if (ext === 'flac') fileOptions.contentType = 'audio/flac'
         else if (ext === 'm4a') fileOptions.contentType = 'audio/mp4'
       }
+      // Set content length for Buffer to display correct file size
+      if (Buffer.isBuffer(audio)) {
+        ;(fileOptions as TelegramBot.FileOptions & { contentLength?: number }).contentLength = audio.length
+      }
       const msg = await this.bot.sendAudio(chatId, audio, sendOptions, fileOptions)
       return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {
@@ -1048,6 +1064,10 @@ export class TelegramBotService {
         contentType: 'audio/ogg'
       }
       if (options?.filename) fileOptions.filename = options.filename
+      // Set content length for Buffer to display correct file size
+      if (Buffer.isBuffer(voice)) {
+        ;(fileOptions as TelegramBot.FileOptions & { contentLength?: number }).contentLength = voice.length
+      }
       const msg = await this.bot.sendVoice(chatId, voice, sendOptions, fileOptions)
       return { success: true, messageId: msg.message_id, message: msg }
     } catch (error) {

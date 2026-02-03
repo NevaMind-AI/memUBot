@@ -65,9 +65,11 @@ export interface AppSettings {
 
   // Telegram settings
   telegramBotToken: string
+  telegramAutoConnect: boolean
 
   // Discord settings
   discordBotToken: string
+  discordAutoConnect: boolean
 
   // WhatsApp settings (placeholder for future implementation)
   whatsappEnabled: boolean
@@ -75,6 +77,7 @@ export interface AppSettings {
   // Slack settings
   slackBotToken: string
   slackAppToken: string
+  slackAutoConnect: boolean
 
   // Line settings
   lineChannelAccessToken: string
@@ -83,9 +86,14 @@ export interface AppSettings {
   // Feishu settings
   feishuAppId: string
   feishuAppSecret: string
+  feishuAutoConnect: boolean
 
   // General settings
   language: string
+
+  // Experimental features
+  experimentalVisualMode: boolean
+  experimentalComputerUse: boolean
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -118,20 +126,28 @@ const DEFAULT_SETTINGS: AppSettings = {
   memuProactiveAgentId: 'bot_proactive_agent',
 
   telegramBotToken: '',
+  telegramAutoConnect: true,
   discordBotToken: '',
+  discordAutoConnect: true,
 
   whatsappEnabled: false,
 
   slackBotToken: '',
   slackAppToken: '',
+  slackAutoConnect: true,
 
   lineChannelAccessToken: '',
   lineChannelSecret: '',
 
   feishuAppId: '',
   feishuAppSecret: '',
+  feishuAutoConnect: true,
 
-  language: 'en'
+  language: 'en',
+
+  // Experimental features
+  experimentalVisualMode: false,
+  experimentalComputerUse: false
 }
 
 /**

@@ -150,7 +150,10 @@ interface ResolvedFile {
 }
 
 /**
- * Resolve file path and return buffer with filename, or URL string
+ * Resolve file path and return file path string (for local files) or URL string
+ * For local files, we pass the path directly to Telegram API so it can:
+ * 1. Automatically get the correct file size
+ * 2. Stream the file efficiently
  */
 function resolveFile(filePath: string): ResolvedFile {
   if (isUrl(filePath)) {
@@ -161,8 +164,9 @@ function resolveFile(filePath: string): ResolvedFile {
   if (!fs.existsSync(absolutePath)) {
     throw new Error(`File not found: ${absolutePath}`)
   }
+  // Return file path directly - Telegram library handles file reading and size
   return {
-    content: fs.readFileSync(absolutePath),
+    content: absolutePath,
     filename: path.basename(absolutePath)
   }
 }

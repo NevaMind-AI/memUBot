@@ -1,557 +1,44 @@
 import Anthropic from '@anthropic-ai/sdk'
 import path from 'path'
-import { computerUseTools } from '../tools/computer.definitions'
-import { telegramTools } from '../tools/telegram.definitions'
-import { discordTools } from '../tools/discord.definitions'
-import { whatsappTools } from '../tools/whatsapp.definitions'
-import { slackTools } from '../tools/slack.definitions'
-import { lineTools } from '../tools/line.definitions'
-import { feishuTools } from '../tools/feishu.definitions'
-import { serviceTools } from '../tools/service.definitions'
-import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
-import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
-import { executeMacOSLaunchAppTool, executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
-import { executeTelegramTool } from '../tools/telegram.executor'
-import { executeDiscordTool } from '../tools/discord.executor'
-import { executeWhatsAppTool } from '../tools/whatsapp.executor'
-import { executeSlackTool } from '../tools/slack.executor'
-import { executeLineTool } from '../tools/line.executor'
-import { executeFeishuTool } from '../tools/feishu.executor'
-import { executeServiceTool } from '../tools/service.executor'
 import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
 import { feishuStorage } from '../apps/feishu/storage'
-import { app } from 'electron'
-import { mcpService } from './mcp.service'
-import { skillsService } from './skills.service'
-import { serviceManagerService } from './service-manager.service'
 import type { ConversationMessage, AgentResponse } from '../types'
 import * as fs from 'fs/promises'
 
-/**
- * Maximum number of historical messages to load as context
- */
-const MAX_CONTEXT_MESSAGES = 20
-
-/**
- * Maximum tokens for context (leave room for response, Claude limit is 200k)
- * We use 150k to leave room for system prompt, tools, and response
- */
-const MAX_CONTEXT_TOKENS = 150000
-
-/**
- * Estimate token count for a message
- * Rough estimation: ~4 chars per token for text, base64 images are much larger
- */
-function estimateTokens(message: Anthropic.MessageParam): number {
-  if (typeof message.content === 'string') {
-    return Math.ceil(message.content.length / 4)
-  }
-  
-  let tokens = 0
-  for (const block of message.content) {
-    if (block.type === 'text') {
-      tokens += Math.ceil(block.text.length / 4)
-    } else if (block.type === 'image') {
-      // Base64 images are expensive - estimate based on data size
-      // Each base64 char is ~0.75 bytes, and images cost more tokens
-      if (block.source.type === 'base64') {
-        // Base64 data length / 4 chars per token * 1.5 (images cost more)
-        tokens += Math.ceil(block.source.data.length / 4 * 1.5)
-      } else {
-        // URL-based images - estimate ~1000 tokens per image
-        tokens += 1000
-      }
-    } else if (block.type === 'tool_use') {
-      tokens += Math.ceil(JSON.stringify(block).length / 4)
-    } else if (block.type === 'tool_result') {
-      const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
-      tokens += Math.ceil(content.length / 4)
-    }
-  }
-  return tokens
-}
-
-/**
- * Supported platforms for messaging tools
- */
-export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'none'
-
-/**
- * Unmemorized message with metadata
- */
-export interface UnmemorizedMessage {
-  platform: MessagePlatform
-  timestamp: number // Unix timestamp in seconds
-  message: Anthropic.MessageParam
-}
-
-/**
- * Evaluation decision from LLM
- */
-export interface EvaluationDecision {
-  shouldNotify: boolean
-  message?: string  // Message to send if shouldNotify is true
-  reason: string    // Explanation of the decision
-}
-
-/**
- * Evaluation request context
- */
-export interface EvaluationContext {
-  userRequest: string
-  expectation: string
-}
-
-/**
- * Evaluation request data
- */
-export interface EvaluationData {
-  summary: string
-  details?: string
-  timestamp: string
-  metadata?: Record<string, unknown>
-}
-
-/**
- * LLM processing status
- */
-export type LLMStatus = 'idle' | 'thinking' | 'tool_executing'
-
-export interface LLMStatusInfo {
-  status: LLMStatus
-  currentTool?: string
-  iteration?: number
-}
-
-/**
- * System prompts for different platforms
- */
-const TELEGRAM_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
-
-You have access to:
-1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
-2. **Text editor** - View and edit files with precision
-3. **Telegram messaging** - Send various types of content to the user via Telegram:
-   - Text messages (with Markdown/HTML formatting)
-   - Photos, videos, audio files, voice messages
-   - Documents/files of any type
-   - Locations, contacts, polls, stickers
-
-Guidelines:
-- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- Use Telegram tools to send rich content (images, files, etc.) to the user
-- **IMPORTANT**: Ask for confirmation before destructive operations (e.g., deleting files, modifying system settings)
-
-Communication Guidelines:
-- Use send_text tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
-- **AVOID** sending status updates like "Task started" or "I'm working on it" - just do the work
-- **AVOID** repeating yourself - if you already sent information via send_text, don't repeat it in your final response
-- Keep your final text response **brief** - a simple confirmation is enough if details were already sent
-- Good examples of when to use send_text mid-task:
-  - Sharing a preview image before asking "Does this look right?"
-  - Sending a file the user requested
-  - Showing data that helps the user make a decision
-- Bad examples (don't do these):
-  - "I'm creating a service for you now..."
-  - "Task complete! Here's what I did: [repeats everything]"
-
-You are an expert assistant that can help with:
-- Software development and coding
-- System administration
-- File management
-- Sharing files and media via Telegram
-- Any command-line task the user needs help with`
-
-const DISCORD_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
-
-You have access to:
-1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
-2. **Text editor** - View and edit files with precision
-3. **Discord messaging** - Send various types of content to the user via Discord:
-   - Text messages (with Discord markdown formatting)
-   - Rich embed messages with titles, descriptions, colors, and fields
-   - Files and images as attachments
-   - Reply to specific messages
-   - Add reactions to messages
-
-Guidelines:
-- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- Use Discord tools to send rich content (embeds, files, etc.) to the user
-- Ask for confirmation before destructive operations
-
-Communication Guidelines:
-- Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
-- **AVOID** sending status updates like "Task started" - just do the work
-- **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
-- Keep your final text response **brief** if details were already sent
-
-You are an expert assistant that can help with:
-- Software development and coding
-- System administration
-- File management
-- Sharing files and media via Discord
-- Any command-line task the user needs help with`
-
-const WHATSAPP_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
-
-You have access to:
-1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
-2. **Text editor** - View and edit files with precision
-3. **WhatsApp messaging** - Send various types of content to the user via WhatsApp:
-   - Text messages
-   - Images with captions
-   - Documents/files
-   - Locations
-   - Contacts
-
-Guidelines:
-- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- Use WhatsApp tools to send rich content (images, files, etc.) to the user
-- Ask for confirmation before destructive operations
-
-Communication Guidelines:
-- Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
-- **AVOID** sending status updates like "Task started" - just do the work
-- **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
-- Keep your final text response **brief** if details were already sent
-
-You are an expert assistant that can help with:
-- Software development and coding
-- System administration
-- File management
-- Sharing files and media via WhatsApp
-- Any command-line task the user needs help with`
-
-const SLACK_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
-
-You have access to:
-1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
-2. **Text editor** - View and edit files with precision
-3. **Slack messaging** - Send various types of content to the user via Slack:
-   - Text messages (with mrkdwn formatting)
-   - Rich Block Kit messages
-   - File uploads
-   - Reactions to messages
-   - Thread replies
-
-Guidelines:
-- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- Use Slack tools to send rich content (blocks, files, etc.) to the user
-- Ask for confirmation before destructive operations
-
-Communication Guidelines:
-- Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
-- **AVOID** sending status updates like "Task started" - just do the work
-- **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
-- Keep your final text response **brief** if details were already sent
-
-You are an expert assistant that can help with:
-- Software development and coding
-- System administration
-- File management
-- Sharing files and media via Slack
-- Any command-line task the user needs help with`
-
-const LINE_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
-
-You have access to:
-1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
-2. **Text editor** - View and edit files with precision
-3. **Line messaging** - Send various types of content to the user via Line:
-   - Text messages
-   - Images
-   - Stickers
-   - Locations
-   - Flex Messages (rich interactive cards)
-   - Button templates
-
-Guidelines:
-- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- Use Line tools to send rich content (images, stickers, flex messages, etc.) to the user
-- Ask for confirmation before destructive operations
-
-Communication Guidelines:
-- Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
-- **AVOID** sending status updates like "Task started" - just do the work
-- **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
-- Keep your final text response **brief** if details were already sent
-
-You are an expert assistant that can help with:
-- Software development and coding
-- System administration
-- File management
-- Sharing files and media via Line
-- Any command-line task the user needs help with`
-
-const FEISHU_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
-
-You have access to:
-1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
-2. **Text editor** - View and edit files with precision
-3. **Feishu messaging** - Send various types of content to the user via Feishu (飞书):
-   - Text messages
-   - Images
-   - Files/Documents
-   - Message cards (interactive cards with rich formatting)
-
-Guidelines:
-- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- Use Feishu tools to send rich content (images, files, cards) to the user
-- Ask for confirmation before destructive operations
-
-Communication Guidelines:
-- Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
-- **AVOID** sending status updates like "Task started" - just do the work
-- **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
-- Keep your final text response **brief** if details were already sent
-
-You are an expert assistant that can help with:
-- Software development and coding
-- System administration
-- File management
-- Sharing files and media via Feishu
-- Any command-line task the user needs help with`
-
-const DEFAULT_SYSTEM_PROMPT = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.
-
-You have access to:
-1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
-2. **Text editor** - View and edit files with precision
-
-Guidelines:
-- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- Ask for confirmation before destructive operations
-- **AVOID** repeating yourself - keep responses concise
-
-You are an expert assistant that can help with:
-- Software development and coding
-- System administration
-- File management
-- Any command-line task the user needs help with`
-
-/**
- * Create Anthropic client with current settings
- * Supports multiple providers: Claude, MiniMax, or custom Anthropic-compatible API
- */
-async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number; provider: string }> {
-  const settings = await loadSettings()
-  const provider = settings.llmProvider || 'claude'
-
-  // Get API key and base URL based on provider
-  let apiKey: string
-  let baseURL: string | undefined
-  let model: string
-
-  switch (provider) {
-    case 'claude':
-      apiKey = settings.claudeApiKey
-      baseURL = undefined  // Use Anthropic default
-      model = settings.claudeModel || 'claude-opus-4-5'
-      break
-    case 'minimax':
-      apiKey = settings.minimaxApiKey
-      baseURL = 'https://api.minimaxi.com/anthropic'
-      model = settings.minimaxModel || 'MiniMax-M2.1'
-      break
-    case 'custom':
-      apiKey = settings.customApiKey
-      baseURL = settings.customBaseUrl || undefined
-      model = settings.customModel
-      break
-    default:
-      apiKey = settings.claudeApiKey
-      model = settings.claudeModel || 'claude-opus-4-5'
-  }
-
-  if (!apiKey) {
-    throw new Error(`API key not configured for ${provider}. Please set it in Settings.`)
-  }
-
-  const client = new Anthropic({
-    apiKey,
-    ...(baseURL && { baseURL })
-  })
-
-  console.log(`[Agent] Using LLM provider: ${provider}, model: ${model}${baseURL ? `, baseURL: ${baseURL}` : ''}`)
-
-  return {
-    client,
-    model,
-    maxTokens: settings.maxTokens,
-    provider
-  }
-}
-
-/**
- * Get tools for a specific platform
- */
-function getToolsForPlatform(platform: MessagePlatform): Anthropic.Tool[] {
-  const baseTools = [...computerUseTools]
-  
-  // Add platform-specific tools (macOS mail, calendar, etc.)
-  const platformTools = getMacOSTools() // Returns empty array on non-macOS
-  
-  // Add MCP tools to all platforms
-  const mcpTools = mcpService.getTools()
-  
-  // Service tools are available on all platforms
-  const svcTools = [...serviceTools]
-  
-  switch (platform) {
-    case 'telegram':
-      return [...baseTools, ...platformTools, ...telegramTools, ...svcTools, ...mcpTools]
-    case 'discord':
-      return [...baseTools, ...platformTools, ...discordTools, ...svcTools, ...mcpTools]
-    case 'whatsapp':
-      return [...baseTools, ...platformTools, ...whatsappTools, ...svcTools, ...mcpTools]
-    case 'slack':
-      return [...baseTools, ...platformTools, ...slackTools, ...svcTools, ...mcpTools]
-    case 'line':
-      return [...baseTools, ...platformTools, ...lineTools, ...svcTools, ...mcpTools]
-    case 'feishu':
-      return [...baseTools, ...platformTools, ...feishuTools, ...svcTools, ...mcpTools]
-    case 'none':
-    default:
-      return [...baseTools, ...platformTools, ...svcTools, ...mcpTools]
-  }
-}
-
-/**
- * Get the default output directory for agent-generated files
- */
-function getDefaultOutputDir(): string {
-  return path.join(app.getPath('userData'), 'agent-output')
-}
-
-/**
- * Get system prompt for a specific platform
- */
-async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<string> {
-  const settings = await loadSettings()
-  const defaultOutputDir = getDefaultOutputDir()
-  
-  // Get base system prompt
-  let basePrompt: string
-  if (settings.systemPrompt) {
-    basePrompt = settings.systemPrompt
-  } else {
-    switch (platform) {
-      case 'telegram':
-        basePrompt = TELEGRAM_SYSTEM_PROMPT
-        break
-      case 'discord':
-        basePrompt = DISCORD_SYSTEM_PROMPT
-        break
-      case 'whatsapp':
-        basePrompt = WHATSAPP_SYSTEM_PROMPT
-        break
-      case 'slack':
-        basePrompt = SLACK_SYSTEM_PROMPT
-        break
-      case 'line':
-        basePrompt = LINE_SYSTEM_PROMPT
-        break
-      case 'feishu':
-        basePrompt = FEISHU_SYSTEM_PROMPT
-        break
-      case 'none':
-      default:
-        basePrompt = DEFAULT_SYSTEM_PROMPT
-    }
-  }
-  
-  // Add default output directory instruction
-  const outputDirInstruction = `
-
-## Default Output Directory
-
-When creating or saving files (images, documents, code, etc.), use the following directory as the default location:
-\`${defaultOutputDir}\`
-
-**CRITICAL FILE HANDLING RULES:**
-
-1. **All generated/downloaded/new files MUST be saved to the private directory first**
-   - Generated files (images from MCP, created documents, etc.)
-   - Downloaded files (from URLs, APIs, etc.)
-   - Any new file that will be shared with the user
-   
-2. **Always use private directory paths in conversation history**
-   - Store and reference files using their path in \`${defaultOutputDir}\`
-   - This ensures files persist and are accessible later
-   
-3. **For user-specified destinations (Desktop, Downloads, etc.):**
-   - First save to private directory
-   - Then COPY (not move) to the user-requested location
-   - Report both paths to user if relevant
-   
-4. **Exception: Existing local files**
-   - If referencing a file that already exists on user's system, use its original path
-   - Only apply the above rules to NEW files
-
-5. **Subdirectory organization:**
-   - images/ - for generated/downloaded images
-   - downloads/ - for downloaded files
-   - documents/ - for created documents
-   - code/ - for generated code files`
-
-  basePrompt += outputDirInstruction
-
-  // Append service workspace info
-  const servicesDir = serviceManagerService.getServicesDir()
-  basePrompt += `
-
-## Service Workspace
-
-When creating background services, use this directory:
-\`${servicesDir}\`
-
-Services should call the local API at http://127.0.0.1:31415/api/v1/invoke to report events.`
-
-  // Load builtin skills (bundled with app)
-  try {
-    const builtinSkillsDir = path.join(__dirname, '../builtin-skills')
-    const builtinSkillPath = path.join(builtinSkillsDir, 'service-creator', 'SKILL.md')
-    const builtinContent = await fs.readFile(builtinSkillPath, 'utf-8')
-    basePrompt += '\n\n' + builtinContent
-    console.log('[Agent] Loaded builtin skill: service-creator')
-  } catch (error) {
-    // Builtin skills may not exist in dev mode, try src path
-    try {
-      const devSkillPath = path.join(process.cwd(), 'src/main/builtin-skills/service-creator/SKILL.md')
-      const devContent = await fs.readFile(devSkillPath, 'utf-8')
-      basePrompt += '\n\n' + devContent
-      console.log('[Agent] Loaded builtin skill from dev path: service-creator')
-    } catch {
-      console.log('[Agent] Builtin skills not found (this is ok in some environments)')
-    }
-  }
-  
-  // Append user-enabled skills content
-  try {
-    const skillsContent = await skillsService.getEnabledSkillsContent()
-    if (skillsContent) {
-      console.log('[Agent] Loaded user skills content, length:', skillsContent.length)
-      basePrompt += skillsContent
-    } else {
-      console.log('[Agent] No user skills to load')
-    }
-  } catch (error) {
-    console.error('[Agent] Failed to load user skills:', error)
-  }
-  
-  return basePrompt
-}
+// Import from refactored modules
+import {
+  MAX_CONTEXT_MESSAGES,
+  MAX_CONTEXT_TOKENS,
+  estimateTokens,
+  createClient
+} from './agent/utils'
+import { getToolsForPlatform } from './agent/tools'
+import { executeTool } from './agent/tool-executor'
+import { getSystemPromptForPlatform } from './agent/prompt-builder'
+
+// Re-export types from module for backwards compatibility
+export type {
+  MessagePlatform,
+  UnmemorizedMessage,
+  EvaluationDecision,
+  EvaluationContext,
+  EvaluationData,
+  LLMStatus,
+  LLMStatusInfo
+} from './agent/types'
+
+import type {
+  MessagePlatform,
+  LLMStatus,
+  LLMStatusInfo,
+  EvaluationContext,
+  EvaluationData,
+  EvaluationDecision
+} from './agent/types'
 
 /**
  * AgentService handles conversation with Claude and tool execution
@@ -1192,10 +679,16 @@ export class AgentService {
   private async runAgentLoop(): Promise<AgentResponse> {
     // Create client with current settings (re-read each time in case settings changed)
     const { client, model, maxTokens } = await createClient()
+    const settings = await loadSettings()
     const systemPrompt = await getSystemPromptForPlatform(this.currentPlatform)
-    const tools = getToolsForPlatform(this.currentPlatform)
+    const tools = getToolsForPlatform(this.currentPlatform, {
+      visualModeEnabled: settings.experimentalVisualMode,
+      computerUseEnabled: settings.experimentalComputerUse
+    })
 
     console.log(`[Agent] Using tools for platform: ${this.currentPlatform}`)
+    console.log(`[Agent] Visual mode: ${settings.experimentalVisualMode ? 'enabled' : 'disabled'}`)
+    console.log(`[Agent] Computer use: ${settings.experimentalComputerUse ? 'enabled' : 'disabled'}`)
     console.log(`[Agent] Available tools: ${tools.map(t => t.name).join(', ')}`)
 
     let iterations = 0
@@ -1295,7 +788,7 @@ export class AgentService {
 
       console.log('[Agent] Executing tool:', toolUse.name)
       this.setStatus('tool_executing', toolUse.name)
-      const result = await this.executeTool(toolUse.name, toolUse.input)
+      const result = await this.executeToolInternal(toolUse.name, toolUse.input)
 
       // Handle screenshot specially - include image in response
       if (toolUse.name === 'computer' && (toolUse.input as { action: string }).action === 'screenshot') {
@@ -1347,102 +840,13 @@ export class AgentService {
 
   /**
    * Execute a single tool
+   * Delegates to the tool-executor module
    */
-  private async executeTool(
+  private async executeToolInternal(
     name: string,
     input: unknown
   ): Promise<{ success: boolean; data?: unknown; error?: string }> {
-    // Computer use tools
-    switch (name) {
-      case 'computer':
-        return await executeComputerTool(input as Parameters<typeof executeComputerTool>[0])
-
-      case 'bash':
-        return await executeBashTool(input as Parameters<typeof executeBashTool>[0])
-
-      case 'str_replace_editor':
-        return await executeTextEditorTool(input as Parameters<typeof executeTextEditorTool>[0])
-
-      case 'download_file':
-        return await executeDownloadFileTool(input as Parameters<typeof executeDownloadFileTool>[0])
-
-      case 'web_search':
-        return await executeWebSearchTool(input as Parameters<typeof executeWebSearchTool>[0])
-    }
-
-    // macOS-specific tools
-    if (isMacOS()) {
-      switch (name) {
-        case 'macos_launch_app':
-          return await executeMacOSLaunchAppTool(input as Parameters<typeof executeMacOSLaunchAppTool>[0])
-        case 'macos_mail':
-          return await executeMacOSMailTool(input as Parameters<typeof executeMacOSMailTool>[0])
-        case 'macos_calendar':
-          return await executeMacOSCalendarTool(input as Parameters<typeof executeMacOSCalendarTool>[0])
-        case 'macos_contacts':
-          return await executeMacOSContactsTool(input as Parameters<typeof executeMacOSContactsTool>[0])
-      }
-    }
-
-    // Telegram tools
-    if (name.startsWith('telegram_')) {
-      if (this.currentPlatform !== 'telegram') {
-        return { success: false, error: `Telegram tools are not available in ${this.currentPlatform} context` }
-      }
-      return await executeTelegramTool(name, input)
-    }
-
-    // Discord tools
-    if (name.startsWith('discord_')) {
-      if (this.currentPlatform !== 'discord') {
-        return { success: false, error: `Discord tools are not available in ${this.currentPlatform} context` }
-      }
-      return await executeDiscordTool(name, input)
-    }
-
-    // WhatsApp tools
-    if (name.startsWith('whatsapp_')) {
-      if (this.currentPlatform !== 'whatsapp') {
-        return { success: false, error: `WhatsApp tools are not available in ${this.currentPlatform} context` }
-      }
-      return await executeWhatsAppTool(name, input)
-    }
-
-    // Slack tools
-    if (name.startsWith('slack_')) {
-      if (this.currentPlatform !== 'slack') {
-        return { success: false, error: `Slack tools are not available in ${this.currentPlatform} context` }
-      }
-      return await executeSlackTool(name, input)
-    }
-
-    // Line tools
-    if (name.startsWith('line_')) {
-      if (this.currentPlatform !== 'line') {
-        return { success: false, error: `Line tools are not available in ${this.currentPlatform} context` }
-      }
-      return await executeLineTool(name, input)
-    }
-
-    // Feishu tools
-    if (name.startsWith('feishu_')) {
-      if (this.currentPlatform !== 'feishu') {
-        return { success: false, error: `Feishu tools are not available in ${this.currentPlatform} context` }
-      }
-      return await executeFeishuTool(name, input)
-    }
-
-    // Service tools
-    if (name.startsWith('service_')) {
-      return await executeServiceTool(name, input)
-    }
-
-    // MCP tools
-    if (mcpService.isMcpTool(name)) {
-      return await mcpService.executeTool(name, input)
-    }
-
-    return { success: false, error: `Unknown tool: ${name}` }
+    return await executeTool(name, input, this.currentPlatform)
   }
 
   /**

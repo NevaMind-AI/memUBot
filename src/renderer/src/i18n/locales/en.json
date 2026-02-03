@@ -83,6 +83,7 @@
       "skills": "Skills",
       "services": "Services",
       "data": "Data",
+      "experimental": "Experimental",
       "about": "About"
     },
     "general": {
@@ -107,6 +108,7 @@
       "minimaxInfo": "Using MiniMax M2.1 via Anthropic-compatible API. Get your API key from platform.minimaxi.com"
     },
     "platforms": {
+      "autoConnect": "Auto Connect",
       "telegram": {
         "title": "Telegram",
         "botToken": "Bot Token",
@@ -292,6 +294,25 @@
       "schedule": "Schedule",
       "notifyVia": "Notify via",
       "created": "Created"
+    },
+    "experimental": {
+      "title": "Experimental Features",
+      "description": "These features are still in development and may affect system stability",
+      "warning": "Experimental features may be unstable. Use with caution. These are primarily for demonstration and testing purposes.",
+      "visualMode": {
+        "title": "Visual Demo Mode",
+        "description": "Agent automatically opens relevant app windows when executing tasks, creating an immersive visual demonstration of the workflow.",
+        "hint": "When enabled, Agent will open Mail, Calendar, Keynote and other apps to show the operation process",
+        "enabled": "Visual mode is enabled",
+        "enabledHint": "Agent will automatically open corresponding app windows when reading emails, calendar, or creating documents"
+      },
+      "computerUse": {
+        "title": "Computer Use",
+        "description": "Allow Agent to control mouse and keyboard, take screenshots, enabling full computer control capabilities.",
+        "hint": "When enabled, Agent can operate your computer like a human",
+        "enabled": "Computer Use is enabled",
+        "enabledHint": "Agent can now control the mouse, keyboard, and view the screen"
+      }
     },
     "data": {
       "title": "Data",

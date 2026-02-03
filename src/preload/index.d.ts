@@ -84,15 +84,21 @@ interface AppSettings {
   memuUserId: string
   memuAgentId: string
   telegramBotToken: string
+  telegramAutoConnect: boolean
   discordBotToken: string
+  discordAutoConnect: boolean
   whatsappEnabled: boolean
   slackBotToken: string
   slackAppToken: string
+  slackAutoConnect: boolean
   lineChannelAccessToken: string
   lineChannelSecret: string
   feishuAppId: string
   feishuAppSecret: string
+  feishuAutoConnect: boolean
   language: string
+  experimentalVisualMode: boolean
+  experimentalComputerUse: boolean
 }
 
 // Agent API interface

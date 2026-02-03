@@ -1,17 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles, Play } from 'lucide-react'
+import { Bot, Info, Key, Database, Loader2, Check, AlertCircle, Shield, Server, Sparkles, Play, FlaskConical } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { SecuritySettings } from './SecuritySettings'
 import { McpSettings } from './McpSettings'
 import { SkillsSettings } from './SkillsSettings'
 import { ServicesSettings } from './ServicesSettings'
+import { ExperimentalSettings } from './ExperimentalSettings'
 import { Slider } from '../Slider'
 import { changeLanguage, languages } from '../../i18n'
 import appIcon from '../../assets/app-icon.png'
 import logoSvg from '../../assets/logo.svg'
 import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
 
-type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'about'
+type SettingsTab = 'general' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'experimental' | 'about'
 
 type LLMProvider = 'claude' | 'minimax' | 'custom'
 
@@ -43,14 +44,18 @@ interface AppSettings {
   memuUserId: string
   memuAgentId: string
   telegramBotToken: string
+  telegramAutoConnect: boolean
   discordBotToken: string
+  discordAutoConnect: boolean
   whatsappEnabled: boolean
   slackBotToken: string
   slackAppToken: string
+  slackAutoConnect: boolean
   lineChannelAccessToken: string
   lineChannelSecret: string
   feishuAppId: string
   feishuAppSecret: string
+  feishuAutoConnect: boolean
   language: string
 }
 
@@ -66,6 +71,7 @@ export function SettingsView(): JSX.Element {
     { id: 'services' as const, icon: Play, labelKey: 'settings.tabs.services' },
     { id: 'mcp' as const, icon: Server, labelKey: 'settings.tabs.mcp' },
     { id: 'data' as const, icon: Database, labelKey: 'settings.tabs.data' },
+    { id: 'experimental' as const, icon: FlaskConical, labelKey: 'settings.tabs.experimental' },
     { id: 'about' as const, icon: Info, labelKey: 'settings.tabs.about' }
   ]
 
@@ -109,6 +115,7 @@ export function SettingsView(): JSX.Element {
           {activeTab === 'services' && <ServicesSettings />}
           {activeTab === 'mcp' && <McpSettings />}
           {activeTab === 'data' && <DataSettings />}
+          {activeTab === 'experimental' && <ExperimentalSettings />}
           {activeTab === 'about' && <AboutSection />}
         </div>
       </div>
@@ -200,11 +207,15 @@ function GeneralSettings(): JSX.Element {
     settings.memuUserId !== originalSettings.memuUserId ||
     settings.memuAgentId !== originalSettings.memuAgentId ||
     settings.telegramBotToken !== originalSettings.telegramBotToken ||
+    settings.telegramAutoConnect !== originalSettings.telegramAutoConnect ||
     settings.discordBotToken !== originalSettings.discordBotToken ||
+    settings.discordAutoConnect !== originalSettings.discordAutoConnect ||
     settings.slackBotToken !== originalSettings.slackBotToken ||
     settings.slackAppToken !== originalSettings.slackAppToken ||
+    settings.slackAutoConnect !== originalSettings.slackAutoConnect ||
     settings.feishuAppId !== originalSettings.feishuAppId ||
     settings.feishuAppSecret !== originalSettings.feishuAppSecret ||
+    settings.feishuAutoConnect !== originalSettings.feishuAutoConnect ||
     settings.language !== originalSettings.language
 
   const handleSave = async () => {
@@ -227,11 +238,15 @@ function GeneralSettings(): JSX.Element {
         // Other settings
         memuApiKey: settings.memuApiKey,
         telegramBotToken: settings.telegramBotToken,
+        telegramAutoConnect: settings.telegramAutoConnect,
         discordBotToken: settings.discordBotToken,
+        discordAutoConnect: settings.discordAutoConnect,
         slackBotToken: settings.slackBotToken,
         slackAppToken: settings.slackAppToken,
+        slackAutoConnect: settings.slackAutoConnect,
         feishuAppId: settings.feishuAppId,
         feishuAppSecret: settings.feishuAppSecret,
+        feishuAutoConnect: settings.feishuAutoConnect,
         language: settings.language
       })
       if (result.success) {
@@ -432,13 +447,31 @@ function GeneralSettings(): JSX.Element {
         {/* Telegram Token */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#0088cc]/30 shadow-sm">
           <div className="mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-gradient-to-tl from-[#2AABEE] to-[#0088CC] flex items-center justify-center">
-                <TelegramIcon className="w-3 h-3 text-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-tl from-[#2AABEE] to-[#0088CC] flex items-center justify-center">
+                  <TelegramIcon className="w-3 h-3 text-white" />
+                </div>
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                  Telegram
+                </h4>
               </div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
-                Telegram
-              </h4>
+              {/* Auto Connect Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--text-muted)]">{t('settings.platforms.autoConnect')}</span>
+                <button
+                  onClick={() => setSettings({ ...settings, telegramAutoConnect: !settings.telegramAutoConnect })}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    settings.telegramAutoConnect ? 'bg-[#0088cc]' : 'bg-[var(--bg-input)]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      settings.telegramAutoConnect ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
             <p className="text-[11px] text-[var(--text-muted)] mt-1">{t('settings.platforms.telegram.botTokenHint')}</p>
           </div>
@@ -454,13 +487,31 @@ function GeneralSettings(): JSX.Element {
         {/* Discord Token */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#5865F2]/30 shadow-sm">
           <div className="mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#5865F2] to-[#7289DA] flex items-center justify-center">
-                <DiscordIcon className="w-3 h-3 text-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#5865F2] to-[#7289DA] flex items-center justify-center">
+                  <DiscordIcon className="w-3 h-3 text-white" />
+                </div>
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                  Discord
+                </h4>
               </div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
-                Discord
-              </h4>
+              {/* Auto Connect Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--text-muted)]">{t('settings.platforms.autoConnect')}</span>
+                <button
+                  onClick={() => setSettings({ ...settings, discordAutoConnect: !settings.discordAutoConnect })}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    settings.discordAutoConnect ? 'bg-[#5865F2]' : 'bg-[var(--bg-input)]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      settings.discordAutoConnect ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
             <p className="text-[11px] text-[var(--text-muted)] mt-1">{t('settings.platforms.discord.botTokenHint')}</p>
           </div>
@@ -504,13 +555,31 @@ function GeneralSettings(): JSX.Element {
         {/* Slack Tokens */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#611F69]/40 dark:border-[#E0B3E6]/30 shadow-sm">
           <div className="mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#4A154B] to-[#611F69] flex items-center justify-center">
-                <SlackIcon className="w-3 h-3 text-white" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#4A154B] to-[#611F69] flex items-center justify-center">
+                  <SlackIcon className="w-3 h-3 text-white" />
+                </div>
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                  Slack
+                </h4>
               </div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
-                Slack
-              </h4>
+              {/* Auto Connect Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--text-muted)]">{t('settings.platforms.autoConnect')}</span>
+                <button
+                  onClick={() => setSettings({ ...settings, slackAutoConnect: !settings.slackAutoConnect })}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    settings.slackAutoConnect ? 'bg-[#4A154B]' : 'bg-[var(--bg-input)]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      settings.slackAutoConnect ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
             <p className="text-[11px] text-[var(--text-muted)] mt-1">
               {t('settings.platforms.slack.tokensHint')}
@@ -582,11 +651,29 @@ function GeneralSettings(): JSX.Element {
         {/* Feishu Tokens */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#3370FF]/30">
           <div className="mb-3">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-md bg-gradient-to-br from-white to-[#F5F6F7] dark:from-[#2A2B2E] dark:to-[#1F2023] ring-1 ring-black/5 dark:ring-white/10 flex items-center justify-center">
-                <FeishuIcon className="w-3 h-3" />
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-white to-[#F5F6F7] dark:from-[#2A2B2E] dark:to-[#1F2023] ring-1 ring-black/5 dark:ring-white/10 flex items-center justify-center">
+                  <FeishuIcon className="w-3 h-3" />
+                </div>
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.platforms.feishu.title')}</h4>
               </div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.platforms.feishu.title')}</h4>
+              {/* Auto Connect Toggle */}
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-[var(--text-muted)]">{t('settings.platforms.autoConnect')}</span>
+                <button
+                  onClick={() => setSettings({ ...settings, feishuAutoConnect: !settings.feishuAutoConnect })}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    settings.feishuAutoConnect ? 'bg-[#3370FF]' : 'bg-[var(--bg-input)]'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      settings.feishuAutoConnect ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
           <div className="space-y-3">

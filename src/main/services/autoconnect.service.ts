@@ -20,22 +20,30 @@ class AutoConnectService {
 
     // Check Telegram
     if (settings.telegramBotToken && settings.telegramBotToken.trim() !== '') {
-      console.log('[AutoConnect] Telegram is configured, connecting...')
-      connectPromises.push(
-        this.connectTelegram().catch((err) => {
-          console.error('[AutoConnect] Failed to connect Telegram:', err)
-        })
-      )
+      if (settings.telegramAutoConnect !== false) {
+        console.log('[AutoConnect] Telegram is configured, connecting...')
+        connectPromises.push(
+          this.connectTelegram().catch((err) => {
+            console.error('[AutoConnect] Failed to connect Telegram:', err)
+          })
+        )
+      } else {
+        console.log('[AutoConnect] Telegram is configured but auto-connect is disabled')
+      }
     }
 
     // Check Discord
     if (settings.discordBotToken && settings.discordBotToken.trim() !== '') {
-      console.log('[AutoConnect] Discord is configured, connecting...')
-      connectPromises.push(
-        this.connectDiscord().catch((err) => {
-          console.error('[AutoConnect] Failed to connect Discord:', err)
-        })
-      )
+      if (settings.discordAutoConnect !== false) {
+        console.log('[AutoConnect] Discord is configured, connecting...')
+        connectPromises.push(
+          this.connectDiscord().catch((err) => {
+            console.error('[AutoConnect] Failed to connect Discord:', err)
+          })
+        )
+      } else {
+        console.log('[AutoConnect] Discord is configured but auto-connect is disabled')
+      }
     }
 
     // Check Slack (needs both bot token and app token)
@@ -43,12 +51,16 @@ class AutoConnectService {
       settings.slackBotToken && settings.slackBotToken.trim() !== '' &&
       settings.slackAppToken && settings.slackAppToken.trim() !== ''
     ) {
-      console.log('[AutoConnect] Slack is configured, connecting...')
-      connectPromises.push(
-        this.connectSlack().catch((err) => {
-          console.error('[AutoConnect] Failed to connect Slack:', err)
-        })
-      )
+      if (settings.slackAutoConnect !== false) {
+        console.log('[AutoConnect] Slack is configured, connecting...')
+        connectPromises.push(
+          this.connectSlack().catch((err) => {
+            console.error('[AutoConnect] Failed to connect Slack:', err)
+          })
+        )
+      } else {
+        console.log('[AutoConnect] Slack is configured but auto-connect is disabled')
+      }
     }
 
     // Check Feishu (needs both app ID and app secret)
@@ -56,12 +68,16 @@ class AutoConnectService {
       settings.feishuAppId && settings.feishuAppId.trim() !== '' &&
       settings.feishuAppSecret && settings.feishuAppSecret.trim() !== ''
     ) {
-      console.log('[AutoConnect] Feishu is configured, connecting...')
-      connectPromises.push(
-        this.connectFeishu().catch((err) => {
-          console.error('[AutoConnect] Failed to connect Feishu:', err)
-        })
-      )
+      if (settings.feishuAutoConnect !== false) {
+        console.log('[AutoConnect] Feishu is configured, connecting...')
+        connectPromises.push(
+          this.connectFeishu().catch((err) => {
+            console.error('[AutoConnect] Failed to connect Feishu:', err)
+          })
+        )
+      } else {
+        console.log('[AutoConnect] Feishu is configured but auto-connect is disabled')
+      }
     }
 
     // Wait for all connections to complete (or fail)

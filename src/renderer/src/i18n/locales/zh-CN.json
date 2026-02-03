@@ -83,6 +83,7 @@
       "skills": "Skills",
       "services": "后台服务",
       "data": "数据",
+      "experimental": "实验性功能",
       "about": "关于"
     },
     "general": {
@@ -107,6 +108,7 @@
       "minimaxInfo": "使用 MiniMax M2.1（Anthropic 兼容 API）。请在 platform.minimaxi.com 获取 API Key"
     },
     "platforms": {
+      "autoConnect": "自动连接",
       "telegram": {
         "title": "Telegram",
         "botToken": "Bot Token",
@@ -290,6 +292,25 @@
       "schedule": "执行计划",
       "notifyVia": "通知渠道",
       "created": "创建时间"
+    },
+    "experimental": {
+      "title": "实验性功能",
+      "description": "这些功能仍在开发中，可能影响系统稳定性",
+      "warning": "实验性功能可能不稳定，请谨慎使用。这些功能主要用于演示和测试目的。",
+      "visualMode": {
+        "title": "可视化演示模式",
+        "description": "Agent 执行任务时自动打开相关应用界面，营造直观的工作演示效果。适用于向他人展示 Agent 工作流程。",
+        "hint": "启用后，Agent 会打开 Mail、Calendar、Keynote 等应用窗口，展示操作过程",
+        "enabled": "可视化模式已启用",
+        "enabledHint": "Agent 在读取邮件、日历或创建文档时会自动打开对应的应用界面"
+      },
+      "computerUse": {
+        "title": "Computer Use",
+        "description": "允许 Agent 控制鼠标和键盘，截取屏幕截图，实现完全的计算机操控能力。",
+        "hint": "启用后，Agent 可以像人一样操作你的电脑",
+        "enabled": "Computer Use 已启用",
+        "enabledHint": "Agent 现在可以控制鼠标、键盘并查看屏幕"
+      }
     },
     "data": {
       "title": "数据",
