@@ -12,6 +12,8 @@ asarUnpack:
   - resources/**
 win:
   executableName: memu-bot
+  # Windows icon - with rounded corners (electron-builder auto-converts PNG to ICO)
+  icon: build/icon-win.png
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -20,6 +22,9 @@ nsis:
 mac:
   hardenedRuntime: true
   gatekeeperAssess: false
+  # macOS icon - should be square WITHOUT rounded corners (system adds them)
+  # Use .icns format or a 1024x1024 PNG
+  icon: build/icon.icns
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -38,6 +43,8 @@ linux:
     - deb
   maintainer: electronjs.org
   category: Utility
+  # Linux icon - PNG format, can include effects as desired
+  icon: build/icon.png
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
