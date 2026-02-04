@@ -15,6 +15,40 @@ const execAsync = promisify(exec)
 const isWindows = process.platform === 'win32'
 
 /**
+ * Maximum output length to prevent context overflow (in characters)
+ * ~30KB is a reasonable limit for LLM context
+ */
+const MAX_OUTPUT_LENGTH = 30000
+
+/**
+ * Truncate output to prevent context overflow
+ * Shows beginning and end of output with truncation notice in the middle
+ * Exported for use in other executors
+ */
+export function truncateOutput(output: string, maxLength: number = MAX_OUTPUT_LENGTH): string {
+  if (output.length <= maxLength) {
+    return output
+  }
+
+  // Calculate how much to show from start and end
+  // Reserve some space for the truncation notice
+  const truncationNotice = '\n\n... [OUTPUT TRUNCATED - Too long for context] ...\n\n'
+  const availableLength = maxLength - truncationNotice.length
+  const headLength = Math.floor(availableLength * 0.7) // Show more from the beginning
+  const tailLength = availableLength - headLength
+
+  const head = output.substring(0, headLength)
+  const tail = output.substring(output.length - tailLength)
+
+  const originalLines = output.split('\n').length
+  const truncatedChars = output.length - headLength - tailLength
+
+  const detailedNotice = `\n\n... [OUTPUT TRUNCATED: ${truncatedChars.toLocaleString()} characters (~${originalLines.toLocaleString()} total lines) removed to fit context. Consider using more specific commands like: head, tail, grep, find with -maxdepth, or wc -l to count] ...\n\n`
+
+  return head + detailedNotice + tail
+}
+
+/**
  * Decode buffer with proper encoding for the platform
  * Windows uses GBK (CP936) by default for Chinese locales
  */
@@ -359,7 +393,14 @@ export async function executeBashTool(input: {
 
     const stdoutStr = decodeOutput(stdout)
     const stderrStr = decodeOutput(stderr)
-    const output = stdoutStr + (stderrStr ? `\nSTDERR:\n${stderrStr}` : '')
+    let output = stdoutStr + (stderrStr ? `\nSTDERR:\n${stderrStr}` : '')
+    
+    // Truncate output to prevent context overflow
+    const originalLength = output.length
+    output = truncateOutput(output)
+    if (output.length < originalLength) {
+      console.log(`[Bash] Output truncated from ${originalLength} to ${output.length} chars`)
+    }
     console.log('[Bash] Output:', output.substring(0, 200) + '...')
 
     return { success: true, data: output }
@@ -379,6 +420,8 @@ export async function executeBashTool(input: {
     } else {
       output = execError.message || String(error)
     }
+    // Also truncate error output
+    output = truncateOutput(output)
     return { success: false, error: output }
   }
 }
@@ -403,15 +446,20 @@ export async function executeTextEditorTool(input: {
         const content = await fs.readFile(filePath, 'utf-8')
         const lines = content.split('\n')
 
+        let output: string
         if (input.view_range) {
           const [start, end] = input.view_range
           const selectedLines = lines.slice(start - 1, end)
           const numberedLines = selectedLines.map((line, i) => `${start + i}: ${line}`)
-          return { success: true, data: numberedLines.join('\n') }
+          output = numberedLines.join('\n')
+        } else {
+          const numberedLines = lines.map((line, i) => `${i + 1}: ${line}`)
+          output = numberedLines.join('\n')
         }
-
-        const numberedLines = lines.map((line, i) => `${i + 1}: ${line}`)
-        return { success: true, data: numberedLines.join('\n') }
+        
+        // Truncate large file output to prevent context overflow
+        output = truncateOutput(output)
+        return { success: true, data: output }
       }
 
       case 'create': {

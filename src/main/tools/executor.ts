@@ -3,6 +3,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import * as readline from 'readline'
 import { app } from 'electron'
+import { truncateOutput } from './computer.executor'
 import type {
   ReadFileInput,
   WriteFileInput,
@@ -197,9 +198,12 @@ async function executeReadFile(input: ReadFileInput): Promise<ToolResult> {
     ? `[${input.path}] Lines ${startLine}-${endLine} of ${lines.length}`
     : `[${input.path}] ${lines.length} lines`
   
+  // Truncate large file output to prevent context overflow
+  const output = truncateOutput(`${header}\n${numberedLines.join('\n')}`)
+  
   return { 
     success: true, 
-    data: `${header}\n${numberedLines.join('\n')}`
+    data: output
   }
 }
 
@@ -210,7 +214,9 @@ async function executeWriteFile(input: WriteFileInput): Promise<ToolResult> {
 
 async function executeListDirectory(input: ListDirectoryInput): Promise<ToolResult> {
   const files = await fileService.listDirectory(input.path)
-  return { success: true, data: files }
+  // Truncate if file list is too large
+  const output = Array.isArray(files) ? files.join('\n') : String(files)
+  return { success: true, data: truncateOutput(output) }
 }
 
 async function executeDeleteFile(input: DeleteFileInput): Promise<ToolResult> {
