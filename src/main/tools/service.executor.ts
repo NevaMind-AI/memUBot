@@ -1,4 +1,8 @@
+import { exec } from 'child_process'
+import { promisify } from 'util'
 import { serviceManagerService, type ServiceType, type ServiceRuntime } from '../services/service-manager.service'
+
+const execAsync = promisify(exec)
 
 /**
  * Service tool executor
@@ -15,6 +19,28 @@ interface ServiceCreateInput {
   userRequest: string
   expectation: string
   notifyPlatform?: string
+}
+
+/**
+ * Check if a runtime is available on the system
+ */
+async function checkRuntimeAvailable(runtime: ServiceRuntime): Promise<{ available: boolean; version?: string; error?: string }> {
+  const command = runtime === 'node' ? 'node --version' : 'python3 --version'
+  const runtimeName = runtime === 'node' ? 'Node.js' : 'Python 3'
+  
+  try {
+    const { stdout } = await execAsync(command, { timeout: 5000 })
+    const version = stdout.trim()
+    console.log(`[ServiceExecutor] ${runtimeName} available: ${version}`)
+    return { available: true, version }
+  } catch (error) {
+    console.log(`[ServiceExecutor] ${runtimeName} not available:`, error)
+    
+    return {
+      available: false,
+      error: `${runtimeName} is not installed or not available in PATH. You can help the user install it using the bash tool, then retry creating the service.`
+    }
+  }
 }
 
 interface ServiceIdInput {
@@ -68,6 +94,15 @@ async function executeServiceCreate(input: ServiceCreateInput): Promise<{
   data?: unknown
   error?: string
 }> {
+  // Check if the required runtime is available before creating the service
+  const runtimeCheck = await checkRuntimeAvailable(input.runtime)
+  if (!runtimeCheck.available) {
+    return {
+      success: false,
+      error: runtimeCheck.error
+    }
+  }
+
   const result = await serviceManagerService.createService({
     name: input.name,
     description: input.description,
@@ -83,12 +118,14 @@ async function executeServiceCreate(input: ServiceCreateInput): Promise<{
   })
 
   if (result.success) {
+    const runtimeName = input.runtime === 'node' ? 'Node.js' : 'Python'
     return {
       success: true,
       data: {
         serviceId: result.serviceId,
         servicePath: result.servicePath,
-        message: `Service created successfully. Now write your service code to: ${result.servicePath}/${input.entryFile}`,
+        runtimeVersion: runtimeCheck.version,
+        message: `Service created successfully (${runtimeName} ${runtimeCheck.version} detected). Now write your service code to: ${result.servicePath}/${input.entryFile}`,
         template: getServiceTemplate(input.runtime, input.type)
       }
     }

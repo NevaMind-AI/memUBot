@@ -18,6 +18,34 @@ import {
 import type { MessagePlatform } from './types'
 
 /**
+ * Format current date and time for system prompt
+ */
+function getCurrentTimeInfo(): string {
+  const now = new Date()
+  
+  // Format date: YYYY-MM-DD (Weekday)
+  const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+  const weekday = weekdays[now.getDay()]
+  const dateStr = now.toLocaleDateString('en-CA') // YYYY-MM-DD format
+  
+  // Format time: HH:MM:SS
+  const timeStr = now.toLocaleTimeString('en-US', { hour12: false })
+  
+  // Get timezone
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const tzOffset = now.getTimezoneOffset()
+  const tzSign = tzOffset <= 0 ? '+' : '-'
+  const tzHours = Math.floor(Math.abs(tzOffset) / 60).toString().padStart(2, '0')
+  const tzMinutes = (Math.abs(tzOffset) % 60).toString().padStart(2, '0')
+  const tzString = `UTC${tzSign}${tzHours}:${tzMinutes}`
+  
+  return `## Current Time
+
+Current date and time: ${dateStr} (${weekday}) ${timeStr}
+Timezone: ${timezone} (${tzString})`
+}
+
+/**
  * Get system prompt for a specific platform
  */
 export async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<string> {
@@ -53,6 +81,10 @@ export async function getSystemPromptForPlatform(platform: MessagePlatform): Pro
         basePrompt = DEFAULT_SYSTEM_PROMPT
     }
   }
+  
+  // Add current time information at the beginning
+  const timeInfo = getCurrentTimeInfo()
+  basePrompt = timeInfo + '\n\n' + basePrompt
   
   // Add default output directory instruction
   const outputDirInstruction = `

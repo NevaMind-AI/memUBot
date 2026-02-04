@@ -55,6 +55,20 @@ This way:
 
 ## Service Creation Workflow
 
+### Step 0: Runtime Availability Check (Automatic)
+
+When you call `service_create`, the system automatically checks if the required runtime (Node.js or Python) is available. If not available, the tool returns an error.
+
+**When runtime is missing:**
+1. Ask the user if they want you to install it
+2. If yes, try to install using methods that DON'T require sudo:
+   - **macOS**: Use Homebrew (`brew install node` / `brew install python3`) - no sudo needed
+   - **If no Homebrew**: Install Homebrew first, or use nvm/pyenv
+   - **Linux/Windows**: Explain to user that installation requires manual steps (sudo password or admin rights)
+3. After installation succeeds, retry `service_create`
+
+**Note**: You cannot use sudo or su commands as they require password interaction. Only use installation methods that work without elevated privileges.
+
 ### Step 1: Create Service Metadata
 
 Use the `service_create` tool with:
