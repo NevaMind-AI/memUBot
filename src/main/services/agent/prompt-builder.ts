@@ -18,6 +18,49 @@ import {
 import type { MessagePlatform } from './types'
 
 /**
+ * Get operating system information for system prompt
+ */
+function getSystemInfo(): string {
+  const platform = process.platform
+  let osName: string
+  let shellInfo: string
+  
+  switch (platform) {
+    case 'win32':
+      osName = 'Windows'
+      shellInfo = `Shell: cmd.exe (Windows Command Prompt)
+- Use Windows commands: dir (not ls), type (not cat), del (not rm), copy (not cp), move (not mv)
+- Use backslashes for paths: C:\\Users\\...
+- Use "findstr" instead of "grep"
+- Use PowerShell syntax when needed: Get-ChildItem, Get-Content, etc.
+- For counting files: (Get-ChildItem -Recurse -Filter *.md).Count`
+      break
+    case 'darwin':
+      osName = 'macOS'
+      shellInfo = `Shell: bash/zsh (Unix shell)
+- Use Unix commands: ls, cat, rm, cp, mv, grep, find, etc.
+- Use forward slashes for paths: /Users/...`
+      break
+    case 'linux':
+      osName = 'Linux'
+      shellInfo = `Shell: bash (Unix shell)
+- Use Unix commands: ls, cat, rm, cp, mv, grep, find, etc.
+- Use forward slashes for paths: /home/...`
+      break
+    default:
+      osName = platform
+      shellInfo = 'Unknown shell environment'
+  }
+  
+  return `## System Environment
+
+Operating System: ${osName}
+${shellInfo}
+
+**IMPORTANT:** Always use platform-appropriate commands when executing bash/shell commands.`
+}
+
+/**
  * Format current date and time for system prompt
  */
 function getCurrentTimeInfo(): string {
@@ -82,9 +125,10 @@ export async function getSystemPromptForPlatform(platform: MessagePlatform): Pro
     }
   }
   
-  // Add current time information at the beginning
+  // Add system info and current time information at the beginning
+  const systemInfo = getSystemInfo()
   const timeInfo = getCurrentTimeInfo()
-  basePrompt = timeInfo + '\n\n' + basePrompt
+  basePrompt = systemInfo + '\n\n' + timeInfo + '\n\n' + basePrompt
   
   // Add default output directory instruction
   const outputDirInstruction = `

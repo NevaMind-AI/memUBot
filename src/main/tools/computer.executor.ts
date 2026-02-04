@@ -347,13 +347,14 @@ export async function executeBashTool(input: {
     console.log('[Bash] Executing:', input.command)
 
     // Use encoding: 'buffer' to get raw bytes, then decode with proper encoding
+    // Note: exec() uses system default shell automatically:
+    // - Windows: process.env.ComSpec (typically C:\Windows\System32\cmd.exe)
+    // - Unix: /bin/sh
     const { stdout, stderr } = (await execAsync(input.command, {
       timeout,
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
       cwd: app.getPath('home'),
-      encoding: 'buffer', // Get raw buffer for proper encoding handling
-      // On Windows, use cmd.exe with UTF-8 code page when possible
-      ...(isWindows ? { shell: 'cmd.exe' } : {})
+      encoding: 'buffer' // Get raw buffer for proper encoding handling
     })) as unknown as { stdout: Buffer; stderr: Buffer }
 
     const stdoutStr = decodeOutput(stdout)
