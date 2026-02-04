@@ -345,8 +345,11 @@ class ServiceManagerService {
   ): Promise<{ success: boolean; error?: string }> {
     const command = metadata.runtime === 'node' ? 'node' : 'python3'
 
+    // Quote the entry path to handle spaces in paths (e.g., "Application Support" on macOS)
+    const quotedEntryPath = `"${entryPath}"`
+
     return new Promise((resolve) => {
-      const childProcess = spawn(command, [entryPath], {
+      const childProcess = spawn(command, [quotedEntryPath], {
         cwd: serviceDir,
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: false,

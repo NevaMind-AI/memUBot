@@ -62,8 +62,8 @@ export function BoundUsersModal({ isOpen, onClose, platform = 'telegram' }: Boun
   const bindCommand = platformBindCommands[platform]
   const platformName = platformNames[platform]
   
-  // Discord and Slack use string IDs, Telegram uses numeric IDs
-  const usesStringId = platform === 'discord' || platform === 'slack'
+  // Discord, Slack and Feishu use string IDs, Telegram uses numeric IDs
+  const usesStringId = platform === 'discord' || platform === 'slack' || platform === 'feishu'
   
   // Check if dark mode is active
   const [isDarkMode, setIsDarkMode] = useState(() => 

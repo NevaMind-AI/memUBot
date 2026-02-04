@@ -105,7 +105,6 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
   const [llmStatus, setLLMStatus] = useState<LLMStatusInfo>({ status: 'idle' })
-  const [showAgentActivityEnabled, setShowAgentActivityEnabled] = useState(false)
 
   // Determine current platform
   const platform: Platform | null = showTelegramStatus
@@ -145,15 +144,6 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     })
     window.llm.getStatus().then(setLLMStatus)
     return () => unsubscribe()
-  }, [])
-
-  // Load showAgentActivity setting
-  useEffect(() => {
-    window.settings.get().then(result => {
-      if (result.success && result.data) {
-        setShowAgentActivityEnabled(result.data.showAgentActivity ?? false)
-      }
-    })
   }, [])
 
   // Subscribe to Telegram status
@@ -330,7 +320,6 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     // Re-fetch setting on click to get latest value
     const result = await window.settings.get()
     if (result.success && result.data?.showAgentActivity) {
-      setShowAgentActivityEnabled(true)
       onShowActivity?.()
     }
   }
