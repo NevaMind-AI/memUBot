@@ -10,6 +10,35 @@ import screenshot from 'screenshot-desktop'
 const execAsync = promisify(exec)
 
 /**
+ * Check if running on Windows
+ */
+const isWindows = process.platform === 'win32'
+
+/**
+ * Decode buffer with proper encoding for the platform
+ * Windows uses GBK (CP936) by default for Chinese locales
+ */
+function decodeOutput(buffer: Buffer | string): string {
+  if (typeof buffer === 'string') {
+    return buffer
+  }
+  
+  if (isWindows) {
+    // Try to decode as GBK first (Windows Chinese default)
+    // TextDecoder with 'gbk' encoding is supported in Node.js
+    try {
+      const decoder = new TextDecoder('gbk')
+      return decoder.decode(buffer)
+    } catch {
+      // Fallback to UTF-8
+      return buffer.toString('utf-8')
+    }
+  }
+  
+  return buffer.toString('utf-8')
+}
+
+/**
  * Execute computer tool actions using macOS native commands
  */
 export async function executeComputerTool(input: {
@@ -317,20 +346,38 @@ export async function executeBashTool(input: {
 
     console.log('[Bash] Executing:', input.command)
 
-    const { stdout, stderr } = await execAsync(input.command, {
+    // Use encoding: 'buffer' to get raw bytes, then decode with proper encoding
+    const { stdout, stderr } = (await execAsync(input.command, {
       timeout,
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer
-      cwd: app.getPath('home')
-    })
+      cwd: app.getPath('home'),
+      encoding: 'buffer', // Get raw buffer for proper encoding handling
+      // On Windows, use cmd.exe with UTF-8 code page when possible
+      ...(isWindows ? { shell: 'cmd.exe' } : {})
+    })) as unknown as { stdout: Buffer; stderr: Buffer }
 
-    const output = stdout + (stderr ? `\nSTDERR:\n${stderr}` : '')
+    const stdoutStr = decodeOutput(stdout)
+    const stderrStr = decodeOutput(stderr)
+    const output = stdoutStr + (stderrStr ? `\nSTDERR:\n${stderrStr}` : '')
     console.log('[Bash] Output:', output.substring(0, 200) + '...')
 
     return { success: true, data: output }
   } catch (error) {
     console.error('[Bash] Error:', error)
-    // @ts-expect-error - exec error has stdout/stderr
-    const output = error.stdout || error.stderr || error.message
+    // Handle error output with proper encoding
+    const execError = error as {
+      stdout?: Buffer | string
+      stderr?: Buffer | string
+      message?: string
+    }
+    let output: string
+    if (execError.stdout || execError.stderr) {
+      const stdoutStr = execError.stdout ? decodeOutput(execError.stdout as Buffer) : ''
+      const stderrStr = execError.stderr ? decodeOutput(execError.stderr as Buffer) : ''
+      output = stdoutStr || stderrStr || execError.message || String(error)
+    } else {
+      output = execError.message || String(error)
+    }
     return { success: false, error: output }
   }
 }
