@@ -1,7 +1,9 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
 import * as fs from 'fs/promises'
+import * as fsSync from 'fs'
 import * as path from 'path'
+import * as os from 'os'
 import * as https from 'https'
 import * as http from 'http'
 import { app, screen } from 'electron'
@@ -13,6 +15,89 @@ const execAsync = promisify(exec)
  * Check if running on Windows
  */
 const isWindows = process.platform === 'win32'
+
+/**
+ * Flag to track if Windows screenshot files have been initialized
+ */
+let windowsScreenshotInitialized = false
+
+/**
+ * Initialize screenshot-desktop on Windows by copying batch files to temp directory.
+ * This fixes the path resolution issue in packaged Electron apps where __dirname
+ * points to out/main instead of node_modules/screenshot-desktop/lib/win32
+ */
+function initWindowsScreenshot(): void {
+  if (!isWindows || windowsScreenshotInitialized) {
+    return
+  }
+
+  try {
+    const tmpDir = path.join(os.tmpdir(), 'screenCapture')
+    const tmpBat = path.join(tmpDir, 'screenCapture_1.3.2.bat')
+    const tmpManifest = path.join(tmpDir, 'app.manifest')
+
+    // If files already exist in temp, we're good
+    if (fsSync.existsSync(tmpBat) && fsSync.existsSync(tmpManifest)) {
+      windowsScreenshotInitialized = true
+      console.log('[Computer] Windows screenshot files already initialized in temp')
+      return
+    }
+
+    // Create temp directory if it doesn't exist
+    if (!fsSync.existsSync(tmpDir)) {
+      fsSync.mkdirSync(tmpDir, { recursive: true })
+    }
+
+    // Find the correct source path for the batch files
+    // In packaged app: resources/app.asar.unpacked/node_modules/screenshot-desktop/lib/win32/
+    // In development: node_modules/screenshot-desktop/lib/win32/
+    let sourcePath: string | null = null
+
+    // Try packaged app path first (using app.getAppPath())
+    const appPath = app.getAppPath()
+    const possiblePaths = [
+      // Packaged app: resources/app.asar.unpacked/node_modules/...
+      path.join(appPath.replace('app.asar', 'app.asar.unpacked'), 'node_modules', 'screenshot-desktop', 'lib', 'win32'),
+      // Development: direct node_modules path
+      path.join(appPath, 'node_modules', 'screenshot-desktop', 'lib', 'win32'),
+      // Alternative: go up from app path to find node_modules
+      path.join(path.dirname(appPath), 'node_modules', 'screenshot-desktop', 'lib', 'win32'),
+    ]
+
+    for (const p of possiblePaths) {
+      const batPath = path.join(p, 'screenCapture_1.3.2.bat')
+      if (fsSync.existsSync(batPath)) {
+        sourcePath = p
+        console.log('[Computer] Found screenshot-desktop files at:', p)
+        break
+      }
+    }
+
+    if (!sourcePath) {
+      console.error('[Computer] Could not find screenshot-desktop batch files. Tried paths:', possiblePaths)
+      return
+    }
+
+    // Copy files to temp directory
+    const sourceBat = path.join(sourcePath, 'screenCapture_1.3.2.bat')
+    const sourceManifest = path.join(sourcePath, 'app.manifest')
+
+    if (fsSync.existsSync(sourceBat)) {
+      fsSync.copyFileSync(sourceBat, tmpBat)
+      console.log('[Computer] Copied screenCapture_1.3.2.bat to temp')
+    }
+
+    if (fsSync.existsSync(sourceManifest)) {
+      fsSync.copyFileSync(sourceManifest, tmpManifest)
+      console.log('[Computer] Copied app.manifest to temp')
+    }
+
+    windowsScreenshotInitialized = true
+    console.log('[Computer] Windows screenshot files initialized successfully')
+  } catch (error) {
+    console.error('[Computer] Failed to initialize Windows screenshot files:', error)
+  }
+}
 
 /**
  * Maximum output length to prevent context overflow (in characters)
@@ -149,6 +234,9 @@ export async function executeComputerTool(input: {
  */
 async function takeScreenshot(): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
+    // Initialize Windows screenshot files if needed (fixes path issues in packaged apps)
+    initWindowsScreenshot()
+
     // Get primary display info
     const primaryDisplay = screen.getPrimaryDisplay()
     const { width, height } = primaryDisplay.size

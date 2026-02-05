@@ -10,6 +10,9 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  # screenshot-desktop uses a batch file on Windows that must be unpacked from ASAR
+  # to be executable by the system
+  - node_modules/screenshot-desktop/lib/win32/**
 win:
   executableName: memu-bot
   # Windows icon - with rounded corners (electron-builder auto-converts PNG to ICO)
