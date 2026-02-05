@@ -13,6 +13,10 @@ asarUnpack:
   # screenshot-desktop uses a batch file on Windows that must be unpacked from ASAR
   # to be executable by the system
   - node_modules/screenshot-desktop/lib/win32/**
+  # nut.js native modules for cross-platform mouse/keyboard automation
+  - node_modules/@nut-tree-fork/**/build/**
+  - node_modules/@nut-tree-fork/**/*.node
+  - node_modules/@nut-tree-fork/**/*.dll
 win:
   executableName: memu-bot
   # Windows icon - with rounded corners (electron-builder auto-converts PNG to ICO)

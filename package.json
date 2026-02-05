@@ -35,6 +35,7 @@
     "@grafana/faro-web-sdk": "^2.2.2",
     "@grafana/faro-web-tracing": "^2.2.2",
     "@larksuiteoapi/node-sdk": "^1.58.0",
+    "@nut-tree-fork/nut-js": "^4.2.6",
     "@slack/bolt": "^4.6.0",
     "discord.js": "^14.25.1",
     "global-agent": "^3.0.0",
