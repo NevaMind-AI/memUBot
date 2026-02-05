@@ -2,7 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Variables - Light Theme */
+/* ============================================
+   MEMU Theme (Default) - Cool Blue
+   ============================================ */
+
+/* CSS Variables - Light Theme (memu) */
 :root {
   --primary: #2596D1;
   --primary-light: #7DCBF7;
@@ -45,7 +49,7 @@
   --shadow-primary: 0 4px 14px rgba(37, 150, 209, 0.25);
 }
 
-/* CSS Variables - Dark Theme */
+/* CSS Variables - Dark Theme (memu) */
 .dark {
   --primary: #7DCBF7;
   --primary-light: #a8ddf9;
@@ -81,6 +85,86 @@
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.3);
   --shadow-primary: 0 4px 14px rgba(37, 150, 209, 0.3);
+}
+
+/* ============================================
+   YUMI Theme - Warm Coral/Brown
+   ============================================ */
+
+/* CSS Variables - Light Theme (yumi) */
+.yumi {
+  --primary: #E8A090;
+  --primary-light: #F4C4B8;
+  --primary-gradient: linear-gradient(135deg, #F4C4B8 0%, #E8A090 100%);
+  
+  /* Backgrounds - Warm cream/pink tones */
+  --bg-base: #FFF8F5;
+  --bg-secondary: #FFF0EB;
+  --bg-tertiary: #FFFAF8;
+  --bg-card: rgba(255, 255, 255, 0.75);
+  --bg-card-solid: #ffffff;
+  --bg-input: rgba(255, 248, 245, 0.9);
+  
+  /* Icon Background */
+  --icon-bg: rgba(232, 160, 144, 0.12);
+  
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(255, 240, 235, 0.9);
+  
+  /* Text - Warm tones */
+  --text-primary: #3D2E2A;
+  --text-secondary: #5C4A44;
+  --text-muted: #8B7872;
+  --text-placeholder: #B8A69F;
+  
+  /* Borders */
+  --border-color: rgba(232, 160, 144, 0.15);
+  --border-light: rgba(255, 240, 235, 0.9);
+  
+  /* Shadows - Warm tint */
+  --shadow-sm: 0 1px 2px rgba(60, 40, 30, 0.04);
+  --shadow-md: 0 4px 6px rgba(60, 40, 30, 0.05);
+  --shadow-lg: 0 4px 24px rgba(232, 160, 144, 0.1);
+  --shadow-primary: 0 4px 14px rgba(232, 160, 144, 0.25);
+}
+
+/* CSS Variables - Dark Theme (yumi) - Warm Coffee/Brown */
+.yumi.dark {
+  --primary: #E8A090;
+  --primary-light: #F4C4B8;
+  --primary-gradient: linear-gradient(135deg, #F4C4B8 0%, #E8A090 100%);
+  
+  /* Backgrounds - Warm coffee/brown tones */
+  --bg-base: #1F1A17;
+  --bg-secondary: #2A2420;
+  --bg-tertiary: #1F1A17;
+  --bg-card: rgba(42, 36, 32, 0.8);
+  --bg-card-solid: #2A2420;
+  --bg-input: rgba(31, 26, 23, 0.9);
+  
+  /* Icon Background */
+  --icon-bg: rgba(232, 160, 144, 0.15);
+  
+  /* Glass */
+  --glass-bg: rgba(42, 36, 32, 0.8);
+  --glass-border: rgba(60, 50, 44, 0.6);
+  
+  /* Text - Warm light tones */
+  --text-primary: #F5EBE6;
+  --text-secondary: #D4C4BC;
+  --text-muted: #A89890;
+  --text-placeholder: #786860;
+  
+  /* Borders */
+  --border-color: rgba(60, 50, 44, 0.6);
+  --border-light: rgba(60, 50, 44, 0.6);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.35);
+  --shadow-primary: 0 4px 14px rgba(232, 160, 144, 0.2);
 }
 
 /* Base styles */
@@ -159,6 +243,10 @@ body,
 /* Selection */
 ::selection {
   background: rgba(37, 150, 209, 0.2);
+}
+
+.yumi ::selection {
+  background: rgba(232, 160, 144, 0.25);
 }
 
 /* Input autofill */

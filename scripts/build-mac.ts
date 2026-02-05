@@ -29,27 +29,27 @@ async function run(command: string, args: string[], cwd: string): Promise<void> 
 
 async function main(): Promise<void> {
   const root = getProjectRoot()
-  const flavor = process.env.APP_FLAVOR || 'memu'
+  const mode = process.env.APP_MODE || 'memu'
 
-  console.log(`Building for macOS (flavor: ${flavor})...`)
+  console.log(`Building for macOS (mode: ${mode})...`)
   console.log(`Apple ID: ${process.env.APPLE_ID ? 'configured' : 'not set'}`)
   console.log(`Team ID: ${process.env.APPLE_TEAM_ID ? 'configured' : 'not set'}`)
 
-  // Prepare flavor resources
-  console.log('\n[1/3] Preparing flavor resources...')
-  await run('npm', ['run', 'prepare-flavor'], root)
+  // Prepare mode resources
+  console.log('\n[1/3] Preparing mode resources...')
+  await run('npm', ['run', 'prepare-mode'], root)
 
-  // Run electron-vite build
+  // Run electron-vite build with mode
   console.log('\n[2/3] Building with electron-vite...')
-  await run('npm', ['run', 'build'], root)
+  await run('npx', ['electron-vite', 'build', '--mode', mode], root)
 
-  // Run electron-builder with flavor config
+  // Run electron-builder with mode config
   console.log('\n[3/3] Packaging with electron-builder...')
-  const flavorConfigPath = path.join(root, 'electron-builder.flavor.json')
+  const modeConfigPath = path.join(root, 'electron-builder.mode.json')
   
-  // Use flavor config if it exists (it extends the base config)
-  const builderArgs = fs.existsSync(flavorConfigPath)
-    ? ['electron-builder', '--mac', '--config', 'electron-builder.flavor.json']
+  // Use mode config if it exists (it extends the base config)
+  const builderArgs = fs.existsSync(modeConfigPath)
+    ? ['electron-builder', '--mac', '--config', 'electron-builder.mode.json']
     : ['electron-builder', '--mac']
   
   await run('npx', builderArgs, root)

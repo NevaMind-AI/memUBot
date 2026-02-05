@@ -1,8 +1,8 @@
 /**
- * Flavor configuration type
- * Each flavor defines a different app variant
+ * Mode configuration type
+ * Each mode defines a different app variant
  */
-export interface FlavorConfig {
+export interface ModeConfig {
   // App identity
   appId: string
   productName: string
@@ -11,7 +11,7 @@ export interface FlavorConfig {
   // Display
   description: string
   
-  // Build resources (relative to flavor directory)
+  // Build resources (relative to mode directory)
   icon: string           // Main icon (PNG for all platforms)
   iconMac?: string       // macOS specific icon (.icns)
   iconWin?: string       // Windows specific icon (.ico or .png)
@@ -21,6 +21,6 @@ export interface FlavorConfig {
 }
 
 /**
- * Default flavor name
+ * Default mode name
  */
-export const DEFAULT_FLAVOR = 'memu'
+export const DEFAULT_MODE = 'memu'

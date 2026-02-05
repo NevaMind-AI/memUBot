@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 
 export type ThemeMode = 'light' | 'dark' | 'system'
+export type AppMode = 'memu' | 'yumi'
 
 interface ThemeStore {
   mode: ThemeMode
@@ -20,6 +21,12 @@ export const useThemeStore = create<ThemeStore>()(
   )
 )
 
+// Get app mode from environment
+export function getAppMode(): AppMode {
+  const mode = import.meta.env.VITE_APP_MODE || 'memu'
+  return mode as AppMode
+}
+
 // Helper to get actual theme based on mode
 export function getActualTheme(mode: ThemeMode): 'light' | 'dark' {
   if (mode === 'system') {
@@ -31,11 +38,19 @@ export function getActualTheme(mode: ThemeMode): 'light' | 'dark' {
 // Apply theme to document
 export function applyTheme(mode: ThemeMode): void {
   const theme = getActualTheme(mode)
+  const appMode = getAppMode()
   const root = document.documentElement
 
+  // Apply dark/light theme
   if (theme === 'dark') {
     root.classList.add('dark')
   } else {
     root.classList.remove('dark')
+  }
+
+  // Apply app mode theme (memu or yumi)
+  root.classList.remove('memu', 'yumi')
+  if (appMode === 'yumi') {
+    root.classList.add('yumi')
   }
 }

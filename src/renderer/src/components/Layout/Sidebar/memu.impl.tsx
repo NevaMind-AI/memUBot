@@ -1,17 +1,15 @@
+/**
+ * Sidebar - Memu Implementation
+ * Shows all messaging platforms (Telegram, Discord, Slack, Feishu)
+ */
 import { Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useThemeStore, type ThemeMode } from '../../stores/themeStore'
-import appIcon from '../../assets/app-icon.png'
-import { TelegramIcon, DiscordIcon, WhatsAppIcon, SlackIcon, LineIcon, FeishuIcon } from '../Icons/AppIcons'
+import { useThemeStore, type ThemeMode } from '../../../stores/themeStore'
+import { appIcon } from '../../../assets'
+import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../../Icons/AppIcons'
+import type { MemuSidebarProps, MemuNavItem } from './types'
 
-type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
-
-interface SidebarProps {
-  activeNav: NavItem
-  onNavChange: (nav: NavItem) => void
-}
-
-export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
+export function MemuSidebar({ activeNav, onNavChange }: MemuSidebarProps): JSX.Element {
   const { t } = useTranslation()
   const { mode, setMode } = useThemeStore()
 
@@ -34,7 +32,7 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
 
   return (
     <aside className="w-16 flex flex-col bg-[var(--glass-bg)] backdrop-blur-xl border-r border-[var(--glass-border)]">
-      {/* App Icon - Same height as header */}
+      {/* App Icon - Static display, no click action */}
       <div className="h-14 flex translate-y-0.5 items-center justify-center">
         <div className="w-11 h-11 rounded-xl bg-[var(--icon-bg)] flex items-center justify-center">
           <img src={appIcon} alt={t('app.name')} className="w-9 h-9 rounded-lg" />
@@ -69,19 +67,6 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
           <DiscordIcon className="w-[18px] h-[18px]" />
         </button>
 
-        {/* WhatsApp - Temporarily disabled */}
-        {/* <button
-          onClick={() => onNavChange('whatsapp')}
-          title="WhatsApp"
-          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
-            activeNav === 'whatsapp'
-              ? 'bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-lg shadow-[#25D366]/25'
-              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#25D366] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
-          }`}
-        >
-          <WhatsAppIcon className="w-[18px] h-[18px]" />
-        </button> */}
-
         {/* Slack */}
         <button
           onClick={() => onNavChange('slack')}
@@ -94,19 +79,6 @@ export function Sidebar({ activeNav, onNavChange }: SidebarProps): JSX.Element {
         >
           <SlackIcon className="w-[18px] h-[18px]" />
         </button>
-
-        {/* Line - Temporarily disabled */}
-        {/* <button
-          onClick={() => onNavChange('line')}
-          title="Line"
-          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
-            activeNav === 'line'
-              ? 'bg-gradient-to-br from-[#00B900] to-[#00C300] text-white shadow-lg shadow-[#00B900]/25'
-              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#00B900] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
-          }`}
-        >
-          <LineIcon className="w-[18px] h-[18px]" />
-        </button> */}
 
         {/* Feishu */}
         <button

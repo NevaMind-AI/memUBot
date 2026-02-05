@@ -1,5 +1,5 @@
 /**
- * Prepare build resources for the current flavor
+ * Prepare build resources for the current mode
  * This script is called before electron-builder to set up icons and other resources
  */
 
@@ -11,7 +11,7 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const projectRoot = path.resolve(__dirname, '..')
 
-interface FlavorConfig {
+interface ModeConfig {
   appId: string
   productName: string
   executableName: string
@@ -21,22 +21,22 @@ interface FlavorConfig {
   iconWin?: string
 }
 
-async function loadFlavorConfig(flavor: string): Promise<FlavorConfig> {
-  const configPath = path.join(projectRoot, 'flavors', flavor, 'config.ts')
+async function loadModeConfig(mode: string): Promise<ModeConfig> {
+  const configPath = path.join(projectRoot, 'modes', mode, 'config.ts')
   
   // Dynamic import of the config
   const module = await import(`file://${configPath}`)
-  return module.default as FlavorConfig
+  return module.default as ModeConfig
 }
 
 async function main(): Promise<void> {
-  const flavor = process.env.APP_FLAVOR || 'memu'
+  const mode = process.env.APP_MODE || 'memu'
   
-  console.log(`[Prepare] Preparing build resources for flavor: ${flavor}`)
+  console.log(`[Prepare] Preparing build resources for mode: ${mode}`)
   
-  // Load flavor config
-  const config = await loadFlavorConfig(flavor)
-  const flavorDir = path.join(projectRoot, 'flavors', flavor)
+  // Load mode config
+  const config = await loadModeConfig(mode)
+  const modeDir = path.join(projectRoot, 'modes', mode)
   const buildDir = path.join(projectRoot, 'build')
   
   // Ensure build directory exists
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
     fs.mkdirSync(buildDir, { recursive: true })
   }
   
-  // Copy icons from flavor directory to build directory
+  // Copy icons from mode directory to build directory
   // electron-builder will auto-convert PNG to .icns/.ico as needed
   const iconsToCopy = [
     { src: config.icon, dest: 'icon.png' },
@@ -52,7 +52,7 @@ async function main(): Promise<void> {
   ]
   
   for (const { src, dest } of iconsToCopy) {
-    const srcPath = path.join(flavorDir, src)
+    const srcPath = path.join(modeDir, src)
     const destPath = path.join(buildDir, dest)
     
     if (fs.existsSync(srcPath)) {
@@ -74,9 +74,9 @@ async function main(): Promise<void> {
     }
   }
   
-  const configOverridePath = path.join(projectRoot, 'electron-builder.flavor.json')
+  const configOverridePath = path.join(projectRoot, 'electron-builder.mode.json')
   fs.writeFileSync(configOverridePath, JSON.stringify(builderConfig, null, 2))
-  console.log(`[Prepare] Generated electron-builder.flavor.json`)
+  console.log(`[Prepare] Generated electron-builder.mode.json`)
   
   console.log(`[Prepare] Done.`)
 }

@@ -37,6 +37,6 @@ config.local.json
 build/*.icns
 build/*.ico
 nanobanana-output/
-electron-builder.flavor.json
+electron-builder.mode.json
 
 python_source/

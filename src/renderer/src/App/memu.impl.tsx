@@ -1,17 +1,21 @@
+/**
+ * App - Memu Implementation
+ * Full-featured app with all messaging platforms
+ */
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Sidebar, Header } from './components/Layout'
-import { TelegramView } from './components/Telegram'
-import { DiscordView } from './components/Discord'
-import { WhatsAppView } from './components/WhatsApp'
-import { SlackView } from './components/Slack'
-import { LineView } from './components/Line'
-import { FeishuView } from './components/Feishu'
-import { SettingsView } from './components/Settings'
-import { ToastContainer } from './components/Toast'
-import { AgentActivityPanel } from './components/AgentActivity'
-import { useThemeStore, applyTheme } from './stores/themeStore'
-import appIcon from './assets/app-icon.png'
+import { Sidebar, Header } from '../components/Layout'
+import { TelegramView } from '../components/Telegram'
+import { DiscordView } from '../components/Discord'
+import { WhatsAppView } from '../components/WhatsApp'
+import { SlackView } from '../components/Slack'
+import { LineView } from '../components/Line'
+import { FeishuView } from '../components/Feishu'
+import { SettingsView } from '../components/Settings'
+import { ToastContainer } from '../components/Toast'
+import { AgentActivityPanel } from '../components/AgentActivity'
+import { useThemeStore, applyTheme } from '../stores/themeStore'
+import { appIcon } from '../assets'
 
 type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 type AppNavItem = Exclude<NavItem, 'settings'>
@@ -34,7 +38,7 @@ interface StartupStatus {
   progress: number
 }
 
-function App(): JSX.Element {
+export function MemuApp(): JSX.Element {
   const { t } = useTranslation()
   const [activeNav, setActiveNav] = useState<NavItem>(getSavedAppTab)
   const themeMode = useThemeStore((state) => state.mode)
@@ -50,7 +54,6 @@ function App(): JSX.Element {
   useEffect(() => {
     applyTheme(themeMode)
 
-    // Listen for system theme changes
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handleChange = () => {
       if (themeMode === 'system') {
@@ -64,7 +67,6 @@ function App(): JSX.Element {
 
   // Listen to startup status
   useEffect(() => {
-    // Check initial status
     window.startup.getStatus().then((result) => {
       if (result.ready) {
         setIsStartupComplete(true)
@@ -72,11 +74,9 @@ function App(): JSX.Element {
       }
     })
 
-    // Subscribe to status changes
     const unsubscribe = window.startup.onStatusChanged((status: StartupStatus) => {
       setStartupStatus(status)
       if (status.stage === 'ready') {
-        // Small delay for smooth transition
         setTimeout(() => setIsStartupComplete(true), 300)
       }
     })
@@ -85,11 +85,11 @@ function App(): JSX.Element {
   }, [])
 
   // Handle nav change and save last app tab
-  const handleNavChange = (nav: NavItem) => {
-    setActiveNav(nav)
-    // Only save app tabs, not settings
-    if (nav !== 'settings') {
-      localStorage.setItem(LAST_APP_TAB_KEY, nav)
+  const handleNavChange = (nav: string) => {
+    const navItem = nav as NavItem
+    setActiveNav(navItem)
+    if (navItem !== 'settings') {
+      localStorage.setItem(LAST_APP_TAB_KEY, navItem)
     }
   }
 
@@ -101,9 +101,7 @@ function App(): JSX.Element {
           subtitle: 'AI Assistant',
           showTelegramStatus: true,
           showDiscordStatus: false,
-          showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false,
           showFeishuStatus: false
         }
       case 'discord':
@@ -112,9 +110,7 @@ function App(): JSX.Element {
           subtitle: 'AI Assistant',
           showTelegramStatus: false,
           showDiscordStatus: true,
-          showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false,
           showFeishuStatus: false
         }
       case 'whatsapp':
@@ -123,9 +119,7 @@ function App(): JSX.Element {
           subtitle: 'AI Assistant',
           showTelegramStatus: false,
           showDiscordStatus: false,
-          showWhatsAppStatus: true,
           showSlackStatus: false,
-          showLineStatus: false,
           showFeishuStatus: false
         }
       case 'slack':
@@ -134,9 +128,7 @@ function App(): JSX.Element {
           subtitle: 'AI Assistant',
           showTelegramStatus: false,
           showDiscordStatus: false,
-          showWhatsAppStatus: false,
           showSlackStatus: true,
-          showLineStatus: false,
           showFeishuStatus: false
         }
       case 'line':
@@ -145,9 +137,7 @@ function App(): JSX.Element {
           subtitle: 'AI Assistant',
           showTelegramStatus: false,
           showDiscordStatus: false,
-          showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: true,
           showFeishuStatus: false
         }
       case 'feishu':
@@ -156,9 +146,7 @@ function App(): JSX.Element {
           subtitle: 'AI Assistant',
           showTelegramStatus: false,
           showDiscordStatus: false,
-          showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false,
           showFeishuStatus: true
         }
       case 'settings':
@@ -166,9 +154,7 @@ function App(): JSX.Element {
           title: t('nav.settings'),
           showTelegramStatus: false,
           showDiscordStatus: false,
-          showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false,
           showFeishuStatus: false
         }
       default:
@@ -176,9 +162,7 @@ function App(): JSX.Element {
           title: 'memU bot',
           showTelegramStatus: false,
           showDiscordStatus: false,
-          showWhatsAppStatus: false,
           showSlackStatus: false,
-          showLineStatus: false,
           showFeishuStatus: false
         }
     }
@@ -190,18 +174,12 @@ function App(): JSX.Element {
   if (!isStartupComplete) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-gradient-to-b from-[var(--bg-base)] via-[var(--bg-secondary)] to-[var(--bg-tertiary)]">
-        {/* App Icon */}
         <div className="mb-8">
           <div className="w-28 h-28 rounded-3xl bg-[var(--icon-bg)] flex items-center justify-center shadow-lg">
-            <img
-              src={appIcon}
-              alt="memU"
-              className="w-24 h-24 rounded-2xl"
-            />
+            <img src={appIcon} alt="memU" className="w-24 h-24 rounded-2xl" />
           </div>
         </div>
 
-        {/* App Name */}
         <h1 className="text-2xl font-bold text-[var(--text-primary)] mb-2">
           {t('app.name')}
         </h1>
@@ -209,7 +187,6 @@ function App(): JSX.Element {
           {t('app.tagline')}
         </p>
 
-        {/* Progress Bar */}
         <div className="w-64 mb-4">
           <div className="h-1.5 bg-[var(--bg-input)] rounded-full overflow-hidden">
             <div
@@ -219,7 +196,6 @@ function App(): JSX.Element {
           </div>
         </div>
 
-        {/* Status Message */}
         <p className="text-xs text-[var(--text-muted)] animate-pulse">
           {t(`app.startup.${startupStatus.stage}`, startupStatus.message)}
         </p>
@@ -229,21 +205,16 @@ function App(): JSX.Element {
 
   return (
     <div className="h-screen flex overflow-hidden bg-gradient-to-b from-[var(--bg-base)] via-[var(--bg-secondary)] to-[var(--bg-tertiary)]">
-      {/* Toast Container */}
       <ToastContainer />
 
-      {/* Agent Activity Panel */}
       <AgentActivityPanel 
         isOpen={showActivityPanel} 
         onClose={() => setShowActivityPanel(false)} 
       />
 
-      {/* Sidebar */}
       <Sidebar activeNav={activeNav} onNavChange={handleNavChange} />
 
-      {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <Header
           title={headerInfo.title}
           subtitle={headerInfo.subtitle}
@@ -254,7 +225,6 @@ function App(): JSX.Element {
           onShowActivity={() => setShowActivityPanel(true)}
         />
 
-        {/* Content */}
         <main className="flex-1 overflow-hidden flex">
           {activeNav === 'telegram' && <TelegramView />}
           {activeNav === 'discord' && <DiscordView />}
@@ -268,5 +238,3 @@ function App(): JSX.Element {
     </div>
   )
 }
-
-export default App
