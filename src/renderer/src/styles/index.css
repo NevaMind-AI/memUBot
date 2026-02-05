@@ -11,6 +11,8 @@
   --primary: #2596D1;
   --primary-light: #7DCBF7;
   --primary-gradient: linear-gradient(135deg, #7DCBF7 0%, #2596D1 100%);
+  --primary-bg: rgba(37, 150, 209, 0.12);
+  --primary-bg-hover: rgba(37, 150, 209, 0.18);
   
   /* Backgrounds */
   --bg-base: #f0f9ff;
@@ -54,6 +56,8 @@
   --primary: #7DCBF7;
   --primary-light: #a8ddf9;
   --primary-gradient: linear-gradient(135deg, #7DCBF7 0%, #2596D1 100%);
+  --primary-bg: rgba(125, 203, 247, 0.15);
+  --primary-bg-hover: rgba(125, 203, 247, 0.22);
   
   /* Backgrounds */
   --bg-base: #0f172a;
@@ -96,6 +100,8 @@
   --primary: #E8A090;
   --primary-light: #F4C4B8;
   --primary-gradient: linear-gradient(135deg, #F4C4B8 0%, #E8A090 100%);
+  --primary-bg: rgba(232, 160, 144, 0.12);
+  --primary-bg-hover: rgba(232, 160, 144, 0.18);
   
   /* Backgrounds - Warm cream/pink tones */
   --bg-base: #FFF8F5;
@@ -131,9 +137,11 @@
 
 /* CSS Variables - Dark Theme (yumi) - Warm Coffee/Brown */
 .yumi.dark {
-  --primary: #E8A090;
-  --primary-light: #F4C4B8;
-  --primary-gradient: linear-gradient(135deg, #F4C4B8 0%, #E8A090 100%);
+  --primary: #D4A090;
+  --primary-light: #E0B8A8;
+  --primary-gradient: linear-gradient(135deg, #D4A090 0%, #C08878 100%);
+  --primary-bg: rgba(212, 160, 144, 0.15);
+  --primary-bg-hover: rgba(212, 160, 144, 0.22);
   
   /* Backgrounds - Warm coffee/brown tones */
   --bg-base: #1F1A17;
@@ -164,7 +172,7 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
   --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.25);
   --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.35);
-  --shadow-primary: 0 4px 14px rgba(232, 160, 144, 0.2);
+  --shadow-primary: 0 4px 14px rgba(192, 136, 120, 0.3);
 }
 
 /* Base styles */

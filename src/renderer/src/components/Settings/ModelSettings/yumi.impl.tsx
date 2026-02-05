@@ -1,20 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Slider } from '../Slider'
+import { Zap, Brain, Layers } from 'lucide-react'
+import { Slider } from '../../Slider'
 import { 
   AppSettings, 
   FloatingSaveButton, 
   MessageDisplay, 
   LoadingSpinner 
-} from './shared'
+} from '../shared'
 
-export function ModelSettings(): JSX.Element {
+type ModelTier = 'agile' | 'smart' | 'deep'
+
+const MODEL_TIERS: { id: ModelTier; icon: typeof Zap; labelKey: string; descKey: string; recommended?: boolean }[] = [
+  { id: 'agile', icon: Zap, labelKey: 'settings.model.tier.agile', descKey: 'settings.model.tier.agileDesc' },
+  { id: 'smart', icon: Brain, labelKey: 'settings.model.tier.smart', descKey: 'settings.model.tier.smartDesc', recommended: true },
+  { id: 'deep', icon: Layers, labelKey: 'settings.model.tier.deep', descKey: 'settings.model.tier.deepDesc' }
+]
+
+export function YumiModelSettings(): JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<Partial<AppSettings>>({})
   const [originalSettings, setOriginalSettings] = useState<Partial<AppSettings>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [selectedTier, setSelectedTier] = useState<ModelTier>('smart')
+  const [originalTier, setOriginalTier] = useState<ModelTier>('smart')
 
   useEffect(() => {
     loadSettings()
@@ -27,6 +38,10 @@ export function ModelSettings(): JSX.Element {
       if (result.success && result.data) {
         setSettings(result.data)
         setOriginalSettings(result.data)
+        // Load model tier from settings if available
+        const tier = (result.data.modelTier as ModelTier) || 'smart'
+        setSelectedTier(tier)
+        setOriginalTier(tier)
       }
     } catch (error) {
       console.error('Failed to load settings:', error)
@@ -37,7 +52,8 @@ export function ModelSettings(): JSX.Element {
   const hasChanges =
     settings.maxTokens !== originalSettings.maxTokens ||
     settings.temperature !== originalSettings.temperature ||
-    settings.systemPrompt !== originalSettings.systemPrompt
+    settings.systemPrompt !== originalSettings.systemPrompt ||
+    selectedTier !== originalTier
 
   const handleSave = async () => {
     setSaving(true)
@@ -46,10 +62,12 @@ export function ModelSettings(): JSX.Element {
       const result = await window.settings.save({
         maxTokens: settings.maxTokens,
         temperature: settings.temperature,
-        systemPrompt: settings.systemPrompt
+        systemPrompt: settings.systemPrompt,
+        modelTier: selectedTier
       })
       if (result.success) {
         setOriginalSettings({ ...originalSettings, ...settings })
+        setOriginalTier(selectedTier)
         setMessage({ type: 'success', text: t('settings.saved') })
         setTimeout(() => setMessage(null), 3000)
       } else {
@@ -75,6 +93,53 @@ export function ModelSettings(): JSX.Element {
       </div>
 
       <div className="space-y-3">
+        {/* Model Tier Selection */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+          <div className="mb-4">
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.model.selectTier')}</h4>
+          </div>
+          <div className="space-y-2">
+            {MODEL_TIERS.map((tier) => {
+              const Icon = tier.icon
+              const isSelected = selectedTier === tier.id
+              return (
+                <button
+                  key={tier.id}
+                  onClick={() => setSelectedTier(tier.id)}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl transition-all duration-200 ${
+                    isSelected
+                      ? 'bg-[var(--bg-card-solid)] border-2 border-[var(--primary)]/30 shadow-sm'
+                      : 'bg-[var(--bg-input)] border-2 border-transparent hover:bg-[var(--bg-card)]'
+                  }`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    isSelected 
+                      ? 'bg-[var(--primary-bg)]' 
+                      : 'bg-[var(--bg-card)]'
+                  }`}>
+                    <Icon className={`w-5 h-5 ${isSelected ? 'text-[var(--primary)]' : 'text-[var(--text-muted)]'}`} />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[14px] font-medium ${isSelected ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                        {t(tier.labelKey)}
+                      </span>
+                      {tier.recommended && (
+                        <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-[var(--primary)]/15 text-[var(--primary)]">
+                          {t('common.recommended')}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
+                      {t(tier.descKey)}
+                    </p>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         {/* Max Tokens */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">

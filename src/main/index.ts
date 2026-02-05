@@ -1,3 +1,7 @@
+// IMPORTANT: This must be the first import to set up app name and userData path
+// before any other modules that might use app.getPath('userData')
+import './init-app'
+
 import { app, shell, BrowserWindow, protocol, net, ipcMain } from 'electron'
 import { join } from 'path'
 import { mkdir } from 'fs/promises'

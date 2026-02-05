@@ -65,6 +65,7 @@ class SkillsService {
   private config: SkillsConfig = { enabledSkills: [], disabledSkills: [] }
   private initialized = false
   private githubSkillsCache: GitHubSkillsCache | null = null
+  private userAgent: string = process.env.APP_MODE === 'yumi' ? 'yumi' : 'memu-bot'
 
   constructor() {
     const userDataPath = app.getPath('userData')
@@ -311,7 +312,7 @@ class SkillsService {
   private getGitHubHeaders(): Record<string, string> {
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github.v3+json',
-      'User-Agent': 'memu-bot'
+      'User-Agent': this.userAgent
     }
     if (this.config.githubToken) {
       headers['Authorization'] = `Bearer ${this.config.githubToken}`
@@ -379,7 +380,7 @@ class SkillsService {
           try {
             const skillMdResponse = await fetch(
               `https://raw.githubusercontent.com/openai/skills/main/${dir.path}/SKILL.md`,
-              { headers: { 'User-Agent': 'memu-bot' } }
+              { headers: { 'User-Agent': this.userAgent } }
             )
 
             // Extract category name (remove leading dot)
@@ -505,7 +506,7 @@ class SkillsService {
       for (const item of contents) {
         if (item.type === 'file' && item.download_url) {
           const fileResponse = await fetch(item.download_url, {
-            headers: { 'User-Agent': 'memu-bot' }
+            headers: { 'User-Agent': this.userAgent }
           })
           if (fileResponse.ok) {
             const content = await fileResponse.text()
@@ -579,7 +580,7 @@ class SkillsService {
     for (const item of contents) {
       if (item.type === 'file' && item.download_url) {
         const fileResponse = await fetch(item.download_url, {
-          headers: { 'User-Agent': 'memu-bot' }
+          headers: { 'User-Agent': this.userAgent }
         })
         if (fileResponse.ok) {
           const content = await fileResponse.text()

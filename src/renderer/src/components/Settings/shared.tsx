@@ -72,7 +72,8 @@ export function FloatingSaveButton({ show, saving, onSave }: FloatingSaveButtonP
       <button
         onClick={onSave}
         disabled={saving}
-        className="flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white text-[13px] font-medium shadow-xl shadow-[#2596D1]/30 hover:shadow-2xl hover:shadow-[#2596D1]/40 hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        className="flex items-center justify-center gap-2 px-8 py-3 rounded-full text-white text-[13px] font-medium shadow-xl hover:shadow-2xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        style={{ background: 'var(--primary-gradient)', boxShadow: 'var(--shadow-primary)' }}
       >
         {saving ? (
           <>

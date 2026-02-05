@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
-import { MessageDisplay, LoadingSpinner, formatBytes } from './shared'
+import { FolderOpen, Database } from 'lucide-react'
+import { MessageDisplay, LoadingSpinner, formatBytes } from '../shared'
 
 interface StorageFolder {
   name: string
@@ -15,7 +15,10 @@ interface StorageInfo {
   folders: StorageFolder[]
 }
 
-export function DataSettings(): JSX.Element {
+// Filter out platform-specific folders for Yumi
+const YUMI_FOLDER_KEYS = ['mcpOutput', 'agentOutput', 'skills', 'cache', 'other']
+
+export function YumiDataSettings(): JSX.Element {
   const { t } = useTranslation()
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -27,7 +30,15 @@ export function DataSettings(): JSX.Element {
     try {
       const result = await window.settings.getStorageInfo()
       if (result.success && result.data) {
-        setStorageInfo(result.data)
+        // Filter out platform-specific folders
+        const filteredFolders = result.data.folders.filter(
+          folder => YUMI_FOLDER_KEYS.includes(folder.key)
+        )
+        const filteredTotal = filteredFolders.reduce((sum, f) => sum + f.size, 0)
+        setStorageInfo({
+          total: filteredTotal,
+          folders: filteredFolders
+        })
       }
     } catch (error) {
       console.error('Failed to load storage info:', error)
@@ -39,11 +50,12 @@ export function DataSettings(): JSX.Element {
     loadStorageInfo()
   }, [])
 
-  const handleOpenMessagesFolder = async (platform?: string) => {
+  const handleOpenDataFolder = async () => {
     try {
-      await window.settings.openMessagesFolder(platform)
+      // Open the userData directory
+      await window.settings.openMessagesFolder()
     } catch (error) {
-      console.error('Failed to open messages folder:', error)
+      console.error('Failed to open data folder:', error)
     }
   }
 
@@ -73,10 +85,6 @@ export function DataSettings(): JSX.Element {
   // Translate folder names
   const getFolderName = (key: string): string => {
     const nameMap: Record<string, string> = {
-      telegram: t('settings.data.folders.telegram'),
-      discord: t('settings.data.folders.discord'),
-      slack: t('settings.data.folders.slack'),
-      feishu: t('settings.data.folders.feishu'),
       mcpOutput: t('settings.data.folders.mcpOutput'),
       agentOutput: t('settings.data.folders.agentOutput'),
       skills: t('settings.data.folders.skills'),
@@ -100,16 +108,30 @@ export function DataSettings(): JSX.Element {
       </div>
 
       <div className="space-y-3">
-        {/* Storage Info */}
+        {/* Storage Info with Open Button */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center justify-between mb-3">
-            <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.data.storageUsed')}</h4>
-              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.data.storageHint')}</p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[var(--primary-bg)] flex items-center justify-center">
+                <Database className="w-5 h-5 text-[var(--primary)]" />
+              </div>
+              <div>
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.data.storageUsed')}</h4>
+                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">{t('settings.data.storageHint')}</p>
+              </div>
             </div>
-            <span className="text-[13px] text-[var(--text-primary)] font-medium tabular-nums">
-              {formatBytes(storageInfo?.total || 0)}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] text-[var(--text-primary)] font-medium tabular-nums">
+                {formatBytes(storageInfo?.total || 0)}
+              </span>
+              <button
+                onClick={handleOpenDataFolder}
+                className="p-2 rounded-lg bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[var(--primary)] hover:bg-[var(--bg-card-solid)] transition-all"
+                title={t('settings.data.openFolder')}
+              >
+                <FolderOpen className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* Storage Bar */}
@@ -133,7 +155,7 @@ export function DataSettings(): JSX.Element {
           </div>
 
           {/* Legend */}
-          {storageInfo && (
+          {storageInfo && storageInfo.folders.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
               {storageInfo.folders.map((folder) => (
                 <div key={folder.key} className="flex items-center gap-1.5">
@@ -151,50 +173,6 @@ export function DataSettings(): JSX.Element {
               ))}
             </div>
           )}
-        </div>
-
-        {/* Messages Folders */}
-        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
-          <div className="mb-3">
-            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.data.messagesFolder')}</h4>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-              {t('settings.data.messagesFolderHint')}
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* Telegram */}
-            <button
-              onClick={() => handleOpenMessagesFolder('telegram')}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#0088cc]/10 border border-[#0088cc]/20 text-[12px] text-[#0088cc] font-medium hover:bg-[#0088cc]/20 transition-all"
-            >
-              <TelegramIcon className="w-4 h-4" />
-              Telegram
-            </button>
-            {/* Discord */}
-            <button
-              onClick={() => handleOpenMessagesFolder('discord')}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#5865F2]/10 border border-[#5865F2]/20 text-[12px] text-[#5865F2] font-medium hover:bg-[#5865F2]/20 transition-all"
-            >
-              <DiscordIcon className="w-4 h-4" />
-              Discord
-            </button>
-            {/* Slack */}
-            <button
-              onClick={() => handleOpenMessagesFolder('slack')}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#611F69]/10 border border-[#611F69]/20 text-[12px] text-[#611F69] dark:text-[#E0B3E6] font-medium hover:bg-[#611F69]/20 transition-all"
-            >
-              <SlackIcon className="w-4 h-4" />
-              Slack
-            </button>
-            {/* Feishu */}
-            <button
-              onClick={() => handleOpenMessagesFolder('feishu')}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#3370FF]/10 border border-[#3370FF]/20 text-[12px] text-[#3370FF] font-medium hover:bg-[#3370FF]/20 transition-all"
-            >
-              <FeishuIcon className="w-4 h-4" />
-              Feishu
-            </button>
-          </div>
         </div>
 
         {/* Clear Cache */}

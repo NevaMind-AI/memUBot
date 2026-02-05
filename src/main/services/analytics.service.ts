@@ -22,6 +22,7 @@ export interface CommonParams {
   os_version: string
   locale: string
   platforms_configured: string
+  mode: string
   llm_provider: string
 }
 
@@ -58,7 +59,8 @@ class AnalyticsService {
         os_version: process.getSystemVersion(),
         locale: settings.language || app.getLocale(),
         platforms_configured: platformsConfigured.join(','),
-        llm_provider: settings.llmProvider
+        llm_provider: settings.llmProvider,
+        mode: process.env.APP_MODE || 'memu'
       }
 
       // Setup IPC handler for renderer to get config

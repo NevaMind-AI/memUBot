@@ -5,6 +5,10 @@ import './styles/index.css'
 import './i18n' // Initialize i18n
 import { initializeAnalytics } from './services/analytics'
 
+// Set document title based on app mode
+const appMode = import.meta.env.VITE_APP_MODE || 'memu'
+document.title = appMode === 'yumi' ? 'Yumi' : 'memU bot'
+
 // Initialize analytics (Grafana Faro)
 initializeAnalytics()
 

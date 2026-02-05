@@ -4,6 +4,7 @@ const config: ModeConfig = {
   appId: 'com.nevamind.yumi',
   productName: 'Yumi',
   executableName: 'yumi',
+  name: 'yumi',  // Used for userData directory
   description: 'Yumi - Your Cozy AI Assistant',
   
   // Icons (relative to this mode's directory)

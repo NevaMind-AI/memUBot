@@ -5,6 +5,7 @@
 
 import { initializeFaro, faro, getWebInstrumentations } from '@grafana/faro-web-sdk'
 import { TracingInstrumentation } from '@grafana/faro-web-tracing'
+import { LogLevel } from '@grafana/faro-core'
 
 // Faro configuration
 const FARO_CONFIG = {
@@ -111,7 +112,7 @@ export function pushLog(message: string, level: 'info' | 'warn' | 'error' = 'inf
   if (!initialized || !faro.api) return
 
   try {
-    faro.api.pushLog([message], { level })
+    faro.api.pushLog([message], { level: level as LogLevel })
   } catch (error) {
     console.error('[Analytics] Failed to push log:', error)
   }

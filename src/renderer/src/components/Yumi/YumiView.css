@@ -1,0 +1,40 @@
+/* Yumi glow background - Light mode */
+.yumi .cloud-outer {
+  background: radial-gradient(circle at center, 
+    rgba(255, 250, 248, 0.95) 0%, 
+    rgba(255, 245, 240, 0.7) 35%, 
+    rgba(255, 235, 225, 0.3) 60%, 
+    transparent 85%
+  );
+}
+
+.yumi .cloud-inner {
+  background: radial-gradient(circle at center, 
+    rgba(255, 255, 255, 0.98) 0%, 
+    rgba(255, 250, 245, 0.85) 40%, 
+    transparent 75%
+  );
+}
+
+/* Yumi glow background - Dark mode (dimmed warm glow) */
+.yumi.dark .cloud-outer {
+  background: radial-gradient(circle at center, 
+    rgba(80, 65, 55, 0.9) 0%, 
+    rgba(65, 52, 45, 0.6) 35%, 
+    rgba(50, 40, 35, 0.25) 60%, 
+    transparent 85%
+  );
+}
+
+.yumi.dark .cloud-inner {
+  background: radial-gradient(circle at center, 
+    rgba(95, 78, 68, 0.95) 0%, 
+    rgba(75, 62, 54, 0.7) 40%, 
+    transparent 75%
+  );
+}
+
+/* Yumi video invert in dark mode */
+.yumi.dark .yumi-video {
+  filter: invert(1);
+}

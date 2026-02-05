@@ -91,7 +91,7 @@ export function SecuritySettings(): JSX.Element {
         {/* Security Code Section */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#7DCBF7]/20 to-[#2596D1]/20 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[var(--primary-bg)] flex items-center justify-center">
               <Key className="w-5 h-5 text-[var(--primary)]" />
             </div>
             <div>
@@ -145,7 +145,8 @@ export function SecuritySettings(): JSX.Element {
           <button
             onClick={generateCode}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white text-[13px] font-medium shadow-lg shadow-[#2596D1]/25 hover:shadow-xl hover:shadow-[#2596D1]/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white text-[13px] font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{ background: 'var(--primary-gradient)', boxShadow: 'var(--shadow-primary)' }}
           >
             {loading ? (
               <>

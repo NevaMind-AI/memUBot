@@ -7,6 +7,7 @@ export interface ModeConfig {
   appId: string
   productName: string
   executableName: string
+  name: string  // Used for userData directory (must be unique per mode)
   
   // Display
   description: string

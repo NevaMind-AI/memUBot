@@ -1,20 +1,20 @@
 import { useState } from 'react'
 import { Bot, Info, Key, Database, Shield, Server, Sparkles, Play, FlaskConical, MessageSquare } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { GeneralSettings } from './GeneralSettings'
-import { PlatformSettings } from './PlatformSettings'
-import { SecuritySettings } from './SecuritySettings'
-import { ModelSettings } from './ModelSettings'
-import { McpSettings } from './McpSettings'
-import { SkillsSettings } from './SkillsSettings'
-import { ServicesSettings } from './ServicesSettings'
-import { DataSettings } from './DataSettings'
-import { ExperimentalSettings } from './ExperimentalSettings'
-import { AboutSettings } from './AboutSettings'
+import { GeneralSettings } from '../GeneralSettings'
+import { PlatformSettings } from '../PlatformSettings'
+import { SecuritySettings } from '../SecuritySettings'
+import { ModelSettings } from '../ModelSettings'
+import { McpSettings } from '../McpSettings'
+import { SkillsSettings } from '../SkillsSettings'
+import { ServicesSettings } from '../ServicesSettings'
+import { DataSettings } from '../DataSettings'
+import { ExperimentalSettings } from '../ExperimentalSettings'
+import { AboutSettings } from '../AboutSettings'
 
 type SettingsTab = 'general' | 'platforms' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'experimental' | 'about'
 
-export function SettingsView(): JSX.Element {
+export function MemuSettingsView(): JSX.Element {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
 
@@ -49,7 +49,7 @@ export function SettingsView(): JSX.Element {
                 onClick={() => setActiveTab(tab.id)}
                 className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition-all duration-200 ${
                   isActive
-                    ? 'bg-gradient-to-r from-[#7DCBF7]/20 to-[#2596D1]/20 text-[var(--primary)] shadow-sm'
+                    ? 'bg-[var(--primary-bg)] text-[var(--primary)] shadow-sm'
                     : 'text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)]'
                 }`}
               >

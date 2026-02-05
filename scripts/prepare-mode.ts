@@ -15,6 +15,7 @@ interface ModeConfig {
   appId: string
   productName: string
   executableName: string
+  name: string  // Used for userData directory
   description: string
   icon: string
   iconMac?: string
@@ -65,10 +66,14 @@ async function main(): Promise<void> {
   
   // Generate electron-builder config override using 'extends'
   // This will inherit all settings from the base config and override specific values
+  // extraMetadata.name overrides package.json's name, which affects app.name and userData path
   const builderConfig = {
     extends: './electron-builder.yml',
     appId: config.appId,
     productName: config.productName,
+    extraMetadata: {
+      name: config.name  // This makes app.name correct in packaged app
+    },
     win: {
       executableName: config.executableName
     }

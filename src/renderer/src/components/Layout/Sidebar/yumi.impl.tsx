@@ -38,7 +38,7 @@ export function YumiSidebar({ activeNav, onNavChange }: YumiSidebarProps): JSX.E
           title="Yumi"
           className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
             activeNav === 'yumi'
-              ? 'bg-[#FFE8E0] dark:bg-[#3D2A2A] shadow-md'
+              ? 'bg-gradient-to-tl from-[var(--primary-light)] to-[var(--primary)] shadow-lg'
               : 'bg-[var(--icon-bg)] hover:bg-[var(--bg-card-solid)]'
           }`}
         >

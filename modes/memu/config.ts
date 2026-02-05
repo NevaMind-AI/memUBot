@@ -4,6 +4,7 @@ const config: ModeConfig = {
   appId: 'com.nevamind.memu-bot',
   productName: 'memU bot',
   executableName: 'memu-bot',
+  name: 'memu-bot',  // Used for userData directory
   description: 'memU bot - AI Assistant for messaging platforms',
   
   // Icons (relative to this mode's directory)

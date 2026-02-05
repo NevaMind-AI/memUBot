@@ -378,7 +378,8 @@ export function SkillsSettings(): JSX.Element {
             <button
               onClick={searchGitHub}
               disabled={searchLoading}
-              className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#7DCBF7] to-[#2596D1] text-white text-[13px] font-medium shadow-lg shadow-[#2596D1]/25 hover:shadow-xl hover:shadow-[#2596D1]/30 transition-all disabled:opacity-50"
+              className="px-4 py-2.5 rounded-xl text-white text-[13px] font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
+              style={{ background: 'var(--primary-gradient)', boxShadow: 'var(--shadow-primary)' }}
             >
               {searchLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : t('common.search')}
             </button>

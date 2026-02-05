@@ -23,8 +23,8 @@ const styleMap = {
     text: 'text-amber-700 dark:text-amber-400'
   },
   info: {
-    icon: 'text-[#2596D1]',
-    text: 'text-[#2596D1]'
+    icon: 'text-[var(--primary)]',
+    text: 'text-[var(--primary)]'
   }
 }
 

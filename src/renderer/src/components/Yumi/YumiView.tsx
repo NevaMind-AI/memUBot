@@ -1,4 +1,6 @@
 import { YumiHeader } from './YumiHeader'
+import yumiSleepVideo from '../../assets/yumi-sleep.webm'
+import './YumiView.css'
 
 export function YumiView(): JSX.Element {
   return (
@@ -7,14 +9,35 @@ export function YumiView(): JSX.Element {
       <YumiHeader />
       
       {/* Main Content Area */}
-      <div className="flex-1 flex items-center justify-center bg-[var(--bg-secondary)]">
-        <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#F4A89A] to-[#FBCEB1] flex items-center justify-center shadow-lg shadow-[#F4A89A]/25">
-            <span className="text-3xl font-bold text-white">Y</span>
-          </div>
-          <h2 className="text-xl font-semibold text-[var(--text-primary)]">
-            Yumi
-          </h2>
+      <div className="flex-1 flex items-center justify-center bg-[var(--bg-secondary)] overflow-hidden">
+        <div className="relative flex items-center justify-center">
+          {/* Cloud background - covers the video area */}
+          {/* Light mode: warm cream/pink, Dark mode: warm brown */}
+          <div 
+            className="absolute w-[280px] h-[280px] rounded-full cloud-outer"
+            style={{
+              filter: 'blur(8px)',
+              transform: 'scale(1.2)'
+            }}
+          />
+          {/* Additional cloud layers for depth */}
+          <div 
+            className="absolute w-[220px] h-[200px] rounded-full cloud-inner"
+            style={{
+              filter: 'blur(4px)'
+            }}
+          />
+          
+          {/* Yumi sleep video */}
+          <video 
+            className="relative z-10 w-48 h-48 object-contain yumi-video"
+            autoPlay 
+            loop 
+            muted 
+            playsInline
+          >
+            <source src={yumiSleepVideo} type="video/webm" />
+          </video>
         </div>
       </div>
     </div>

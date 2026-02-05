@@ -25,7 +25,8 @@
   },
   "common": {
     "save": "Save",
-    "saveChanges": "",
+    "saveChanges": "Save Changes",
+    "recommended": "Recommended",
     "saving": "Saving...",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -76,6 +77,7 @@
   "settings": {
     "title": "Settings",
     "tabs": {
+      "account": "Account",
       "general": "General",
       "platforms": "Platforms",
       "security": "Security",
@@ -86,6 +88,21 @@
       "data": "Data",
       "experimental": "Experimental",
       "about": "About"
+    },
+    "account": {
+      "title": "Account",
+      "description": "Manage your Yumi account",
+      "login": "Login",
+      "loginHint": "Login to sync your data and settings",
+      "logout": "Logout",
+      "emailPlaceholder": "Email address",
+      "passwordPlaceholder": "Password",
+      "loggingIn": "Logging in...",
+      "loginSuccess": "Login successful",
+      "loginError": "Login failed, please try again",
+      "logoutSuccess": "Logged out successfully",
+      "logoutError": "Logout failed, please try again",
+      "fillAllFields": "Please fill in email and password"
     },
     "general": {
       "title": "General Settings",
@@ -189,6 +206,15 @@
     "model": {
       "title": "AI Model",
       "description": "Configure AI model parameters",
+      "selectTier": "Select Model",
+      "tier": {
+        "agile": "Agile",
+        "agileDesc": "Fast response, ideal for daily conversations",
+        "smart": "Smart",
+        "smartDesc": "Balanced performance for most needs",
+        "deep": "Deep",
+        "deepDesc": "Complex reasoning and deep analysis"
+      },
       "model": "Model",
       "modelHint": "Claude model version",
       "maxTokens": "Max Tokens",
@@ -325,6 +351,7 @@
       "description": "Manage your data and storage",
       "storageUsed": "Storage Used",
       "storageHint": "Application data storage",
+      "openFolder": "Open Data Folder",
       "messagesFolder": "Messages Folder",
       "messagesFolderHint": "Open folder containing chat histories (JSON files)",
       "clearCache": "Clear Cache",

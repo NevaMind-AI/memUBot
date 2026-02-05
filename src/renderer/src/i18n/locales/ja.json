@@ -26,6 +26,7 @@
   "common": {
     "save": "保存",
     "saveChanges": "変更を保存",
+    "recommended": "おすすめ",
     "saving": "保存中...",
     "cancel": "キャンセル",
     "delete": "削除",
@@ -76,6 +77,7 @@
   "settings": {
     "title": "設定",
     "tabs": {
+      "account": "アカウント",
       "general": "一般",
       "platforms": "プラットフォーム",
       "security": "セキュリティ",
@@ -86,6 +88,21 @@
       "data": "データ",
       "experimental": "実験的機能",
       "about": "バージョン情報"
+    },
+    "account": {
+      "title": "アカウント",
+      "description": "Yumi アカウントを管理",
+      "login": "ログイン",
+      "loginHint": "ログインしてデータと設定を同期",
+      "logout": "ログアウト",
+      "emailPlaceholder": "メールアドレス",
+      "passwordPlaceholder": "パスワード",
+      "loggingIn": "ログイン中...",
+      "loginSuccess": "ログイン成功",
+      "loginError": "ログイン失敗、再試行してください",
+      "logoutSuccess": "ログアウトしました",
+      "logoutError": "ログアウト失敗、再試行してください",
+      "fillAllFields": "メールとパスワードを入力してください"
     },
     "general": {
       "title": "一般設定",
@@ -189,6 +206,15 @@
     "model": {
       "title": "AI モデル",
       "description": "AI モデルのパラメータを設定",
+      "selectTier": "モデルを選択",
+      "tier": {
+        "agile": "敏捷",
+        "agileDesc": "高速応答、日常会話に最適",
+        "smart": "スマート",
+        "smartDesc": "バランスの取れたパフォーマンス",
+        "deep": "深層",
+        "deepDesc": "複雑な推論と深い分析"
+      },
       "model": "モデル",
       "modelHint": "Claude モデルバージョン",
       "maxTokens": "最大トークン数",
@@ -304,6 +330,7 @@
       "description": "データとストレージを管理",
       "storageUsed": "使用中のストレージ",
       "storageHint": "アプリデータストレージ",
+      "openFolder": "データフォルダを開く",
       "messagesFolder": "メッセージフォルダ",
       "messagesFolderHint": "チャット履歴を含むフォルダを開く（JSON ファイル）",
       "clearCache": "キャッシュを削除",
