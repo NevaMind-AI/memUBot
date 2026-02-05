@@ -36,19 +36,30 @@ export function estimateTokens(message: Anthropic.MessageParam): number {
     if (block.type === 'text') {
       tokens += Math.ceil(block.text.length / 3)
     } else if (block.type === 'image') {
-      // Base64 images are expensive - estimate based on data size
-      if (block.source.type === 'base64') {
-        // Base64 images: more conservative estimation
-        tokens += Math.ceil(block.source.data.length / 3 * 1.5)
-      } else {
-        // URL-based images - estimate ~1500 tokens per image
-        tokens += 1500
-      }
+      // Claude calculates image tokens based on pixel dimensions, NOT base64 size
+      // Images are scaled to max 1568x1568, token cost = (width * height) / 750
+      // Max ~3200 tokens per image, typical screenshot ~1600-2000 tokens
+      // Use conservative estimate of 2000 tokens per image
+      tokens += 2000
     } else if (block.type === 'tool_use') {
       tokens += Math.ceil(JSON.stringify(block).length / 3)
     } else if (block.type === 'tool_result') {
-      const content = typeof block.content === 'string' ? block.content : JSON.stringify(block.content)
-      tokens += Math.ceil(content.length / 3)
+      if (typeof block.content === 'string') {
+        tokens += Math.ceil(block.content.length / 3)
+      } else if (Array.isArray(block.content)) {
+        // tool_result content can be an array of text/image blocks
+        for (const item of block.content) {
+          if (item.type === 'text') {
+            tokens += Math.ceil(item.text.length / 3)
+          } else if (item.type === 'image') {
+            // Same as regular image: ~2000 tokens per image
+            tokens += 2000
+          }
+        }
+      } else {
+        // Fallback for other content types
+        tokens += Math.ceil(JSON.stringify(block.content).length / 3)
+      }
     }
   }
   return tokens

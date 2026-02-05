@@ -15,7 +15,17 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "tsx scripts/build-mac.ts",
     "build:linux": "npm run build && electron-builder --linux",
-    "release:mac": "tsx scripts/release-mac.ts"
+    "release:mac": "tsx scripts/release-mac.ts",
+    "flavor": "tsx scripts/with-flavor.ts",
+    "dev:memu": "tsx scripts/with-flavor.ts memu dev",
+    "build:memu": "tsx scripts/with-flavor.ts memu build",
+    "build:memu:mac": "tsx scripts/with-flavor.ts memu build:mac",
+    "build:memu:win": "tsx scripts/with-flavor.ts memu build:win",
+    "dev:yumi": "tsx scripts/with-flavor.ts yumi dev",
+    "build:yumi": "tsx scripts/with-flavor.ts yumi build",
+    "build:yumi:mac": "tsx scripts/with-flavor.ts yumi build:mac",
+    "build:yumi:win": "tsx scripts/with-flavor.ts yumi build:win",
+    "prepare-flavor": "tsx scripts/prepare-flavor.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
