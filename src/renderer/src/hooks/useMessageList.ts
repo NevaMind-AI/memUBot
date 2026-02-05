@@ -29,6 +29,7 @@ interface MessageApi {
   getStatus: () => Promise<{ success: boolean; data?: BotStatus }>
   onNewMessage: (callback: (message: BaseMessage) => void) => () => void
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh?: (callback: () => void) => () => void
 }
 
 interface UseMessageListOptions {
@@ -177,7 +178,7 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
     loadUserAvatars()
   }, [loadInitialMessages, loadBotStatus, loadUserAvatars])
 
-  // Subscribe to new messages and status changes
+  // Subscribe to new messages, status changes, and refresh events
   useEffect(() => {
     const unsubscribeMessages = api.onNewMessage((message: BaseMessage) => {
       const newMsg = { ...message, timestamp: new Date(message.timestamp) }
@@ -197,11 +198,18 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
       setBotAvatarUrl(status.avatarUrl || null)
     })
 
+    // Subscribe to messages refresh event (triggered after chat history deletion)
+    const unsubscribeRefresh = api.onMessagesRefresh?.(() => {
+      console.log('[useMessageList] Messages refresh event received, reloading...')
+      loadInitialMessages()
+    })
+
     return () => {
       unsubscribeMessages()
       unsubscribeStatus()
+      unsubscribeRefresh?.()
     }
-  }, [api])
+  }, [api, loadInitialMessages])
 
   // Auto-scroll to bottom when messages change
   useEffect(() => {

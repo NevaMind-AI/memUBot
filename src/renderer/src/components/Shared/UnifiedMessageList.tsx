@@ -8,6 +8,7 @@ interface MessageApi {
   getStatus: () => Promise<{ success: boolean; data?: { avatarUrl?: string } }>
   onNewMessage: (callback: (message: BaseMessage) => void) => () => void
   onStatusChanged: (callback: (status: { avatarUrl?: string }) => void) => () => void
+  onMessagesRefresh?: (callback: () => void) => () => void
 }
 
 interface UnifiedMessageListProps {

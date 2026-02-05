@@ -106,6 +106,43 @@ class LineStorage {
     await this.ensureInitialized()
     return this.messages.length
   }
+
+  /**
+   * Delete messages by count (most recent N messages)
+   * @param count Number of messages to delete from the end
+   * @returns Number of messages actually deleted
+   */
+  async deleteRecentMessages(count: number): Promise<number> {
+    await this.ensureInitialized()
+    const sorted = [...this.messages].sort((a, b) => a.date - b.date)
+    const toDelete = count > sorted.length ? sorted.length : count
+    
+    if (toDelete <= 0) return 0
+    
+    const idsToDelete = new Set(sorted.slice(-toDelete).map(m => m.messageId))
+    this.messages = this.messages.filter(m => !idsToDelete.has(m.messageId))
+    await this.saveData()
+    
+    return toDelete
+  }
+
+  /**
+   * Delete messages within a time range
+   * @param startDate Start date (inclusive)
+   * @param endDate End date (inclusive)
+   * @returns Number of messages deleted
+   */
+  async deleteMessagesByTimeRange(startDate: Date, endDate: Date): Promise<number> {
+    await this.ensureInitialized()
+    const startTimestamp = Math.floor(startDate.getTime() / 1000)
+    const endTimestamp = Math.floor(endDate.getTime() / 1000)
+    
+    const originalCount = this.messages.length
+    this.messages = this.messages.filter(m => m.date < startTimestamp || m.date > endTimestamp)
+    await this.saveData()
+    
+    return originalCount - this.messages.length
+  }
 }
 
 // Export singleton instance

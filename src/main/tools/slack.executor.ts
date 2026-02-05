@@ -191,6 +191,106 @@ export async function executeSlackSendEphemeral(input: SendEphemeralInput): Prom
 }
 
 /**
+ * Input for delete chat history tool
+ */
+interface DeleteChatHistoryInput {
+  mode: 'count' | 'time_range' | 'all'
+  count?: number
+  start_datetime?: string // ISO 8601 datetime with timezone
+  end_datetime?: string   // ISO 8601 datetime with timezone, or 'now'
+  // Legacy support
+  start_date?: string
+  end_date?: string
+}
+
+/**
+ * Parse datetime string to Date object
+ * Supports ISO 8601 with timezone, 'now', or legacy date-only format
+ */
+function parseDatetime(datetimeStr: string): Date {
+  if (datetimeStr.toLowerCase() === 'now') {
+    return new Date()
+  }
+  
+  // If it's a date-only format (YYYY-MM-DD), append local timezone
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datetimeStr)) {
+    // Parse as local time by appending T00:00:00
+    return new Date(datetimeStr + 'T00:00:00')
+  }
+  
+  // If it has time but no timezone, assume local time
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/.test(datetimeStr)) {
+    return new Date(datetimeStr)
+  }
+  
+  // Full ISO 8601 with timezone
+  return new Date(datetimeStr)
+}
+
+/**
+ * Delete chat history
+ */
+export async function executeSlackDeleteChatHistory(
+  input: DeleteChatHistoryInput
+): Promise<ToolResult> {
+  try {
+    let deletedCount = 0
+
+    switch (input.mode) {
+      case 'count': {
+        if (!input.count || input.count <= 0) {
+          return { success: false, error: 'count must be a positive number' }
+        }
+        deletedCount = await slackStorage.deleteRecentMessages(input.count)
+        break
+      }
+      case 'time_range': {
+        // Support both new (start_datetime/end_datetime) and legacy (start_date/end_date) params
+        const startStr = input.start_datetime || input.start_date
+        const endStr = input.end_datetime || input.end_date
+        
+        if (!startStr || !endStr) {
+          return { success: false, error: 'start_datetime and end_datetime are required for time_range mode' }
+        }
+        
+        const startDate = parseDatetime(startStr)
+        const endDate = parseDatetime(endStr)
+        
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          return { success: false, error: 'Invalid datetime format. Use ISO 8601 format like 2026-02-04T22:00:00+08:00' }
+        }
+        
+        console.log(`[Slack] Deleting messages from ${startDate.toISOString()} to ${endDate.toISOString()}`)
+        deletedCount = await slackStorage.deleteMessagesByTimeRange(startDate, endDate)
+        break
+      }
+      case 'all': {
+        const totalCount = await slackStorage.getMessageCount()
+        await slackStorage.clearMessages()
+        deletedCount = totalCount
+        break
+      }
+      default:
+        return { success: false, error: `Unknown mode: ${input.mode}. Use 'count', 'time_range', or 'all'` }
+    }
+
+    // Emit refresh event to update UI
+    appEvents.emitMessagesRefresh('slack')
+
+    return {
+      success: true,
+      data: {
+        deleted_count: deletedCount,
+        message: `Successfully deleted ${deletedCount} message(s). Chat history refreshed.`
+      }
+    }
+  } catch (error) {
+    console.error('[Slack] Delete chat history error:', error)
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/**
  * Execute a Slack tool by name
  */
 export async function executeSlackTool(name: string, input: unknown): Promise<ToolResult> {
@@ -205,6 +305,8 @@ export async function executeSlackTool(name: string, input: unknown): Promise<To
       return await executeSlackAddReaction(input as AddReactionInput)
     case 'slack_send_ephemeral':
       return await executeSlackSendEphemeral(input as SendEphemeralInput)
+    case 'slack_delete_chat_history':
+      return await executeSlackDeleteChatHistory(input as DeleteChatHistoryInput)
     default:
       return { success: false, error: `Unknown Slack tool: ${name}` }
   }

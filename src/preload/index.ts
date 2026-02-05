@@ -32,6 +32,10 @@ const telegramApi = {
   onStatusChanged: (callback: (status: unknown) => void) => {
     ipcRenderer.on('telegram:status-changed', (_event, status) => callback(status))
     return () => ipcRenderer.removeAllListeners('telegram:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('telegram:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('telegram:messages-refresh')
   }
 }
 
@@ -79,6 +83,10 @@ const discordApi = {
   onStatusChanged: (callback: (status: unknown) => void) => {
     ipcRenderer.on('discord:status-changed', (_event, status) => callback(status))
     return () => ipcRenderer.removeAllListeners('discord:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('discord:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('discord:messages-refresh')
   }
 }
 
@@ -97,6 +105,10 @@ const whatsappApi = {
   onStatusChanged: (callback: (status: unknown) => void) => {
     ipcRenderer.on('whatsapp:status-changed', (_event, status) => callback(status))
     return () => ipcRenderer.removeAllListeners('whatsapp:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('whatsapp:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('whatsapp:messages-refresh')
   }
 }
 
@@ -114,6 +126,10 @@ const slackApi = {
   onStatusChanged: (callback: (status: unknown) => void) => {
     ipcRenderer.on('slack:status-changed', (_event, status) => callback(status))
     return () => ipcRenderer.removeAllListeners('slack:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('slack:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('slack:messages-refresh')
   }
 }
 
@@ -131,6 +147,10 @@ const lineApi = {
   onStatusChanged: (callback: (status: unknown) => void) => {
     ipcRenderer.on('line:status-changed', (_event, status) => callback(status))
     return () => ipcRenderer.removeAllListeners('line:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('line:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('line:messages-refresh')
   }
 }
 
@@ -148,6 +168,10 @@ const feishuApi = {
   onStatusChanged: (callback: (status: unknown) => void) => {
     ipcRenderer.on('feishu:status-changed', (_event, status) => callback(status))
     return () => ipcRenderer.removeAllListeners('feishu:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('feishu:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('feishu:messages-refresh')
   }
 }
 

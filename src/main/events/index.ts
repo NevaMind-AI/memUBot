@@ -36,16 +36,22 @@ export type ServiceStatusType = 'stopped' | 'running' | 'error'
 export type AppEventType =
   | 'telegram:new-message'
   | 'telegram:status-changed'
+  | 'telegram:messages-refresh'
   | 'discord:new-message'
   | 'discord:status-changed'
+  | 'discord:messages-refresh'
   | 'whatsapp:new-message'
   | 'whatsapp:status-changed'
+  | 'whatsapp:messages-refresh'
   | 'slack:new-message'
   | 'slack:status-changed'
+  | 'slack:messages-refresh'
   | 'line:new-message'
   | 'line:status-changed'
+  | 'line:messages-refresh'
   | 'feishu:new-message'
   | 'feishu:status-changed'
+  | 'feishu:messages-refresh'
   | 'llm:status-changed'
   | 'llm:activity-changed'
   | 'service:status-changed'
@@ -253,6 +259,17 @@ class AppEventEmitter extends EventEmitter {
     console.log('[Events] Emitting service list changed')
     this.emit('service:list-changed', {})
     this.sendToRenderer('service:list-changed', {})
+  }
+
+  /**
+   * Emit messages refresh event for a platform
+   * Used after deleting chat history to refresh UI
+   */
+  emitMessagesRefresh(platform: 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu'): void {
+    const eventName = `${platform}:messages-refresh` as AppEventType
+    console.log(`[Events] Emitting messages refresh for ${platform}`)
+    this.emit(eventName, {})
+    this.sendToRenderer(eventName, {})
   }
 }
 

@@ -129,6 +129,7 @@ interface TelegramApi {
   // Event listeners (returns unsubscribe function)
   onNewMessage: (callback: (message: AppMessage) => void) => () => void
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // Discord API interface (single-user mode)
@@ -140,6 +141,7 @@ interface DiscordApi {
   // Event listeners (returns unsubscribe function)
   onNewMessage: (callback: (message: AppMessage) => void) => () => void
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // WhatsApp API interface (single-user mode)
@@ -152,6 +154,7 @@ interface WhatsAppApi {
   // Event listeners (returns unsubscribe function)
   onNewMessage: (callback: (message: AppMessage) => void) => () => void
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // Slack API interface (single-user mode)
@@ -163,6 +166,7 @@ interface SlackApi {
   // Event listeners (returns unsubscribe function)
   onNewMessage: (callback: (message: AppMessage) => void) => () => void
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // Line API interface (single-user mode)
@@ -174,6 +178,7 @@ interface LineApi {
   // Event listeners (returns unsubscribe function)
   onNewMessage: (callback: (message: AppMessage) => void) => () => void
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // Feishu API interface (single-user mode)
@@ -185,6 +190,7 @@ interface FeishuApi {
   // Event listeners (returns unsubscribe function)
   onNewMessage: (callback: (message: AppMessage) => void) => () => void
   onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
 }
 
 // MCP Server Configuration
