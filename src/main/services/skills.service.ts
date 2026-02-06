@@ -65,7 +65,7 @@ class SkillsService {
   private config: SkillsConfig = { enabledSkills: [], disabledSkills: [] }
   private initialized = false
   private githubSkillsCache: GitHubSkillsCache | null = null
-  private userAgent: string = process.env.APP_MODE === 'yumi' ? 'yumi' : 'memu-bot'
+  private userAgent: string = import.meta.env.MAIN_VITE_APP_MODE === 'yumi' ? 'yumi' : 'memu-bot'
 
   constructor() {
     const userDataPath = app.getPath('userData')

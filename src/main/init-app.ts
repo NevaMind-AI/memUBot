@@ -1,7 +1,7 @@
 /**
  * App initialization - MUST be imported first before any other modules
  * 
- * This sets up the app name and userData path based on APP_MODE.
+ * This sets up the app name and userData path based on MAIN_VITE_APP_MODE.
  * 
  * Why this is needed:
  * - package.json has "name": "memu-bot" which Electron uses as default app.name
@@ -17,7 +17,7 @@
 import { app } from 'electron'
 import { join } from 'path'
 
-const appMode = process.env.APP_MODE || 'memu'
+const appMode = import.meta.env.MAIN_VITE_APP_MODE || 'memu'
 const appName = appMode === 'yumi' ? 'yumi' : 'memu-bot'
 
 // Set app name

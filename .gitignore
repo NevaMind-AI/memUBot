@@ -36,6 +36,8 @@ config.local.json
 # Build artifacts
 build/*.icns
 build/*.ico
+build/icon.png
+build/icon-win.png
 nanobanana-output/
 electron-builder.mode.json
 

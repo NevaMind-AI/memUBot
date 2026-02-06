@@ -60,7 +60,7 @@ class AnalyticsService {
         locale: settings.language || app.getLocale(),
         platforms_configured: platformsConfigured.join(','),
         llm_provider: settings.llmProvider,
-        mode: process.env.APP_MODE || 'memu'
+        mode: import.meta.env.MAIN_VITE_APP_MODE || 'memu'
       }
 
       // Setup IPC handler for renderer to get config

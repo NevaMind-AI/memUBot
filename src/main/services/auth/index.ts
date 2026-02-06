@@ -11,7 +11,7 @@ import { YumiAuthService } from './yumi.impl'
 
 export * from './types'
 
-const appMode = process.env.APP_MODE || 'memu'
+const appMode = import.meta.env.MAIN_VITE_APP_MODE || 'memu'
 
 let authServiceInstance: IAuthService | null = null
 

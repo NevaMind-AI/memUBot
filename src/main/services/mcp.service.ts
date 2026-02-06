@@ -210,7 +210,7 @@ class McpService {
       protocolVersion: '2024-11-05',
       capabilities: {},
       clientInfo: {
-        name: process.env.APP_MODE === 'yumi' ? 'yumi' : 'memu-bot',
+        name: import.meta.env.MAIN_VITE_APP_MODE === 'yumi' ? 'yumi' : 'memu-bot',
         version: '1.0.0'
       }
     })

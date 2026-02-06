@@ -7,11 +7,11 @@ import { memuAutoConnectService } from './memu.impl'
 import { yumiAutoConnectService } from './yumi.impl'
 
 /**
- * Get the current app mode from environment variable
- * APP_MODE is set in npm scripts (e.g., APP_MODE=yumi npm run dev:yumi)
+ * Get the current app mode from Vite environment variable
+ * MAIN_VITE_APP_MODE is set in .env.{mode} files and injected at build time
  */
 function getAppMode(): AppMode {
-  const mode = process.env.APP_MODE || 'memu'
+  const mode = import.meta.env.MAIN_VITE_APP_MODE || 'memu'
   console.log('[AutoConnect] App mode:', mode)
   return mode as AppMode
 }
