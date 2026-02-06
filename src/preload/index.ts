@@ -258,6 +258,20 @@ const analyticsApi = {
   }
 }
 
+// Auth API (Yumi only - Firebase authentication)
+const authApi = {
+  getState: () => ipcRenderer.invoke('auth:getState'),
+  signInWithEmail: (email: string, password: string) =>
+    ipcRenderer.invoke('auth:signInWithEmail', email, password),
+  signOut: () => ipcRenderer.invoke('auth:signOut'),
+  getAccessToken: () => ipcRenderer.invoke('auth:getAccessToken'),
+  // Event listener for auth state changes
+  onStateChanged: (callback: (state: unknown) => void) => {
+    ipcRenderer.on('auth:stateChanged', (_event, state) => callback(state))
+    return () => ipcRenderer.removeAllListeners('auth:stateChanged')
+  }
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -277,6 +291,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('skills', skillsApi)
     contextBridge.exposeInMainWorld('services', servicesApi)
     contextBridge.exposeInMainWorld('analytics', analyticsApi)
+    contextBridge.exposeInMainWorld('auth', authApi)
   } catch (error) {
     console.error(error)
   }
@@ -313,4 +328,6 @@ if (process.contextIsolated) {
   window.services = servicesApi
   // @ts-ignore (define in dts)
   window.analytics = analyticsApi
+  // @ts-ignore (define in dts)
+  window.auth = authApi
 }

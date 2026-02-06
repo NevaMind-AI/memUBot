@@ -102,7 +102,9 @@
       "loginError": "ログイン失敗、再試行してください",
       "logoutSuccess": "ログアウトしました",
       "logoutError": "ログアウト失敗、再試行してください",
-      "fillAllFields": "メールとパスワードを入力してください"
+      "fillAllFields": "メールとパスワードを入力してください",
+      "or": "または",
+      "loginWithGoogle": "Google でログイン"
     },
     "general": {
       "title": "一般設定",

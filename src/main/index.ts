@@ -14,6 +14,7 @@ import { proactiveService } from './services/proactive.service'
 import { localApiService } from './services/local-api.service'
 import { serviceManagerService } from './services/service-manager.service'
 import { analyticsService, trackAppStart } from './services/analytics.service'
+import { getAuthService } from './services/auth'
 import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
 import { requestAllPermissions } from './utils/permissions'
@@ -208,6 +209,21 @@ async function initializeServicesAsync(): Promise<void> {
     console.error('[App] Permission request error:', error)
   }
 
+  // Initialize Auth service (Yumi only, no-op for Memu)
+  sendStartupStatus({
+    stage: 'initializing',
+    message: 'Initializing auth service...',
+    progress: 25
+  })
+
+  try {
+    const authService = getAuthService()
+    await authService.initialize()
+    console.log('[App] Auth service initialized')
+  } catch (error) {
+    console.error('[App] Failed to initialize auth service:', error)
+  }
+
   // Stage 2: MCP Service
   sendStartupStatus({
     stage: 'mcp',
@@ -321,6 +337,9 @@ app.on('will-quit', async () => {
   
   // Shutdown MCP servers
   await mcpService.shutdown()
+  
+  // Shutdown Auth service
+  getAuthService().destroy()
   
   // Shutdown Analytics service (flush remaining events)
   await analyticsService.shutdown()

@@ -102,7 +102,9 @@
       "loginError": "Login failed, please try again",
       "logoutSuccess": "Logged out successfully",
       "logoutError": "Logout failed, please try again",
-      "fillAllFields": "Please fill in email and password"
+      "fillAllFields": "Please fill in email and password",
+      "or": "or",
+      "loginWithGoogle": "Continue with Google"
     },
     "general": {
       "title": "General Settings",

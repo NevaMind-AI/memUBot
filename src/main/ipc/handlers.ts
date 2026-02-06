@@ -12,6 +12,7 @@ import { setupSecurityHandlers } from './security.handlers'
 import { setupLLMHandlers } from './llm.handlers'
 import { registerSkillsHandlers } from './skills.handlers'
 import { setupServiceHandlers } from './service.handlers'
+import { registerAuthHandlers } from './auth.handlers'
 import type { IpcResponse, FileInfo } from '../types'
 
 /**
@@ -31,6 +32,7 @@ export function setupIpcHandlers(): void {
   setupLLMHandlers()
   registerSkillsHandlers()
   setupServiceHandlers()
+  registerAuthHandlers()
 }
 
 /**

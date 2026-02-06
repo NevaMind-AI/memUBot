@@ -5,6 +5,12 @@ import react from '@vitejs/plugin-react'
 export default defineConfig(({ mode }) => {
   console.log(`[electron-vite] Mode: ${mode}`)
   
+  // electron-vite automatically loads .env.[mode] files
+  // Environment variables are exposed based on prefix:
+  // - MAIN_VITE_* -> main process (import.meta.env.MAIN_VITE_*)
+  // - PRELOAD_VITE_* -> preload scripts
+  // - RENDERER_VITE_* or VITE_* -> renderer process
+  
   return {
     main: {
       plugins: [externalizeDepsPlugin()]
@@ -19,7 +25,6 @@ export default defineConfig(({ mode }) => {
         }
       },
       plugins: [react()]
-      // VITE_APP_MODE is automatically available via import.meta.env.VITE_APP_MODE
     }
   }
 })

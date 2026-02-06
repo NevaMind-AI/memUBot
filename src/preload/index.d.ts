@@ -434,6 +434,46 @@ interface ServicesApi {
   onListChanged: (callback: () => void) => () => void
 }
 
+// Auth types (Yumi only - Firebase authentication)
+interface AuthUserInfo {
+  uid: string
+  email: string | null
+  displayName: string | null
+  photoURL: string | null
+}
+
+interface AuthCredentials {
+  accessToken: string
+  refreshToken: string
+  expiresAt: number
+}
+
+interface AuthState {
+  isLoggedIn: boolean
+  user: AuthUserInfo | null
+  credentials: AuthCredentials | null
+}
+
+interface AuthLoginResult {
+  success: boolean
+  user?: AuthUserInfo
+  error?: string
+}
+
+interface AuthLogoutResult {
+  success: boolean
+  error?: string
+}
+
+// Auth API interface
+interface AuthApi {
+  getState: () => Promise<AuthState>
+  signInWithEmail: (email: string, password: string) => Promise<AuthLoginResult>
+  signOut: () => Promise<AuthLogoutResult>
+  getAccessToken: () => Promise<string | null>
+  onStateChanged: (callback: (state: AuthState) => void) => () => void
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -451,5 +491,6 @@ declare global {
     startup: StartupApi
     skills: SkillsApi
     services: ServicesApi
+    auth: AuthApi
   }
 }
