@@ -6,6 +6,11 @@
  * 2. Get Firebase ID token
  * 3. Exchange Firebase ID token for our backend credentials
  * 4. Use backend credentials for API requests
+ *
+ * Session Persistence:
+ * - Firebase SDK doesn't persist auth state in Electron main process
+ * - We save Firebase refresh token locally and restore session on startup
+ * - Uses Firebase REST API to refresh tokens when needed
  */
 
 import { app } from 'electron'
@@ -54,9 +59,33 @@ function getApiBaseUrl(): string {
   return import.meta.env.MAIN_VITE_YUMI_API_BASE_URL || 'https://api.yumi.app'
 }
 
+// Firebase REST API for token refresh
+const FIREBASE_TOKEN_API = 'https://securetoken.googleapis.com/v1/token'
+
+// Token refresh threshold: refresh if less than 45 minutes remaining (token valid for 1 hour)
+const TOKEN_REFRESH_THRESHOLD_MS = 45 * 60 * 1000
+
 // Mock mode - set to false when backend API is ready
 // TODO: Replace with actual API calls when backend is implemented
 const USE_MOCK_API = true
+
+/**
+ * Stored session data for persistence
+ */
+interface StoredSession {
+  // Firebase refresh token for session restoration
+  firebaseRefreshToken: string
+  // Firebase ID token (cached)
+  firebaseIdToken: string
+  // When the ID token was last refreshed
+  idTokenRefreshedAt: number
+  // User info for offline display
+  userInfo: UserInfo
+  // Backend credentials
+  credentials: AuthCredentials
+  // Easemob info
+  easemob: EasemobAuthInfo | null
+}
 
 export class YumiAuthService implements IAuthService {
   private firebaseApp: FirebaseApp | null = null
@@ -65,8 +94,15 @@ export class YumiAuthService implements IAuthService {
   private credentials: AuthCredentials | null = null
   private easemobInfo: EasemobAuthInfo | null = null
   private listeners: Set<(state: AuthState) => void> = new Set()
-  private credentialsPath: string
+  private sessionPath: string
   private unsubscribeFirebase: (() => void) | null = null
+
+  // Session persistence
+  private firebaseRefreshToken: string | null = null
+  private firebaseIdToken: string | null = null
+  private idTokenRefreshedAt: number = 0
+  private storedUserInfo: UserInfo | null = null
+  private sessionRestored: boolean = false
 
   constructor() {
     const userDataPath = app.getPath('userData')
@@ -74,7 +110,7 @@ export class YumiAuthService implements IAuthService {
     if (!existsSync(authDir)) {
       mkdirSync(authDir, { recursive: true })
     }
-    this.credentialsPath = join(authDir, 'credentials.json')
+    this.sessionPath = join(authDir, 'session.json')
   }
 
   async initialize(): Promise<void> {
@@ -86,25 +122,33 @@ export class YumiAuthService implements IAuthService {
       this.firebaseApp = initializeApp(firebaseConfig)
       this.auth = getAuth(this.firebaseApp)
 
+      // Load stored session first
+      this.loadStoredSession()
+
+      // Try to restore session if we have a stored refresh token
+      if (this.firebaseRefreshToken && !this.sessionRestored) {
+        console.log('[YumiAuth] Found stored session, attempting to restore...')
+        await this.restoreSession()
+      }
+
       // Listen to Firebase auth state changes
       this.unsubscribeFirebase = firebaseOnAuthStateChanged(this.auth, async (user) => {
         console.log('[YumiAuth] Firebase auth state changed:', user?.email || 'signed out')
         this.currentUser = user
 
         if (user) {
-          // User signed in, try to get/refresh credentials
+          // User signed in via Firebase, extract refresh token
+          this.extractAndStoreFirebaseTokens(user)
+          // Try to get/refresh credentials
           await this.refreshCredentialsIfNeeded()
-        } else {
-          // User signed out
+        } else if (!this.sessionRestored) {
+          // User signed out and no restored session
           this.credentials = null
-          this.clearStoredCredentials()
+          this.clearStoredSession()
         }
 
         this.notifyListeners()
       })
-
-      // Load stored credentials
-      this.loadStoredCredentials()
 
       console.log('[YumiAuth] Firebase initialized successfully')
     } catch (error) {
@@ -113,9 +157,14 @@ export class YumiAuthService implements IAuthService {
   }
 
   getAuthState(): AuthState {
+    // Use current Firebase user if available, otherwise use stored user info from restored session
+    const user = this.currentUser
+      ? this.mapFirebaseUser(this.currentUser)
+      : this.storedUserInfo
+
     return {
-      isLoggedIn: !!this.currentUser && !!this.credentials,
-      user: this.currentUser ? this.mapFirebaseUser(this.currentUser) : null,
+      isLoggedIn: !!user && !!this.credentials,
+      user,
       credentials: this.credentials,
       easemob: this.easemobInfo
     }
@@ -131,13 +180,23 @@ export class YumiAuthService implements IAuthService {
       const userCredential = await signInWithEmailAndPassword(this.auth, email, password)
       const user = userCredential.user
 
+      // Extract and store Firebase tokens for session persistence
+      this.extractAndStoreFirebaseTokens(user)
+
       // Exchange Firebase token for backend credentials
       const exchangeResult = await this.exchangeTokenForCredentials(user)
       if (!exchangeResult.success) {
         // Sign out from Firebase if token exchange fails
         await firebaseSignOut(this.auth)
+        this.clearStoredSession()
         return { success: false, error: exchangeResult.error }
       }
+
+      // Store user info for session restoration
+      this.storedUserInfo = this.mapFirebaseUser(user)
+
+      // Save complete session to disk
+      this.saveSession()
 
       // Notify renderer with updated easemob info immediately
       this.notifyListeners()
@@ -163,9 +222,17 @@ export class YumiAuthService implements IAuthService {
     try {
       console.log('[YumiAuth] Signing out')
       await firebaseSignOut(this.auth)
+
+      // Clear all session data
       this.credentials = null
       this.easemobInfo = null
-      this.clearStoredCredentials()
+      this.firebaseRefreshToken = null
+      this.firebaseIdToken = null
+      this.idTokenRefreshedAt = 0
+      this.storedUserInfo = null
+      this.sessionRestored = false
+      this.clearStoredSession()
+
       console.log('[YumiAuth] Sign out successful')
       return { success: true }
     } catch (error: unknown) {
@@ -187,6 +254,48 @@ export class YumiAuthService implements IAuthService {
     }
 
     return this.credentials?.accessToken || null
+  }
+
+  /**
+   * Get a valid Firebase ID token (async with auto-refresh)
+   * Refreshes if older than TOKEN_REFRESH_THRESHOLD_MS (45 minutes)
+   */
+  async getFirebaseIdToken(): Promise<string | null> {
+    // If we have a current Firebase user, use it directly
+    if (this.currentUser) {
+      const now = Date.now()
+      const tokenAge = now - this.idTokenRefreshedAt
+
+      // Refresh if token is older than threshold
+      if (tokenAge > TOKEN_REFRESH_THRESHOLD_MS) {
+        console.log('[YumiAuth] Firebase ID token is stale, refreshing...')
+        try {
+          this.firebaseIdToken = await this.currentUser.getIdToken(true)
+          this.idTokenRefreshedAt = now
+          this.saveSession()
+        } catch (error) {
+          console.error('[YumiAuth] Failed to refresh Firebase ID token:', error)
+        }
+      }
+
+      return this.firebaseIdToken
+    }
+
+    // No current user, try to refresh using stored refresh token
+    if (this.firebaseRefreshToken) {
+      const now = Date.now()
+      const tokenAge = now - this.idTokenRefreshedAt
+
+      // Refresh if token is older than threshold
+      if (tokenAge > TOKEN_REFRESH_THRESHOLD_MS || !this.firebaseIdToken) {
+        console.log('[YumiAuth] Refreshing Firebase ID token via REST API...')
+        await this.refreshFirebaseTokenViaRestApi()
+      }
+
+      return this.firebaseIdToken
+    }
+
+    return null
   }
 
   onAuthStateChanged(callback: (state: AuthState) => void): () => void {
@@ -247,8 +356,8 @@ export class YumiAuthService implements IAuthService {
     user: User
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Get Firebase ID token
-      const idToken = await user.getIdToken()
+      // Get Firebase ID token (use cached one if available and fresh)
+      const idToken = this.firebaseIdToken || (await user.getIdToken())
 
       // Mock mode: Firebase login is sufficient, generate mock credentials
       if (USE_MOCK_API) {
@@ -272,7 +381,6 @@ export class YumiAuthService implements IAuthService {
           userId: this.easemobInfo.userId,
           tokenPreview: `${this.easemobInfo.token.substring(0, 8)}...`
         })
-        this.storeCredentials()
         return { success: true }
       }
 
@@ -309,7 +417,6 @@ export class YumiAuthService implements IAuthService {
         token: data.easemobToken
       }
 
-      this.storeCredentials()
       return { success: true }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -319,7 +426,7 @@ export class YumiAuthService implements IAuthService {
   }
 
   private async refreshCredentialsIfNeeded(): Promise<void> {
-    if (!this.credentials?.refreshToken || !this.currentUser) {
+    if (!this.credentials?.refreshToken) {
       return
     }
 
@@ -333,13 +440,30 @@ export class YumiAuthService implements IAuthService {
       // Mock mode: Refresh using Firebase token
       if (USE_MOCK_API) {
         console.log('[YumiAuth] Mock mode: Refreshing credentials with Firebase token')
-        const idToken = await this.currentUser.getIdToken(true) // Force refresh
+
+        // Get fresh Firebase ID token
+        let idToken: string | null = null
+        if (this.currentUser) {
+          idToken = await this.currentUser.getIdToken(true)
+          this.firebaseIdToken = idToken
+          this.idTokenRefreshedAt = now
+        } else if (this.firebaseRefreshToken) {
+          // No current user, refresh via REST API
+          await this.refreshFirebaseTokenViaRestApi()
+          idToken = this.firebaseIdToken
+        }
+
+        if (!idToken) {
+          console.error('[YumiAuth] Cannot refresh credentials: no valid Firebase token')
+          return
+        }
+
         this.credentials = {
           accessToken: idToken,
           refreshToken: this.credentials.refreshToken,
           expiresAt: Date.now() + 3600 * 1000
         }
-        this.storeCredentials()
+        this.saveSession()
         return
       }
 
@@ -356,7 +480,7 @@ export class YumiAuthService implements IAuthService {
       if (!response.ok) {
         // Refresh failed, clear credentials
         this.credentials = null
-        this.clearStoredCredentials()
+        this.clearStoredSession()
         return
       }
 
@@ -367,57 +491,239 @@ export class YumiAuthService implements IAuthService {
         expiresAt: Date.now() + (data.expiresIn || 3600) * 1000
       }
 
-      this.storeCredentials()
+      this.saveSession()
     } catch (error) {
       console.error('[YumiAuth] Failed to refresh credentials:', error)
     }
   }
 
-  private storeCredentials(): void {
-    if (!this.credentials) return
+  // ==================== Session Persistence Methods ====================
+
+  /**
+   * Extract Firebase tokens from User object for persistence
+   * Firebase stores refresh token internally in stsTokenManager
+   */
+  private extractAndStoreFirebaseTokens(user: User): void {
     try {
-      writeFileSync(
-        this.credentialsPath,
-        JSON.stringify({
-          credentials: this.credentials,
-          easemob: this.easemobInfo
-        }),
-        'utf-8'
-      )
+      // Access internal token manager (not in public API but available)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userAny = user as any
+      const stsTokenManager = userAny.stsTokenManager
+
+      if (stsTokenManager) {
+        this.firebaseRefreshToken = stsTokenManager.refreshToken || null
+        this.firebaseIdToken = stsTokenManager.accessToken || null
+        this.idTokenRefreshedAt = Date.now()
+
+        console.log('[YumiAuth] Extracted Firebase tokens:', {
+          hasRefreshToken: !!this.firebaseRefreshToken,
+          hasIdToken: !!this.firebaseIdToken
+        })
+      }
     } catch (error) {
-      console.error('[YumiAuth] Failed to store credentials:', error)
+      console.error('[YumiAuth] Failed to extract Firebase tokens:', error)
     }
   }
 
-  private loadStoredCredentials(): void {
+  /**
+   * Restore session from stored refresh token using Firebase REST API
+   */
+  private async restoreSession(): Promise<void> {
+    if (!this.firebaseRefreshToken) {
+      console.log('[YumiAuth] No refresh token available for session restore')
+      return
+    }
+
     try {
-      if (existsSync(this.credentialsPath)) {
-        const data = readFileSync(this.credentialsPath, 'utf-8')
-        const parsed = JSON.parse(data)
-        if (parsed && parsed.credentials) {
-          this.credentials = parsed.credentials
-          this.easemobInfo = parsed.easemob || null
-        } else if (parsed && parsed.accessToken) {
-          // Backward compatibility: old format without wrapper
-          this.credentials = parsed
-          this.easemobInfo = null
+      console.log('[YumiAuth] Restoring session from stored refresh token...')
+
+      // Check if stored ID token is still fresh enough
+      const now = Date.now()
+      const tokenAge = now - this.idTokenRefreshedAt
+
+      if (tokenAge > TOKEN_REFRESH_THRESHOLD_MS || !this.firebaseIdToken) {
+        // Token is stale, refresh via REST API
+        const refreshed = await this.refreshFirebaseTokenViaRestApi()
+        if (!refreshed) {
+          console.log('[YumiAuth] Failed to refresh token, clearing session')
+          this.clearStoredSession()
+          return
         }
-        console.log('[YumiAuth] Loaded stored credentials')
       }
+
+      // We have a valid ID token now, mark session as restored
+      this.sessionRestored = true
+
+      // If we have stored credentials, verify they're still valid
+      if (this.credentials) {
+        // Check if backend credentials need refresh
+        if (this.credentials.expiresAt - now < 5 * 60 * 1000) {
+          await this.refreshCredentialsIfNeeded()
+        }
+      } else {
+        // No stored credentials, need to exchange token
+        // Create a minimal pseudo-user for exchange (mock mode only)
+        if (USE_MOCK_API && this.firebaseIdToken && this.storedUserInfo) {
+          this.credentials = {
+            accessToken: this.firebaseIdToken,
+            refreshToken: `mock_refresh_${this.storedUserInfo.uid}_${Date.now()}`,
+            expiresAt: Date.now() + 3600 * 1000
+          }
+          // Restore mock Easemob info
+          if (!this.easemobInfo) {
+            this.easemobInfo = {
+              agentId: 'yumi-bot',
+              userId: 'yumi-app',
+              token:
+                'YWMtWgKRagNIEfGTeSd7kwkxqUYA2pgGPE_uh0ie2zAWRYvq6mIwA0IR8YNMObREIyM8AwMAAAGcMoqcgDeeSAA0ZCKJtyOmN-f0ZtRYf8yPV4jRD2hSzj2KJbq0rsW0Cg'
+            }
+          }
+          this.saveSession()
+        }
+      }
+
+      console.log('[YumiAuth] Session restored successfully:', {
+        hasIdToken: !!this.firebaseIdToken,
+        hasCredentials: !!this.credentials,
+        hasUserInfo: !!this.storedUserInfo
+      })
+
+      this.notifyListeners()
     } catch (error) {
-      console.error('[YumiAuth] Failed to load stored credentials:', error)
-      this.credentials = null
-      this.easemobInfo = null
+      console.error('[YumiAuth] Failed to restore session:', error)
+      this.clearStoredSession()
     }
   }
 
-  private clearStoredCredentials(): void {
+  /**
+   * Refresh Firebase ID token using REST API
+   * https://firebase.google.com/docs/reference/rest/auth#section-refresh-token
+   */
+  private async refreshFirebaseTokenViaRestApi(): Promise<boolean> {
+    if (!this.firebaseRefreshToken) {
+      return false
+    }
+
+    const apiKey = import.meta.env.MAIN_VITE_FIREBASE_API_KEY
+    if (!apiKey) {
+      console.error('[YumiAuth] Firebase API key not configured')
+      return false
+    }
+
     try {
-      if (existsSync(this.credentialsPath)) {
-        writeFileSync(this.credentialsPath, '', 'utf-8')
+      console.log('[YumiAuth] Refreshing Firebase token via REST API...')
+
+      const response = await fetch(`${FIREBASE_TOKEN_API}?key=${apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(this.firebaseRefreshToken)}`
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error('[YumiAuth] Firebase token refresh failed:', errorData)
+
+        // If refresh token is invalid, clear session
+        if (errorData.error?.message === 'INVALID_REFRESH_TOKEN' ||
+            errorData.error?.message === 'TOKEN_EXPIRED') {
+          this.clearStoredSession()
+        }
+        return false
+      }
+
+      const data = await response.json()
+
+      // Update tokens
+      this.firebaseIdToken = data.id_token
+      this.firebaseRefreshToken = data.refresh_token // Firebase may rotate refresh tokens
+      this.idTokenRefreshedAt = Date.now()
+
+      console.log('[YumiAuth] Firebase token refreshed successfully')
+      this.saveSession()
+
+      return true
+    } catch (error) {
+      console.error('[YumiAuth] Firebase token refresh error:', error)
+      return false
+    }
+  }
+
+  /**
+   * Save complete session to disk
+   */
+  private saveSession(): void {
+    if (!this.firebaseRefreshToken) return
+
+    try {
+      const session: StoredSession = {
+        firebaseRefreshToken: this.firebaseRefreshToken,
+        firebaseIdToken: this.firebaseIdToken || '',
+        idTokenRefreshedAt: this.idTokenRefreshedAt,
+        userInfo: this.storedUserInfo || (this.currentUser ? this.mapFirebaseUser(this.currentUser) : { uid: '', email: null, displayName: null, photoURL: null }),
+        credentials: this.credentials || { accessToken: '', refreshToken: '', expiresAt: 0 },
+        easemob: this.easemobInfo
+      }
+
+      writeFileSync(this.sessionPath, JSON.stringify(session, null, 2), 'utf-8')
+      console.log('[YumiAuth] Session saved to disk')
+    } catch (error) {
+      console.error('[YumiAuth] Failed to save session:', error)
+    }
+  }
+
+  /**
+   * Load stored session from disk
+   */
+  private loadStoredSession(): void {
+    try {
+      if (!existsSync(this.sessionPath)) {
+        console.log('[YumiAuth] No stored session found')
+        return
+      }
+
+      const data = readFileSync(this.sessionPath, 'utf-8')
+      if (!data.trim()) {
+        console.log('[YumiAuth] Stored session is empty')
+        return
+      }
+
+      const session: StoredSession = JSON.parse(data)
+
+      if (session.firebaseRefreshToken) {
+        this.firebaseRefreshToken = session.firebaseRefreshToken
+        this.firebaseIdToken = session.firebaseIdToken || null
+        this.idTokenRefreshedAt = session.idTokenRefreshedAt || 0
+        this.storedUserInfo = session.userInfo || null
+        this.credentials = session.credentials?.accessToken ? session.credentials : null
+        this.easemobInfo = session.easemob || null
+
+        console.log('[YumiAuth] Loaded stored session:', {
+          hasRefreshToken: !!this.firebaseRefreshToken,
+          hasIdToken: !!this.firebaseIdToken,
+          hasUserInfo: !!this.storedUserInfo,
+          hasCredentials: !!this.credentials,
+          tokenAge: this.idTokenRefreshedAt ? `${Math.round((Date.now() - this.idTokenRefreshedAt) / 60000)} minutes` : 'unknown'
+        })
       }
     } catch (error) {
-      console.error('[YumiAuth] Failed to clear stored credentials:', error)
+      console.error('[YumiAuth] Failed to load stored session:', error)
+      this.clearStoredSession()
+    }
+  }
+
+  /**
+   * Clear stored session from disk
+   */
+  private clearStoredSession(): void {
+    try {
+      if (existsSync(this.sessionPath)) {
+        writeFileSync(this.sessionPath, '', 'utf-8')
+        console.log('[YumiAuth] Stored session cleared')
+      }
+    } catch (error) {
+      console.error('[YumiAuth] Failed to clear stored session:', error)
     }
   }
 

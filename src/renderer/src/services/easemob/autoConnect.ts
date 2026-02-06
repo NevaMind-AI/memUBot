@@ -14,7 +14,7 @@
 
 import { easemobService } from './index'
 import { setEasemobStatus } from '../../stores/easemobStore'
-import type { EasemobMessage } from './types'
+import type { EasemobMessage, KickOfflineInfo } from './types'
 
 let initialized = false
 
@@ -149,6 +149,28 @@ function notifyConnectionStatus(isConnected: boolean, error?: string): void {
 }
 
 /**
+ * Get user-friendly message for kick reason
+ */
+function getKickReasonMessage(reason: string): string {
+  switch (reason) {
+    case 'other_device_login':
+      return 'Your account has been logged in on another device.'
+    case 'user_removed':
+      return 'Your account has been disabled or removed.'
+    case 'password_changed':
+      return 'Your password has been changed. Please re-login.'
+    case 'token_expired':
+      return 'Your session has expired. Please re-login.'
+    case 'kicked_by_admin':
+      return 'You have been logged out by an administrator.'
+    case 'device_limit_exceeded':
+      return 'Maximum number of devices exceeded.'
+    default:
+      return 'You have been disconnected.'
+  }
+}
+
+/**
  * Setup listener for send message requests from main process
  */
 function setupSendMessageListener(): void {
@@ -242,7 +264,7 @@ export function initEasemobAutoConnect(): void {
   // Register connection lifecycle callbacks (single owner)
   easemobService.setConnectionCallbacks({
     onConnected: () => {
-      setEasemobStatus({ connected: true, connecting: false, error: null })
+      setEasemobStatus({ connected: true, connecting: false, error: null, kickReason: null })
       notifyConnectionStatus(true)
     },
     onDisconnected: () => {
@@ -255,6 +277,50 @@ export function initEasemobAutoConnect(): void {
     onError: (error) => {
       setEasemobStatus({ connected: false, connecting: false, error: error.message })
       notifyConnectionStatus(false, error.message)
+    },
+    onKicked: async (info: KickOfflineInfo) => {
+      console.warn('[EasemobAuto] Kicked offline:', info.reason)
+      const errorMessage = getKickReasonMessage(info.reason)
+      setEasemobStatus({
+        connected: false,
+        connecting: false,
+        error: errorMessage,
+        kickReason: info.reason
+      })
+      notifyConnectionStatus(false, errorMessage)
+
+      // Sign out from Firebase for security reasons
+      // All kick reasons require re-authentication
+      console.log('[EasemobAuto] Signing out from Firebase due to kick:', info.reason)
+      try {
+        await window.auth.signOut()
+      } catch (error) {
+        console.error('[EasemobAuto] Failed to sign out from Firebase:', error)
+      }
+    },
+    onTokenWillExpire: () => {
+      // Token is set to long-term, so this shouldn't happen normally
+      // Log as warning for monitoring
+      console.warn('[EasemobAuto] Token will expire soon - unexpected for long-term token')
+    },
+    onTokenExpired: async () => {
+      // Token expiration is treated as abnormal (tokens are set to long-term)
+      // Sign out from Firebase and require re-login
+      console.warn('[EasemobAuto] Token expired - treating as abnormal, signing out')
+      setEasemobStatus({
+        connected: false,
+        connecting: false,
+        error: 'Session expired. Please re-login.',
+        kickReason: 'token_expired'
+      })
+      notifyConnectionStatus(false, 'Token expired')
+
+      // Sign out from Firebase
+      try {
+        await window.auth.signOut()
+      } catch (error) {
+        console.error('[EasemobAuto] Failed to sign out from Firebase:', error)
+      }
     }
   })
 

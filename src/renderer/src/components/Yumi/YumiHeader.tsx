@@ -47,7 +47,6 @@ export function YumiHeader({ onShowActivity }: YumiHeaderProps): JSX.Element {
 
       {/* IM Status */}
       <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
-        <span>{t('settings.account.imStatus')}</span>
         <span className={`w-2 h-2 rounded-full ${statusColor}`} />
         <span className="text-[var(--text-secondary)]">{statusText}</span>
         {error && (

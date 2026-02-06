@@ -15,7 +15,9 @@ import EC from 'easemob-websdk'
 import type {
   EasemobConfig,
   EasemobMessage,
-  EasemobConnectionState
+  EasemobConnectionState,
+  KickOfflineInfo,
+  KickReason
 } from './types'
 
 // Re-export types
@@ -36,6 +38,9 @@ class EasemobService {
   private onDisconnectedCallback: (() => void) | null = null
   private onReconnectingCallback: (() => void) | null = null
   private onErrorCallback: ((error: Error) => void) | null = null
+  private onKickedCallback: ((info: KickOfflineInfo) => void) | null = null
+  private onTokenWillExpireCallback: (() => void) | null = null
+  private onTokenExpiredCallback: (() => void) | null = null
 
   // Message listeners (multiple subscribers allowed)
   private messageListeners: Set<MessageListener> = new Set()
@@ -74,11 +79,17 @@ class EasemobService {
     onDisconnected?: () => void
     onReconnecting?: () => void
     onError?: (error: Error) => void
+    onKicked?: (info: KickOfflineInfo) => void
+    onTokenWillExpire?: () => void
+    onTokenExpired?: () => void
   }): void {
     this.onConnectedCallback = callbacks.onConnected || null
     this.onDisconnectedCallback = callbacks.onDisconnected || null
     this.onReconnectingCallback = callbacks.onReconnecting || null
     this.onErrorCallback = callbacks.onError || null
+    this.onKickedCallback = callbacks.onKicked || null
+    this.onTokenWillExpireCallback = callbacks.onTokenWillExpire || null
+    this.onTokenExpiredCallback = callbacks.onTokenExpired || null
   }
 
   /**
@@ -89,6 +100,28 @@ class EasemobService {
     this.messageListeners.add(listener)
     return () => {
       this.messageListeners.delete(listener)
+    }
+  }
+
+  /**
+   * Map raw kick type to KickReason
+   */
+  private mapKickReason(type: number): KickReason {
+    switch (type) {
+      case 1:
+        return 'other_device_login'
+      case 2:
+        return 'user_removed'
+      case 3:
+        return 'password_changed'
+      case 4:
+        return 'token_expired'
+      case 206:
+        return 'device_limit_exceeded'
+      case 207:
+        return 'kicked_by_admin'
+      default:
+        return 'unknown'
     }
   }
 
@@ -118,6 +151,28 @@ class EasemobService {
         console.error('[Easemob] Error:', error)
         this.connectionState = { ...this.connectionState, error: error.message }
         this.onErrorCallback?.(new Error(error.message))
+      },
+      // Kicked offline by another device or admin
+      onOffline: (info: { type: number; message: string }) => {
+        const reason = this.mapKickReason(info.type)
+        console.warn('[Easemob] Kicked offline:', { reason, rawType: info.type, message: info.message })
+        this.connectionState = { connected: false, error: `Kicked: ${reason}` }
+        this.onKickedCallback?.({
+          reason,
+          message: info.message,
+          rawType: info.type
+        })
+      },
+      // Token will expire soon (can refresh proactively)
+      onTokenWillExpire: () => {
+        console.log('[Easemob] Token will expire soon')
+        this.onTokenWillExpireCallback?.()
+      },
+      // Token has expired
+      onTokenExpired: () => {
+        console.warn('[Easemob] Token expired')
+        this.connectionState = { connected: false, error: 'Token expired' }
+        this.onTokenExpiredCallback?.()
       }
     })
 
@@ -516,6 +571,9 @@ class EasemobService {
     this.onDisconnectedCallback = null
     this.onReconnectingCallback = null
     this.onErrorCallback = null
+    this.onKickedCallback = null
+    this.onTokenWillExpireCallback = null
+    this.onTokenExpiredCallback = null
   }
 }
 

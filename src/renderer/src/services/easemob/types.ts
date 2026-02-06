@@ -40,12 +40,36 @@ export interface EasemobConnectionState {
   error?: string
 }
 
+/**
+ * Reason for being kicked offline
+ */
+export type KickReason =
+  | 'other_device_login' // Another device logged in with the same account
+  | 'user_removed' // User account was disabled/removed
+  | 'password_changed' // Password was changed
+  | 'token_expired' // Token expired
+  | 'kicked_by_admin' // Kicked by admin from console
+  | 'device_limit_exceeded' // Too many devices logged in
+  | 'unknown' // Unknown reason
+
+/**
+ * Kick offline event info
+ */
+export interface KickOfflineInfo {
+  reason: KickReason
+  message: string
+  rawType: number
+}
+
 export type EasemobEventType =
   | 'connected'
   | 'disconnected'
   | 'reconnecting'
   | 'message'
   | 'error'
+  | 'kicked'
+  | 'token_will_expire'
+  | 'token_expired'
 
 export interface EasemobEventHandlers {
   onConnected?: () => void
@@ -53,4 +77,7 @@ export interface EasemobEventHandlers {
   onReconnecting?: () => void
   onMessage?: (message: EasemobMessage) => void
   onError?: (error: Error) => void
+  onKicked?: (info: KickOfflineInfo) => void
+  onTokenWillExpire?: () => void
+  onTokenExpired?: () => void
 }

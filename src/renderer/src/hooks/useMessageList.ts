@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 
 export interface BaseMessage {
   id: string
@@ -68,6 +68,12 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
   const isInitialLoad = useRef(true)
   const allMessagesRef = useRef<BaseMessage[]>([]) // Store all fetched messages for pagination
   const currentOffset = useRef(0)
+  
+  // For scroll position preservation when loading older messages
+  const scrollRestoreRef = useRef<{
+    previousScrollHeight: number
+    shouldRestore: boolean
+  }>({ previousScrollHeight: 0, shouldRestore: false })
 
   // Load initial messages (latest N)
   const loadInitialMessages = useCallback(async () => {
@@ -104,25 +110,40 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
     const additionalMessages = allMessagesRef.current.slice(newOffset, currentOffset.current)
     
     if (additionalMessages.length > 0) {
-      // Preserve scroll position
+      // Save current scroll height BEFORE updating messages
       const container = containerRef.current
-      const previousScrollHeight = container?.scrollHeight || 0
+      if (container) {
+        scrollRestoreRef.current = {
+          previousScrollHeight: container.scrollHeight,
+          shouldRestore: true
+        }
+      }
       
       setMessages((prev) => [...additionalMessages, ...prev])
       currentOffset.current = newOffset
       setHasMore(newOffset > 0)
-      
-      // Restore scroll position after render
-      requestAnimationFrame(() => {
-        if (container) {
-          const newScrollHeight = container.scrollHeight
-          container.scrollTop = newScrollHeight - previousScrollHeight
-        }
-      })
     }
     
     setLoadingMore(false)
   }, [loadingMore, hasMore, pageSize])
+  
+  // Restore scroll position after DOM update (useLayoutEffect runs synchronously after DOM mutations)
+  useLayoutEffect(() => {
+    const container = containerRef.current
+    const { previousScrollHeight, shouldRestore } = scrollRestoreRef.current
+    
+    if (container && shouldRestore && previousScrollHeight > 0) {
+      // Calculate how much content was added at the top
+      const newScrollHeight = container.scrollHeight
+      const scrollDelta = newScrollHeight - previousScrollHeight
+      
+      // Restore scroll position to keep the same content visible
+      container.scrollTop = scrollDelta
+      
+      // Reset the flag
+      scrollRestoreRef.current = { previousScrollHeight: 0, shouldRestore: false }
+    }
+  }, [messages])
 
   // Load bot status
   const loadBotStatus = useCallback(async () => {

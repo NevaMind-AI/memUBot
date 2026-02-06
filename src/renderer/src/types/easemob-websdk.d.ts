@@ -93,6 +93,11 @@ declare module 'easemob-websdk' {
     onDisconnected?: () => void
     onReconnecting?: () => void
     onError?: (error: { message: string; type?: string }) => void
+    // Kicked offline events
+    onOffline?: (info: { type: number; message: string }) => void
+    // Token events
+    onTokenWillExpire?: () => void
+    onTokenExpired?: () => void
   }
 
   interface MessageEventHandlers {
