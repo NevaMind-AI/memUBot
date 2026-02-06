@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Power, Loader2, Circle, Users, Square, Brain, Wrench, ExternalLink, CheckCircle, XCircle } from 'lucide-react'
+import { Power, Loader2, Circle, Users, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '../Toast'
-import { BoundUsersModal } from '../Shared'
+import { BoundUsersModal, LLMStatusIndicator } from '../Shared'
 import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
 
 interface HeaderProps {
@@ -90,12 +90,6 @@ interface BotStatus {
   error?: string
 }
 
-interface LLMStatusInfo {
-  status: 'idle' | 'thinking' | 'tool_executing' | 'complete' | 'aborted'
-  currentTool?: string
-  iteration?: number
-}
-
 export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus, onShowActivity }: HeaderProps): JSX.Element {
   const { t } = useTranslation()
   const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
@@ -104,7 +98,6 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   const [feishuStatus, setFeishuStatus] = useState<BotStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
-  const [llmStatus, setLLMStatus] = useState<LLMStatusInfo>({ status: 'idle' })
 
   // Determine current platform
   const platform: Platform | null = showTelegramStatus
@@ -136,15 +129,6 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     feishu: { from: '#3370FF', to: '#5B8FF9', shadow: '#3370FF' }
   }
   const platformColors = platform ? platformColorMap[platform] : platformColorMap.telegram
-
-  // Subscribe to LLM status changes
-  useEffect(() => {
-    const unsubscribe = window.llm.onStatusChanged((newStatus: LLMStatusInfo) => {
-      setLLMStatus(newStatus)
-    })
-    window.llm.getStatus().then(setLLMStatus)
-    return () => unsubscribe()
-  }, [])
 
   // Subscribe to Telegram status
   useEffect(() => {
@@ -307,27 +291,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }
 
-  const handleAbortLLM = async () => {
-    try {
-      await window.llm.abort()
-      toast.info(t('common.stop'))
-    } catch (error) {
-      console.error('Failed to abort LLM:', error)
-    }
-  }
-
-  const handleShowActivity = async () => {
-    // Re-fetch setting on click to get latest value
-    const result = await window.settings.get()
-    if (result.success && result.data?.showAgentActivity) {
-      onShowActivity?.()
-    }
-  }
-
   const isConnected = status?.isConnected
-  const isLLMProcessing = llmStatus.status === 'thinking' || llmStatus.status === 'tool_executing'
-  const isLLMFinished = llmStatus.status === 'complete' || llmStatus.status === 'aborted'
-  const showLLMStatus = isLLMProcessing || isLLMFinished
   const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus || showFeishuStatus
 
   // Get display info based on connection status
@@ -404,56 +368,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
         {showStatus && (
           <>
             {/* LLM Status Indicator */}
-            {showLLMStatus && (
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button
-                  onClick={handleShowActivity}
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded-full backdrop-blur-sm border whitespace-nowrap transition-all cursor-pointer ${
-                    isLLMProcessing
-                      ? 'bg-amber-500/10 dark:bg-amber-500/20 border-amber-500/30 hover:bg-amber-500/20'
-                      : llmStatus.status === 'complete'
-                      ? 'bg-emerald-500/10 dark:bg-emerald-500/20 border-emerald-500/30 hover:bg-emerald-500/20'
-                      : 'bg-orange-500/10 dark:bg-orange-500/20 border-orange-500/30 hover:bg-orange-500/20'
-                  }`}
-                  title={t('messages.viewActivity') || 'View Activity'}
-                >
-                  {llmStatus.status === 'thinking' ? (
-                    <Brain className="w-3 h-3 text-amber-500 animate-pulse flex-shrink-0" />
-                  ) : llmStatus.status === 'tool_executing' ? (
-                    <Wrench className="w-3 h-3 text-amber-500 animate-pulse flex-shrink-0" />
-                  ) : llmStatus.status === 'complete' ? (
-                    <CheckCircle className="w-3 h-3 text-emerald-500 flex-shrink-0" />
-                  ) : (
-                    <XCircle className="w-3 h-3 text-orange-500 flex-shrink-0" />
-                  )}
-                  <span className={`text-[11px] font-medium ${
-                    isLLMProcessing
-                      ? 'text-amber-600 dark:text-amber-400'
-                      : llmStatus.status === 'complete'
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-orange-600 dark:text-orange-400'
-                  }`}>
-                    {llmStatus.status === 'thinking'
-                      ? `${t('messages.thinking')}${llmStatus.iteration ? ` (${llmStatus.iteration})` : ''}`
-                      : llmStatus.status === 'tool_executing'
-                      ? llmStatus.currentTool || t('messages.generating')
-                      : llmStatus.status === 'complete'
-                      ? t('messages.complete')
-                      : t('messages.aborted')}
-                  </span>
-                </button>
-                {/* Stop Button - only show when processing */}
-                {isLLMProcessing && (
-                  <button
-                    onClick={handleAbortLLM}
-                    className="p-1 rounded-md bg-red-500/10 dark:bg-red-500/20 border border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-500/20 transition-all flex-shrink-0"
-                    title={t('common.stop')}
-                  >
-                    <Square className="w-3 h-3 fill-current" />
-                  </button>
-                )}
-              </div>
-            )}
+            <LLMStatusIndicator onShowActivity={onShowActivity} />
 
             {/* Connect/Disconnect Button */}
             <button

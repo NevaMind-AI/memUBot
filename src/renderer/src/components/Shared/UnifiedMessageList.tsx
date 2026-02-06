@@ -1,15 +1,7 @@
 import { Loader2 } from 'lucide-react'
-import { useMessageList, BaseMessage } from '../../hooks/useMessageList'
+import { useMessageList, BaseMessage, MessageApi } from '../../hooks/useMessageList'
 import { MessageBubble, ThemeColors, MessageAttachment } from './MessageBubble'
 import { ComponentType, SVGProps } from 'react'
-
-interface MessageApi {
-  getMessages: (limit?: number) => Promise<{ success: boolean; data?: BaseMessage[] }>
-  getStatus: () => Promise<{ success: boolean; data?: { avatarUrl?: string } }>
-  onNewMessage: (callback: (message: BaseMessage) => void) => () => void
-  onStatusChanged: (callback: (status: { avatarUrl?: string }) => void) => () => void
-  onMessagesRefresh?: (callback: () => void) => () => void
-}
 
 interface UnifiedMessageListProps {
   api: MessageApi
@@ -19,6 +11,8 @@ interface UnifiedMessageListProps {
   emptyDescription: string
   pageSize?: number
   platform?: 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line'
+  /** Optional custom empty state renderer. When provided, replaces the default empty state. */
+  renderEmpty?: () => JSX.Element
 }
 
 /**
@@ -57,7 +51,8 @@ export function UnifiedMessageList({
   emptyTitle,
   emptyDescription,
   pageSize = 20,
-  platform
+  platform,
+  renderEmpty
 }: UnifiedMessageListProps): JSX.Element {
   const {
     messages,
@@ -103,6 +98,9 @@ export function UnifiedMessageList({
 
   // Empty state
   if (messagesWithAttachments.length === 0) {
+    if (renderEmpty) {
+      return renderEmpty()
+    }
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">

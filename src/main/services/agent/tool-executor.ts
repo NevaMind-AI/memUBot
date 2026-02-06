@@ -8,6 +8,7 @@ import { executeWhatsAppTool } from '../../tools/whatsapp.executor'
 import { executeSlackTool } from '../../tools/slack.executor'
 import { executeLineTool } from '../../tools/line.executor'
 import { executeFeishuTool } from '../../tools/feishu.executor'
+import { executeYumiTool } from '../../tools/yumi.executor'
 import { executeServiceTool } from '../../tools/service.executor'
 import { mcpService } from '../mcp.service'
 import type { MessagePlatform, ToolResult } from './types'
@@ -106,6 +107,14 @@ export async function executeTool(
       return { success: false, error: `Feishu tools are not available in ${currentPlatform} context` }
     }
     return await executeFeishuTool(name, input)
+  }
+
+  // Yumi tools
+  if (name.startsWith('yumi_')) {
+    if (currentPlatform !== 'yumi') {
+      return { success: false, error: `Yumi tools are not available in ${currentPlatform} context` }
+    }
+    return await executeYumiTool(name, input)
   }
 
   // Service tools

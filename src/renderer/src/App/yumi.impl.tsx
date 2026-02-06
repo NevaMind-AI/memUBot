@@ -8,8 +8,10 @@ import { Sidebar } from '../components/Layout'
 import { YumiView } from '../components/Yumi'
 import { SettingsView } from '../components/Settings'
 import { ToastContainer } from '../components/Toast'
+import { AgentActivityPanel } from '../components/AgentActivity'
 import { useThemeStore, applyTheme } from '../stores/themeStore'
 import { appIcon } from '../assets'
+import { initEasemobAutoConnect } from '../services/easemob'
 
 type NavItem = 'yumi' | 'settings'
 
@@ -34,6 +36,7 @@ export function YumiApp(): JSX.Element {
   const { t } = useTranslation()
   const [activeNav, setActiveNav] = useState<NavItem>(getSavedAppTab)
   const themeMode = useThemeStore((state) => state.mode)
+  const [showActivityPanel, setShowActivityPanel] = useState(false)
   const [isStartupComplete, setIsStartupComplete] = useState(false)
   const [startupStatus, setStartupStatus] = useState<StartupStatus>({
     stage: 'initializing',
@@ -55,6 +58,11 @@ export function YumiApp(): JSX.Element {
     mediaQuery.addEventListener('change', handleChange)
     return () => mediaQuery.removeEventListener('change', handleChange)
   }, [themeMode])
+
+  // Initialize global Easemob connection manager
+  useEffect(() => {
+    initEasemobAutoConnect()
+  }, [])
 
   // Listen to startup status
   useEffect(() => {
@@ -122,11 +130,16 @@ export function YumiApp(): JSX.Element {
     <div className="h-screen flex overflow-hidden bg-gradient-to-b from-[var(--bg-base)] via-[var(--bg-secondary)] to-[var(--bg-tertiary)]">
       <ToastContainer />
 
+      <AgentActivityPanel
+        isOpen={showActivityPanel}
+        onClose={() => setShowActivityPanel(false)}
+      />
+
       <Sidebar activeNav={activeNav} onNavChange={handleNavChange} />
 
       <div className="flex-1 flex flex-col overflow-hidden">
         <main className="flex-1 overflow-hidden flex">
-          {activeNav === 'yumi' && <YumiView />}
+          {activeNav === 'yumi' && <YumiView onShowActivity={() => setShowActivityPanel(true)} />}
           {activeNav === 'settings' && <SettingsView />}
         </main>
       </div>

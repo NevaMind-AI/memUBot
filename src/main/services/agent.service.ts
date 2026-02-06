@@ -1,13 +1,75 @@
 import Anthropic from '@anthropic-ai/sdk'
 import path from 'path'
+import { nativeImage } from 'electron'
 import { loadSettings } from '../config/settings.config'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
 import { feishuStorage } from '../apps/feishu/storage'
+import { yumiStorage } from '../apps/yumi/storage'
 import type { ConversationMessage, AgentResponse } from '../types'
 import * as fs from 'fs/promises'
+
+// Max base64 size for Anthropic API is 5MB. Raw file ~3.75MB → base64 ~5MB.
+// We use 3.5MB as the raw threshold to leave margin.
+const MAX_BASE64_RAW_SIZE_MB = 3.5
+
+/**
+ * Compress an image buffer to fit within the Anthropic API base64 size limit.
+ * Uses Electron's nativeImage to resize large images to JPEG.
+ * Returns { buffer, mediaType } after compression.
+ */
+function compressImageForLLM(
+  imageData: Buffer<ArrayBufferLike>,
+  filename: string
+): { buffer: Buffer<ArrayBufferLike>; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' } {
+  const img = nativeImage.createFromBuffer(imageData)
+  if (img.isEmpty()) {
+    // nativeImage couldn't parse it, return original
+    console.warn(`[Agent] nativeImage could not parse: ${filename}, returning original`)
+    return { buffer: imageData, mediaType: 'image/jpeg' }
+  }
+
+  const { width, height } = img.getSize()
+
+  // Scale down so the largest dimension is at most 1568px (Anthropic's recommended max)
+  const maxDim = 1568
+  let scaledImg = img
+  if (width > maxDim || height > maxDim) {
+    const scale = maxDim / Math.max(width, height)
+    const newWidth = Math.round(width * scale)
+    const newHeight = Math.round(height * scale)
+    scaledImg = img.resize({ width: newWidth, height: newHeight, quality: 'better' })
+    console.log(`[Agent] Resized image ${filename}: ${width}x${height} → ${newWidth}x${newHeight}`)
+  }
+
+  // Convert to JPEG (quality ~85) for smaller size
+  const jpegBuffer = scaledImg.toJPEG(85)
+  const jpegSizeMB = jpegBuffer.length / (1024 * 1024)
+  console.log(`[Agent] Compressed image ${filename}: ${(imageData.length / (1024 * 1024)).toFixed(2)}MB → ${jpegSizeMB.toFixed(2)}MB (JPEG)`)
+
+  // If still too large after resize, try lower quality
+  if (jpegSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+    const lqJpeg = scaledImg.toJPEG(60)
+    console.log(`[Agent] Further compressed ${filename}: ${jpegSizeMB.toFixed(2)}MB → ${(lqJpeg.length / (1024 * 1024)).toFixed(2)}MB (JPEG q60)`)
+    return { buffer: Buffer.from(lqJpeg), mediaType: 'image/jpeg' }
+  }
+
+  return { buffer: Buffer.from(jpegBuffer), mediaType: 'image/jpeg' }
+}
+
+/**
+ * Detect media type from image buffer magic bytes.
+ */
+function detectImageMediaType(imageData: Buffer<ArrayBufferLike>): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
+  if (imageData[0] === 0xff && imageData[1] === 0xd8 && imageData[2] === 0xff) return 'image/jpeg'
+  if (imageData[0] === 0x89 && imageData[1] === 0x50 && imageData[2] === 0x4e && imageData[3] === 0x47) return 'image/png'
+  if (imageData[0] === 0x47 && imageData[1] === 0x49 && imageData[2] === 0x46) return 'image/gif'
+  if (imageData[0] === 0x52 && imageData[1] === 0x49 && imageData[2] === 0x46 && imageData[3] === 0x46 &&
+      imageData[8] === 0x57 && imageData[9] === 0x45 && imageData[10] === 0x42 && imageData[11] === 0x50) return 'image/webp'
+  return 'image/png' // default
+}
 
 // Import from refactored modules
 import {
@@ -420,36 +482,31 @@ export class AgentService {
             const imageAttachments = m.attachments?.filter(a => a.contentType?.startsWith('image/')) || []
             const imageContents: Anthropic.ContentBlockParam[] = []
             const imagePaths: string[] = [] // Track local paths for reference
-            const MAX_IMAGE_SIZE_MB = 1 // Images larger than 2MB will be treated as files
             
             for (const att of imageAttachments.slice(0, 3)) { // Max 3 images per message
               if (att.url && !att.url.startsWith('http')) {
-                // Local file - check size and convert to base64 if small enough
+                // Local file - read, compress if needed, convert to base64
                 try {
-                  const imageData = await fs.readFile(att.url)
-                  const imageSizeMB = imageData.length / (1024 * 1024)
+                  let imageData: Buffer<ArrayBufferLike> = await fs.readFile(att.url)
+                  let mediaType = detectImageMediaType(imageData)
+                  const rawSizeMB = imageData.length / (1024 * 1024)
                   
-                  if (imageSizeMB > MAX_IMAGE_SIZE_MB) {
-                    // Image too large - just track path, don't convert to base64
-                    console.log(`[Agent] Historical image too large (${imageSizeMB.toFixed(2)}MB), skipping base64: ${att.url}`)
-                    imagePaths.push(att.url)
-                  } else {
-                    // Detect media type from magic bytes
-                    let mediaType = 'image/png'
-                    if (imageData[0] === 0xff && imageData[1] === 0xd8) mediaType = 'image/jpeg'
-                    else if (imageData[0] === 0x89 && imageData[1] === 0x50) mediaType = 'image/png'
-                    else if (imageData[0] === 0x47 && imageData[1] === 0x49) mediaType = 'image/gif'
-                    
-                    imageContents.push({
-                      type: 'image',
-                      source: {
-                        type: 'base64',
-                        media_type: mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
-                        data: imageData.toString('base64')
-                      }
-                    })
-                    imagePaths.push(att.url)
+                  if (rawSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+                    // Compress large image before sending to LLM
+                    const compressed = compressImageForLLM(imageData, path.basename(att.url))
+                    imageData = compressed.buffer
+                    mediaType = compressed.mediaType
                   }
+                  
+                  imageContents.push({
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: mediaType,
+                      data: imageData.toString('base64')
+                    }
+                  })
+                  imagePaths.push(att.url)
                 } catch (err) {
                   console.log(`[Agent] Could not load historical image: ${att.url}`)
                 }
@@ -465,7 +522,7 @@ export class AgentService {
               }
               
               if (imageContents.length > 0) {
-                // Has small images - create multimodal message
+                // Has images - create multimodal message
                 imageContents.push({ type: 'text', text: textParts.join('\n\n') })
                 messages.push({
                   text: undefined, // Will be handled specially
@@ -473,7 +530,7 @@ export class AgentService {
                   _multimodal: imageContents
                 } as { text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] })
               } else {
-                // All images too large - just add as text with paths
+                // Failed to load all images - just add as text with paths
                 messages.push({
                   text: textParts.join('\n\n'),
                   isFromBot: false
@@ -485,6 +542,76 @@ export class AgentService {
           
           messages.push({
             text: m.text,
+            isFromBot: m.isFromBot
+          })
+        }
+      } else if (platform === 'yumi') {
+        const storedMessages = await yumiStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        // For Yumi, include image attachments in context (same approach as Feishu)
+        for (const m of storedMessages) {
+          const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
+          if (hasImages && !m.isFromBot) {
+            // Load images for user messages
+            const imageAttachments = m.attachments?.filter(a => a.contentType?.startsWith('image/')) || []
+            const imageContents: Anthropic.ContentBlockParam[] = []
+            const imagePaths: string[] = []
+
+            for (const att of imageAttachments.slice(0, 3)) { // Max 3 images per message
+              const filePath = att.localPath || att.url
+              // Only load local files (not http URLs)
+              if (filePath && !filePath.startsWith('http')) {
+                try {
+                  let imageData: Buffer<ArrayBufferLike> = await fs.readFile(filePath)
+                  let mediaType = detectImageMediaType(imageData)
+                  const rawSizeMB = imageData.length / (1024 * 1024)
+
+                  if (rawSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+                    const compressed = compressImageForLLM(imageData, path.basename(filePath))
+                    imageData = compressed.buffer
+                    mediaType = compressed.mediaType
+                  }
+
+                  imageContents.push({
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: mediaType,
+                      data: imageData.toString('base64')
+                    }
+                  })
+                  imagePaths.push(filePath)
+                } catch (err) {
+                  console.log(`[Agent] Could not load Yumi historical image: ${filePath}`, err)
+                }
+              }
+            }
+
+            if (imageContents.length > 0 || imagePaths.length > 0) {
+              const pathInfo = imagePaths.map((p, i) => `[Image ${i + 1} local path: ${p}]`).join('\n')
+              const textParts = [pathInfo]
+              if (m.content && !m.content.startsWith('[Image:')) {
+                textParts.push(m.content)
+              }
+
+              if (imageContents.length > 0) {
+                imageContents.push({ type: 'text', text: textParts.join('\n\n') })
+                messages.push({
+                  text: undefined,
+                  isFromBot: false,
+                  _multimodal: imageContents
+                } as { text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] })
+              } else {
+                messages.push({
+                  text: textParts.join('\n\n'),
+                  isFromBot: false
+                })
+              }
+              continue
+            }
+          }
+
+          messages.push({
+            text: m.content,
             isFromBot: m.isFromBot
           })
         }
@@ -642,49 +769,31 @@ export class AgentService {
                 }
               } as Anthropic.ImageBlockParam)
             } else {
-              // Local file path - read and convert to base64
+              // Local file path - read, compress if needed, convert to base64
               try {
-                const imageData = await fs.readFile(imageUrl)
-                const imageSizeMB = imageData.length / (1024 * 1024)
-                const MAX_IMAGE_SIZE_MB = 1 // Images larger than 2MB will be treated as files
+                let imageData: Buffer<ArrayBufferLike> = await fs.readFile(imageUrl)
+                let mediaType = detectImageMediaType(imageData)
+                const rawSizeMB = imageData.length / (1024 * 1024)
                 
-                if (imageSizeMB > MAX_IMAGE_SIZE_MB) {
-                  // Image too large - treat as file instead of base64
-                  console.log(`[Agent] Image too large (${imageSizeMB.toFixed(2)}MB > ${MAX_IMAGE_SIZE_MB}MB), treating as file: ${path.basename(imageUrl)}`)
-                  localImagePaths.push(imageUrl)
-                  // Don't add to contentParts as image - will be added as text path only
+                if (rawSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+                  // Compress large image before sending to LLM
+                  const compressed = compressImageForLLM(imageData, path.basename(imageUrl))
+                  imageData = compressed.buffer
+                  mediaType = compressed.mediaType
                 } else {
-                  // Convert to base64
-                  const base64Data = imageData.toString('base64')
-                  
-                  // Detect media type from file magic bytes (more reliable than extension)
-                  let mediaType = 'image/png' // default
-                  if (imageData[0] === 0xff && imageData[1] === 0xd8 && imageData[2] === 0xff) {
-                    mediaType = 'image/jpeg'
-                  } else if (imageData[0] === 0x89 && imageData[1] === 0x50 && imageData[2] === 0x4e && imageData[3] === 0x47) {
-                    mediaType = 'image/png'
-                  } else if (imageData[0] === 0x47 && imageData[1] === 0x49 && imageData[2] === 0x46) {
-                    mediaType = 'image/gif'
-                  } else if (imageData[0] === 0x52 && imageData[1] === 0x49 && imageData[2] === 0x46 && imageData[3] === 0x46) {
-                    // RIFF header - could be WebP
-                    if (imageData[8] === 0x57 && imageData[9] === 0x45 && imageData[10] === 0x42 && imageData[11] === 0x50) {
-                      mediaType = 'image/webp'
-                    }
-                  }
-                  
-                  console.log(`[Agent] Detected media type: ${mediaType} for ${path.basename(imageUrl)} (${imageSizeMB.toFixed(2)}MB)`)
-                  
-                  contentParts.push({
-                    type: 'image',
-                    source: {
-                      type: 'base64',
-                      media_type: mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
-                      data: base64Data
-                    }
-                  } as Anthropic.ImageBlockParam)
-                  localImagePaths.push(imageUrl)
-                  console.log(`[Agent] Converted local image to base64: ${path.basename(imageUrl)}`)
+                  console.log(`[Agent] Detected media type: ${mediaType} for ${path.basename(imageUrl)} (${rawSizeMB.toFixed(2)}MB)`)
                 }
+                
+                contentParts.push({
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: mediaType,
+                    data: imageData.toString('base64')
+                  }
+                } as Anthropic.ImageBlockParam)
+                localImagePaths.push(imageUrl)
+                console.log(`[Agent] Added image to context: ${path.basename(imageUrl)} (${(imageData.length / (1024 * 1024)).toFixed(2)}MB)`)
               } catch (err) {
                 console.error(`[Agent] Failed to read local image: ${imageUrl}`, err)
               }

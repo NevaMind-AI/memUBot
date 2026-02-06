@@ -9,7 +9,8 @@ import { IAuthService, AuthState, LoginResult, LogoutResult } from './types'
 const EMPTY_STATE: AuthState = {
   isLoggedIn: false,
   user: null,
-  credentials: null
+  credentials: null,
+  easemob: null
 }
 
 export class MemuAuthService implements IAuthService {

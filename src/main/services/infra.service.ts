@@ -6,7 +6,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 /**
  * Supported platforms for messaging
  */
-export type MessagePlatform = 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line' | 'feishu' | 'none'
+export type MessagePlatform = 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line' | 'feishu' | 'yumi' | 'none'
 
 /**
  * Event types for the infra bus

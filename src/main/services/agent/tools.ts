@@ -6,6 +6,7 @@ import { whatsappTools } from '../../tools/whatsapp.definitions'
 import { slackTools } from '../../tools/slack.definitions'
 import { lineTools } from '../../tools/line.definitions'
 import { feishuTools } from '../../tools/feishu.definitions'
+import { yumiTools } from '../../tools/yumi.definitions'
 import { serviceTools } from '../../tools/service.definitions'
 import { getMacOSTools } from '../../tools/macos/definitions'
 import { getVisualTools } from '../../tools/macos/visual.definitions'
@@ -60,6 +61,8 @@ export function getToolsForPlatform(platform: MessagePlatform, options: Experime
       return [...baseTools, ...platformTools, ...visualTools, ...lineTools, ...svcTools, ...mcpTools]
     case 'feishu':
       return [...baseTools, ...platformTools, ...visualTools, ...feishuTools, ...svcTools, ...mcpTools]
+    case 'yumi':
+      return [...baseTools, ...platformTools, ...visualTools, ...yumiTools, ...svcTools, ...mcpTools]
     case 'none':
     default:
       return [...baseTools, ...platformTools, ...visualTools, ...svcTools, ...mcpTools]

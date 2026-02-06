@@ -20,7 +20,15 @@ import {
 } from 'firebase/auth'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
-import { IAuthService, AuthState, LoginResult, LogoutResult, UserInfo, AuthCredentials } from './types'
+import {
+  IAuthService,
+  AuthState,
+  LoginResult,
+  LogoutResult,
+  UserInfo,
+  AuthCredentials,
+  EasemobAuthInfo
+} from './types'
 
 // Firebase configuration - using import.meta.env with MAIN_VITE_ prefix
 // electron-vite exposes MAIN_VITE_* variables to main process via import.meta.env
@@ -55,6 +63,7 @@ export class YumiAuthService implements IAuthService {
   private auth: Auth | null = null
   private currentUser: User | null = null
   private credentials: AuthCredentials | null = null
+  private easemobInfo: EasemobAuthInfo | null = null
   private listeners: Set<(state: AuthState) => void> = new Set()
   private credentialsPath: string
   private unsubscribeFirebase: (() => void) | null = null
@@ -107,7 +116,8 @@ export class YumiAuthService implements IAuthService {
     return {
       isLoggedIn: !!this.currentUser && !!this.credentials,
       user: this.currentUser ? this.mapFirebaseUser(this.currentUser) : null,
-      credentials: this.credentials
+      credentials: this.credentials,
+      easemob: this.easemobInfo
     }
   }
 
@@ -129,10 +139,14 @@ export class YumiAuthService implements IAuthService {
         return { success: false, error: exchangeResult.error }
       }
 
+      // Notify renderer with updated easemob info immediately
+      this.notifyListeners()
+
       console.log('[YumiAuth] Sign in successful')
       return {
         success: true,
-        user: this.mapFirebaseUser(user)
+        user: this.mapFirebaseUser(user),
+        easemob: this.easemobInfo || undefined
       }
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -150,6 +164,7 @@ export class YumiAuthService implements IAuthService {
       console.log('[YumiAuth] Signing out')
       await firebaseSignOut(this.auth)
       this.credentials = null
+      this.easemobInfo = null
       this.clearStoredCredentials()
       console.log('[YumiAuth] Sign out successful')
       return { success: true }
@@ -245,12 +260,27 @@ export class YumiAuthService implements IAuthService {
           // Token expires in 1 hour
           expiresAt: Date.now() + 3600 * 1000
         }
+        // Mock Easemob info - replace with backend response later
+        this.easemobInfo = {
+          agentId: 'yumi-bot',
+          userId: 'yumi-app',
+          token:
+            'YWMtWgKRagNIEfGTeSd7kwkxqUYA2pgGPE_uh0ie2zAWRYvq6mIwA0IR8YNMObREIyM8AwMAAAGcMoqcgDeeSAA0ZCKJtyOmN-f0ZtRYf8yPV4jRD2hSzj2KJbq0rsW0Cg'
+        }
+        console.log('[YumiAuth] Mock easemob info set:', {
+          agentId: this.easemobInfo.agentId,
+          userId: this.easemobInfo.userId,
+          tokenPreview: `${this.easemobInfo.token.substring(0, 8)}...`
+        })
         this.storeCredentials()
         return { success: true }
       }
 
       // Real API mode: Exchange Firebase token for backend credentials
       // TODO: Implement when backend API is ready
+      // Expected response fields:
+      // - accessToken, refreshToken, expiresIn
+      // - easemobAgentId, easemobUserId, easemobToken
       const response = await fetch(`${getApiBaseUrl()}/auth/exchange`, {
         method: 'POST',
         headers: {
@@ -272,6 +302,11 @@ export class YumiAuthService implements IAuthService {
         accessToken: data.accessToken,
         refreshToken: data.refreshToken,
         expiresAt: Date.now() + (data.expiresIn || 3600) * 1000
+      }
+      this.easemobInfo = {
+        agentId: data.easemobAgentId,
+        userId: data.easemobUserId,
+        token: data.easemobToken
       }
 
       this.storeCredentials()
@@ -341,7 +376,14 @@ export class YumiAuthService implements IAuthService {
   private storeCredentials(): void {
     if (!this.credentials) return
     try {
-      writeFileSync(this.credentialsPath, JSON.stringify(this.credentials), 'utf-8')
+      writeFileSync(
+        this.credentialsPath,
+        JSON.stringify({
+          credentials: this.credentials,
+          easemob: this.easemobInfo
+        }),
+        'utf-8'
+      )
     } catch (error) {
       console.error('[YumiAuth] Failed to store credentials:', error)
     }
@@ -351,12 +393,21 @@ export class YumiAuthService implements IAuthService {
     try {
       if (existsSync(this.credentialsPath)) {
         const data = readFileSync(this.credentialsPath, 'utf-8')
-        this.credentials = JSON.parse(data)
+        const parsed = JSON.parse(data)
+        if (parsed && parsed.credentials) {
+          this.credentials = parsed.credentials
+          this.easemobInfo = parsed.easemob || null
+        } else if (parsed && parsed.accessToken) {
+          // Backward compatibility: old format without wrapper
+          this.credentials = parsed
+          this.easemobInfo = null
+        }
         console.log('[YumiAuth] Loaded stored credentials')
       }
     } catch (error) {
       console.error('[YumiAuth] Failed to load stored credentials:', error)
       this.credentials = null
+      this.easemobInfo = null
     }
   }
 
@@ -372,6 +423,12 @@ export class YumiAuthService implements IAuthService {
 
   private notifyListeners(): void {
     const state = this.getAuthState()
+    console.log('[YumiAuth] notifyListeners:', {
+      isLoggedIn: state.isLoggedIn,
+      hasUser: !!state.user,
+      hasCredentials: !!state.credentials,
+      easemob: state.easemob ? { agentId: state.easemob.agentId, userId: state.easemob.userId } : null
+    })
     this.listeners.forEach((callback) => callback(state))
   }
 }

@@ -73,11 +73,49 @@ export function getDefaultOutputDir(): string {
 }
 
 /**
+ * Get current app mode (memu or yumi)
+ */
+function getAppMode(): 'memu' | 'yumi' {
+  return (import.meta.env.MAIN_VITE_APP_MODE as 'memu' | 'yumi') || 'memu'
+}
+
+/**
+ * Yumi-specific LLM configuration (hardcoded for now)
+ */
+const YUMI_LLM_CONFIG = {
+  apiKey: 'sk-ai-v1-0e42523cdbf0e1c4b6d65d516c3ef9c7c031697078d6a70bcca851dcd1545452',
+  baseURL: 'https://zenmux.ai/api/anthropic',
+  model: 'anthropic/claude-opus-4.5'
+}
+
+/**
  * Create Anthropic client with current settings
  * Supports multiple providers: Claude, MiniMax, or custom Anthropic-compatible API
+ * 
+ * Note: Yumi mode uses a hardcoded configuration, ignoring user settings
  */
 export async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number; provider: string }> {
   const settings = await loadSettings()
+  const appMode = getAppMode()
+
+  // Yumi mode: use hardcoded configuration
+  if (appMode === 'yumi') {
+    const client = new Anthropic({
+      apiKey: YUMI_LLM_CONFIG.apiKey,
+      baseURL: YUMI_LLM_CONFIG.baseURL
+    })
+
+    console.log(`[Agent] Yumi mode - using fixed LLM config: model: ${YUMI_LLM_CONFIG.model}, baseURL: ${YUMI_LLM_CONFIG.baseURL}`)
+
+    return {
+      client,
+      model: YUMI_LLM_CONFIG.model,
+      maxTokens: settings.maxTokens,
+      provider: 'yumi'
+    }
+  }
+
+  // Memu mode: use user settings
   const provider = settings.llmProvider || 'claude'
 
   // Get API key and base URL based on provider

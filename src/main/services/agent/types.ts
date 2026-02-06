@@ -3,7 +3,7 @@ import type Anthropic from '@anthropic-ai/sdk'
 /**
  * Supported platforms for messaging tools
  */
-export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'none'
+export type MessagePlatform = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'yumi' | 'none'
 
 /**
  * Unmemorized message with metadata

@@ -45,5 +45,12 @@ export const platformColors: Record<string, ThemeColors> = {
     primaryDark: '#8BABFF',
     secondary: '#5B8FF9',
     secondaryDark: '#B5C8FF'
+  },
+  yumi: {
+    primary: '#E8A090',
+    primaryLight: '#F4C4B8',
+    primaryDark: '#D4A090',
+    secondary: '#C8897A',
+    secondaryDark: '#E0B8A8'
   }
 }

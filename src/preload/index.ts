@@ -258,6 +258,51 @@ const analyticsApi = {
   }
 }
 
+// Yumi API (Easemob message handling via main process)
+// This API bridges the renderer (Easemob SDK) with main process (storage, agent)
+const yumiApi = {
+  // Message retrieval
+  getMessages: (limit?: number) => ipcRenderer.invoke('yumi:get-messages', limit),
+  getStatus: () => ipcRenderer.invoke('yumi:status'),
+
+  // Forward incoming Easemob messages to main for storage and agent processing
+  storeMessage: (message: unknown) => ipcRenderer.invoke('yumi:store-message', message),
+
+  // Notify main process of connection status changes
+  updateConnectionStatus: (isConnected: boolean, error?: string) =>
+    ipcRenderer.invoke('yumi:connection-status', isConnected, error),
+
+  // Event listeners (from main process)
+  onNewMessage: (callback: (message: unknown) => void) => {
+    ipcRenderer.on('yumi:new-message', (_event, message) => callback(message))
+    return () => ipcRenderer.removeAllListeners('yumi:new-message')
+  },
+  onStatusChanged: (callback: (status: unknown) => void) => {
+    ipcRenderer.on('yumi:status-changed', (_event, status) => callback(status))
+    return () => ipcRenderer.removeAllListeners('yumi:status-changed')
+  },
+  onMessagesRefresh: (callback: () => void) => {
+    ipcRenderer.on('yumi:messages-refresh', () => callback())
+    return () => ipcRenderer.removeAllListeners('yumi:messages-refresh')
+  },
+
+  // Listen for send message requests from main process
+  // Main process calls this when agent needs to reply via Easemob
+  onSendMessage: (
+    callback: (request: {
+      targetUserId: string
+      content: string
+      type: 'text' | 'custom'
+      customEvent?: string
+      customExts?: Record<string, unknown>
+      responseChannel?: string
+    }) => void
+  ) => {
+    ipcRenderer.on('yumi:send-message', (_event, request) => callback(request))
+    return () => ipcRenderer.removeAllListeners('yumi:send-message')
+  }
+}
+
 // Auth API (Yumi only - Firebase authentication)
 const authApi = {
   getState: () => ipcRenderer.invoke('auth:getState'),
@@ -267,8 +312,12 @@ const authApi = {
   getAccessToken: () => ipcRenderer.invoke('auth:getAccessToken'),
   // Event listener for auth state changes
   onStateChanged: (callback: (state: unknown) => void) => {
-    ipcRenderer.on('auth:stateChanged', (_event, state) => callback(state))
-    return () => ipcRenderer.removeAllListeners('auth:stateChanged')
+    const handler = (_event: Electron.IpcRendererEvent, state: unknown) => {
+      console.log('[PreloadAuth] stateChanged received')
+      callback(state)
+    }
+    ipcRenderer.on('auth:stateChanged', handler)
+    return () => ipcRenderer.removeListener('auth:stateChanged', handler)
   }
 }
 
@@ -291,6 +340,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('skills', skillsApi)
     contextBridge.exposeInMainWorld('services', servicesApi)
     contextBridge.exposeInMainWorld('analytics', analyticsApi)
+    contextBridge.exposeInMainWorld('yumi', yumiApi)
     contextBridge.exposeInMainWorld('auth', authApi)
   } catch (error) {
     console.error(error)
@@ -328,6 +378,8 @@ if (process.contextIsolated) {
   window.services = servicesApi
   // @ts-ignore (define in dts)
   window.analytics = analyticsApi
+  // @ts-ignore (define in dts)
+  window.yumi = yumiApi
   // @ts-ignore (define in dts)
   window.auth = authApi
 }

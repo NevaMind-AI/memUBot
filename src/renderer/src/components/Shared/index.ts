@@ -2,3 +2,4 @@ export { MessageBubble, type ThemeColors, type MessageData, type MessageAttachme
 export { UnifiedMessageList } from './UnifiedMessageList'
 export { platformColors } from './platformColors'
 export { BoundUsersModal } from './BoundUsersModal'
+export { LLMStatusIndicator } from './LLMStatusIndicator'

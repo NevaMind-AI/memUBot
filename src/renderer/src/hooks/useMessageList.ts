@@ -3,8 +3,8 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 export interface BaseMessage {
   id: string
   platform: string
-  chatId: string
-  senderId: string
+  chatId?: string
+  senderId?: string
   senderName: string
   content: string
   timestamp: Date
@@ -24,7 +24,7 @@ export interface BotStatus {
 // Map of senderId -> avatarUrl
 export type UserAvatarMap = Record<string, string>
 
-interface MessageApi {
+export interface MessageApi {
   getMessages: (limit?: number) => Promise<{ success: boolean; data?: BaseMessage[] }>
   getStatus: () => Promise<{ success: boolean; data?: BotStatus }>
   onNewMessage: (callback: (message: BaseMessage) => void) => () => void

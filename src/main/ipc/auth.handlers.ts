@@ -12,14 +12,27 @@ export function registerAuthHandlers(): void {
 
   // Get current auth state
   ipcMain.handle('auth:getState', async (): Promise<AuthState> => {
-    return authService.getAuthState()
+    const state = authService.getAuthState()
+    console.log('[AuthIPC] getState:', {
+      isLoggedIn: state.isLoggedIn,
+      hasUser: !!state.user,
+      hasCredentials: !!state.credentials,
+      easemob: state.easemob ? { agentId: state.easemob.agentId, userId: state.easemob.userId } : null
+    })
+    return state
   })
 
   // Sign in with email/password
   ipcMain.handle(
     'auth:signInWithEmail',
     async (_event, email: string, password: string) => {
-      return authService.signInWithEmail(email, password)
+      const result = await authService.signInWithEmail(email, password)
+      console.log('[AuthIPC] signInWithEmail result:', {
+        success: result.success,
+        hasUser: !!result.user,
+        easemob: result.easemob ? { agentId: result.easemob.agentId, userId: result.easemob.userId } : null
+      })
+      return result
     }
   )
 
@@ -35,6 +48,12 @@ export function registerAuthHandlers(): void {
 
   // Listen to auth state changes and forward to renderer
   authService.onAuthStateChanged((state) => {
+    console.log('[AuthIPC] stateChanged -> renderer:', {
+      isLoggedIn: state.isLoggedIn,
+      hasUser: !!state.user,
+      hasCredentials: !!state.credentials,
+      easemob: state.easemob ? { agentId: state.easemob.agentId, userId: state.easemob.userId } : null
+    })
     // Send to all windows
     BrowserWindow.getAllWindows().forEach((window) => {
       if (!window.isDestroyed()) {

@@ -52,6 +52,9 @@ export type AppEventType =
   | 'feishu:new-message'
   | 'feishu:status-changed'
   | 'feishu:messages-refresh'
+  | 'yumi:new-message'
+  | 'yumi:status-changed'
+  | 'yumi:messages-refresh'
   | 'llm:status-changed'
   | 'llm:activity-changed'
   | 'service:status-changed'
@@ -244,6 +247,28 @@ class AppEventEmitter extends EventEmitter {
   }
 
   /**
+   * Emit Yumi new message event
+   */
+  emitYumiNewMessage(message: AppMessage): void {
+    console.log('[Events] Emitting Yumi new message:', message.id)
+    this.emit('yumi:new-message', message)
+    this.sendToRenderer('yumi:new-message', message)
+  }
+
+  /**
+   * Emit Yumi status changed event
+   */
+  emitYumiStatusChanged(status: {
+    platform: string
+    isConnected: boolean
+    error?: string
+  }): void {
+    console.log('[Events] Emitting Yumi status changed:', status)
+    this.emit('yumi:status-changed', status)
+    this.sendToRenderer('yumi:status-changed', status)
+  }
+
+  /**
    * Emit service status changed event
    */
   emitServiceStatusChanged(serviceId: string, status: ServiceStatusType): void {
@@ -265,7 +290,7 @@ class AppEventEmitter extends EventEmitter {
    * Emit messages refresh event for a platform
    * Used after deleting chat history to refresh UI
    */
-  emitMessagesRefresh(platform: 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu'): void {
+  emitMessagesRefresh(platform: 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'yumi'): void {
     const eventName = `${platform}:messages-refresh` as AppEventType
     console.log(`[Events] Emitting messages refresh for ${platform}`)
     this.emit(eventName, {})

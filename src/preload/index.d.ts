@@ -37,7 +37,7 @@ interface MessageAttachment {
 // App message type
 interface AppMessage {
   id: string
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'yumi'
   chatId?: string
   senderId?: string
   senderName: string
@@ -50,7 +50,7 @@ interface AppMessage {
 
 // Bot status type
 interface BotStatus {
-  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
+  platform: 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu' | 'yumi'
   isConnected: boolean
   username?: string
   botName?: string
@@ -448,21 +448,103 @@ interface AuthCredentials {
   expiresAt: number
 }
 
+interface EasemobAuthInfo {
+  agentId: string
+  userId: string
+  token: string
+}
+
 interface AuthState {
   isLoggedIn: boolean
   user: AuthUserInfo | null
   credentials: AuthCredentials | null
+  easemob: EasemobAuthInfo | null
 }
 
 interface AuthLoginResult {
   success: boolean
   user?: AuthUserInfo
+  easemob?: EasemobAuthInfo
   error?: string
 }
 
 interface AuthLogoutResult {
   success: boolean
   error?: string
+}
+
+// Yumi message type (chatId and senderId are always present for Easemob messages)
+interface YumiMessage extends Omit<AppMessage, 'chatId' | 'senderId'> {
+  chatId: string
+  senderId: string
+}
+
+// Attachment data sent from renderer to main for downloading/storing
+interface YumiAttachmentIpc {
+  url: string // Remote URL to download
+  filename: string
+  mimeType?: string
+  size?: number
+  width?: number
+  height?: number
+  thumb?: string // Thumbnail URL
+  buffer?: number[] // Already-downloaded file data as byte array
+}
+
+// Stored Yumi message (sent from renderer to main for persistence)
+interface StoredYumiMessageIpc {
+  messageId: string
+  chatId: string
+  senderId: string
+  senderName: string
+  content: string
+  type: 'text' | 'image' | 'audio' | 'video' | 'file' | 'custom'
+  timestamp: number
+  isFromBot: boolean
+  // Attachment data for image/file/audio/video messages
+  attachment?: YumiAttachmentIpc
+  customEvent?: string
+  customExts?: Record<string, unknown>
+}
+
+// Yumi send message request from main process
+interface YumiSendMessageRequest {
+  targetUserId: string
+  type: 'text' | 'image' | 'file'
+  // Content for text messages or URL for image/file messages
+  content?: string
+  // Buffer data (array of bytes) for local files
+  buffer?: number[]
+  // For image/file messages
+  filename?: string
+  mimeType?: string
+  width?: number
+  height?: number
+  // For file messages
+  fileSize?: number
+  // IPC response channel
+  responseChannel?: string
+}
+
+// Yumi API interface (standard IPC, same pattern as other platforms)
+interface YumiApi {
+  // Message retrieval
+  getMessages: (limit?: number) => Promise<IpcResponse<YumiMessage[]>>
+  getStatus: () => Promise<IpcResponse<BotStatus>>
+
+  // Forward incoming messages to main for storage and agent processing
+  storeMessage: (message: StoredYumiMessageIpc) => Promise<IpcResponse>
+
+  // Notify main process of connection status changes
+  updateConnectionStatus: (isConnected: boolean, error?: string) => Promise<IpcResponse>
+
+  // Event listeners (from main process)
+  onNewMessage: (callback: (message: YumiMessage) => void) => () => void
+  onStatusChanged: (callback: (status: BotStatus) => void) => () => void
+  onMessagesRefresh: (callback: () => void) => () => void
+
+  // Listen for send message requests from main process
+  onSendMessage: (callback: (request: YumiSendMessageRequest) => void) => () => void
 }
 
 // Auth API interface
@@ -491,6 +573,7 @@ declare global {
     startup: StartupApi
     skills: SkillsApi
     services: ServicesApi
+    yumi: YumiApi
     auth: AuthApi
   }
 }

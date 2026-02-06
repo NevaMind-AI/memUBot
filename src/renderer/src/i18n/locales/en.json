@@ -39,6 +39,7 @@
     "connected": "Connected",
     "disconnected": "Disconnected",
     "connecting": "Connecting...",
+    "reconnect": "Reconnect",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "search": "Search",
@@ -104,7 +105,9 @@
       "logoutError": "Logout failed, please try again",
       "fillAllFields": "Please fill in email and password",
       "or": "or",
-      "loginWithGoogle": "Continue with Google"
+      "loginWithGoogle": "Continue with Google",
+      "imStatus": "IM Status",
+      "imStatusHint": "IM connection status"
     },
     "general": {
       "title": "General Settings",

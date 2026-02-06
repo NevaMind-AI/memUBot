@@ -39,6 +39,7 @@
     "connected": "已连接",
     "disconnected": "未连接",
     "connecting": "连接中...",
+    "reconnect": "重新连接",
     "enabled": "已启用",
     "disabled": "已禁用",
     "search": "搜索",
@@ -104,7 +105,9 @@
       "logoutError": "退出失败，请重试",
       "fillAllFields": "请填写邮箱和密码",
       "or": "或",
-      "loginWithGoogle": "使用 Google 登录"
+      "loginWithGoogle": "使用 Google 登录",
+      "imStatus": "IM 状态",
+      "imStatusHint": "即时消息连接状态"
     },
     "general": {
       "title": "通用设置",

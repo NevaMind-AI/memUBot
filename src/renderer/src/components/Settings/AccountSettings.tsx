@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe } from 'lucide-react'
+import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw } from 'lucide-react'
 import { MessageDisplay } from './shared'
 import { changeLanguage, languages } from '../../i18n'
+import { useEasemobStore } from '../../stores/easemobStore'
+import { reconnectEasemob } from '../../services/easemob/autoConnect'
 
 interface UserInfo {
   uid: string
@@ -18,6 +20,7 @@ export function AccountSettings(): JSX.Element {
   const [loading, setLoading] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const { connected, connecting, error } = useEasemobStore()
   
   // Login form state
   const [email, setEmail] = useState('')
@@ -217,6 +220,9 @@ export function AccountSettings(): JSX.Element {
 
         {/* Language Selector */}
         <LanguageSelector />
+
+        {/* IM Status */}
+        <IMStatusCard connected={connected} connecting={connecting} error={error} />
       </div>
 
       {/* Message */}
@@ -265,6 +271,84 @@ function LanguageSelector(): JSX.Element {
           ))}
         </select>
       </div>
+    </div>
+  )
+}
+
+/**
+ * IM Status Card with reconnect button
+ */
+function IMStatusCard({
+  connected,
+  connecting,
+  error
+}: {
+  connected: boolean
+  connecting: boolean
+  error: string | null
+}): JSX.Element {
+  const { t } = useTranslation()
+  const [reconnecting, setReconnecting] = useState(false)
+
+  const handleReconnect = async (): Promise<void> => {
+    setReconnecting(true)
+    try {
+      await reconnectEasemob()
+    } finally {
+      setReconnecting(false)
+    }
+  }
+
+  const isLoading = connecting || reconnecting
+
+  return (
+    <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[var(--primary-bg)] flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-[var(--primary)]" />
+          </div>
+          <div>
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+              {t('settings.account.imStatus')}
+            </h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+              {t('settings.account.imStatusHint')}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              isLoading ? 'bg-amber-400' : connected ? 'bg-emerald-400' : 'bg-gray-400'
+            }`}
+          />
+          <span className="text-[12px] text-[var(--text-secondary)]">
+            {isLoading
+              ? t('common.connecting')
+              : connected
+                ? t('common.connected')
+                : t('common.disconnected')}
+          </span>
+          {!isLoading && (
+            <button
+              onClick={handleReconnect}
+              className="ml-1 p-1.5 rounded-lg hover:bg-[var(--bg-input)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)]"
+              title={t('common.reconnect', 'Reconnect')}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {isLoading && (
+            <Loader2 className="ml-1 w-3.5 h-3.5 animate-spin text-amber-400" />
+          )}
+        </div>
+      </div>
+      {error && (
+        <p className="text-[11px] text-rose-500 mt-2">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

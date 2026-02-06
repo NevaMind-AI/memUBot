@@ -18,15 +18,23 @@ export interface AuthCredentials {
   expiresAt: number // Unix timestamp in milliseconds
 }
 
+export interface EasemobAuthInfo {
+  agentId: string
+  userId: string
+  token: string
+}
+
 export interface AuthState {
   isLoggedIn: boolean
   user: UserInfo | null
   credentials: AuthCredentials | null
+  easemob: EasemobAuthInfo | null
 }
 
 export interface LoginResult {
   success: boolean
   user?: UserInfo
+  easemob?: EasemobAuthInfo
   error?: string
 }
 

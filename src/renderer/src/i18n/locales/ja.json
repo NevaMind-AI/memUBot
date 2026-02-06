@@ -39,6 +39,7 @@
     "connected": "接続済み",
     "disconnected": "未接続",
     "connecting": "接続中...",
+    "reconnect": "再接続",
     "enabled": "有効",
     "disabled": "無効",
     "search": "検索",
@@ -104,7 +105,9 @@
       "logoutError": "ログアウト失敗、再試行してください",
       "fillAllFields": "メールとパスワードを入力してください",
       "or": "または",
-      "loginWithGoogle": "Google でログイン"
+      "loginWithGoogle": "Google でログイン",
+      "imStatus": "IM 状態",
+      "imStatusHint": "IM 接続状態"
     },
     "general": {
       "title": "一般設定",

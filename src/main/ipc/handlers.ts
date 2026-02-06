@@ -12,13 +12,14 @@ import { setupSecurityHandlers } from './security.handlers'
 import { setupLLMHandlers } from './llm.handlers'
 import { registerSkillsHandlers } from './skills.handlers'
 import { setupServiceHandlers } from './service.handlers'
+import { setupYumiHandlers } from './yumi.handlers'
 import { registerAuthHandlers } from './auth.handlers'
 import type { IpcResponse, FileInfo } from '../types'
 
 /**
  * Setup all IPC handlers for main process
  */
-export function setupIpcHandlers(): void {
+export async function setupIpcHandlers(): Promise<void> {
   setupAgentHandlers()
   setupFileHandlers()
   setupTelegramHandlers()
@@ -32,6 +33,7 @@ export function setupIpcHandlers(): void {
   setupLLMHandlers()
   registerSkillsHandlers()
   setupServiceHandlers()
+  await setupYumiHandlers()
   registerAuthHandlers()
 }
 
