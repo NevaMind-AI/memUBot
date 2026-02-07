@@ -158,6 +158,10 @@ function cleanMessageContent(content: string): string {
   const attachedFilesPattern = /\n*\[Attached files - use file_read tool to read content\]:[\s\S]*$/
   let cleaned = content.replace(attachedFilesPattern, '')
   
+  // Remove "[Attached files downloaded to local]:" section (new format)
+  const attachedLocalPattern = /\n*\[Attached files downloaded to local\]:[\s\S]*$/
+  cleaned = cleaned.replace(attachedLocalPattern, '')
+  
   // Also handle the pattern from Discord/Slack: "--- Attachments ---" section
   const attachmentsPattern = /\n*--- Attachments ---[\s\S]*$/
   cleaned = cleaned.replace(attachmentsPattern, '')

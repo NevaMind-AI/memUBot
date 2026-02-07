@@ -202,6 +202,9 @@ export class YumiAuthService implements IAuthService {
       // Save complete session to disk
       this.saveSession()
 
+      // Test login_from_yumi API
+      await this.testLoginFromYumiApi()
+
       // Notify renderer with updated easemob info immediately
       this.notifyListeners()
 
@@ -612,6 +615,9 @@ export class YumiAuthService implements IAuthService {
         hasUserInfo: !!this.storedUserInfo
       })
 
+      // Test login_from_yumi API
+      await this.testLoginFromYumiApi()
+
       this.notifyListeners()
     } catch (error) {
       console.error('[YumiAuth] Failed to restore session:', error)
@@ -763,5 +769,54 @@ export class YumiAuthService implements IAuthService {
       easemob: state.easemob ? { agentId: state.easemob.agentId, userId: state.easemob.userId } : null
     })
     this.listeners.forEach((callback) => callback(state))
+  }
+
+  /**
+   * Test API: login_from_yumi
+   * This is a temporary test method to verify the API endpoint
+   */
+  private async testLoginFromYumiApi(): Promise<void> {
+    if (!this.firebaseIdToken) {
+      console.log('[YumiAuth] testLoginFromYumiApi: No idToken available')
+      return
+    }
+
+    try {
+      console.log('[YumiAuth] Testing login_from_yumi API...')
+      console.log('[YumiAuth] idToken preview:', this.firebaseIdToken.substring(0, 50) + '...')
+      
+      // Step 1: Get CSRF token
+      console.log('[YumiAuth] Fetching CSRF token...')
+      const csrfResponse = await fetch('https://api.memu.so/api/v3/auth/csrf', {
+        method: 'GET'
+      })
+      const csrfData = await csrfResponse.json().catch(() => null)
+      console.log('[YumiAuth] CSRF response:', csrfData)
+      
+      const csrfToken = csrfData?.csrf_token || csrfData?.token || csrfData
+      if (!csrfToken) {
+        console.error('[YumiAuth] Failed to get CSRF token')
+        return
+      }
+      
+      // Step 2: Call login_from_yumi with CSRF token
+      const response = await fetch('https://api.memu.so/api/v3/auth/login_from_yumi', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.firebaseIdToken}`,
+          'X-CSRF-Token': csrfToken,
+          'Cookie': `memu_csrf_token=${csrfToken}`
+        }
+      })
+
+      const data = await response.json().catch(() => null)
+      console.log('[YumiAuth] login_from_yumi API response:', {
+        status: response.status,
+        statusText: response.statusText,
+        data: JSON.stringify(data)
+      })
+    } catch (error) {
+      console.error('[YumiAuth] login_from_yumi API error:', error)
+    }
   }
 }
