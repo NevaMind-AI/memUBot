@@ -18,8 +18,9 @@ import type { EasemobMessage, KickOfflineInfo } from './types'
 
 let initialized = false
 
-// Current auth info for determining isFromBot
+// Current auth info for determining isFromBot and message filtering
 let currentAgentId: string | null = null
+let currentUserId: string | null = null
 
 // Stored connect function for manual reconnect
 let connectFn: ((easemob: { agentId: string; userId: string; token: string } | null) => Promise<void>) | null = null
@@ -68,6 +69,18 @@ function getMimeType(filename: string): string {
  */
 async function forwardMessageToMain(msg: EasemobMessage): Promise<void> {
   const isFromBot = msg.from === currentAgentId
+  
+  // Filter messages: only accept messages from the current userId (case-insensitive)
+  // This filters out messages from other users in group chats or unexpected senders
+  if (currentUserId && !isFromBot) {
+    const senderLower = msg.from.toLowerCase()
+    const userIdLower = currentUserId.toLowerCase()
+    if (senderLower !== userIdLower) {
+      console.log(`[EasemobAuto] Ignoring message from ${msg.from}, expected ${currentUserId}`)
+      return
+    }
+  }
+  
   const hasAttachment = ['image', 'audio', 'video', 'file'].includes(msg.type) && msg.fileUrl
 
   let attachment: {
@@ -335,6 +348,7 @@ export function initEasemobAutoConnect(): void {
   connectFn = async (easemob: { agentId: string; userId: string; token: string } | null) => {
     if (!easemob?.agentId || !easemob.userId || !easemob.token) {
       currentAgentId = null
+      currentUserId = null
       if (easemobService.isConnected()) {
         await easemobService.logout()
       }
@@ -343,8 +357,10 @@ export function initEasemobAutoConnect(): void {
       return
     }
 
-    // Track current agentId for isFromBot determination
+    // Track current agentId and userId for message filtering
     currentAgentId = easemob.agentId
+    currentUserId = easemob.userId
+    console.log('[EasemobAuto] Set userId for message filtering:', currentUserId)
 
     if (!easemobService.isConnected()) {
       console.log('[EasemobAuto] Connecting as:', easemob.agentId)
