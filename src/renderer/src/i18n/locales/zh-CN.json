@@ -261,6 +261,7 @@
       "adding": "添加中...",
       "startServer": "启动服务器",
       "stopServer": "停止服务器",
+      "builtin": "内置",
       "noteTitle": "注意：",
       "noteContent": "MCP 服务器通过自定义工具扩展 AI 能力。常见示例包括图像生成、网页搜索和数据库访问。更改需要重启应用才能生效。",
       "status": {

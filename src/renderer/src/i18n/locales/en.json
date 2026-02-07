@@ -263,6 +263,7 @@
       "adding": "Adding...",
       "startServer": "Start server",
       "stopServer": "Stop server",
+      "builtin": "Builtin",
       "noteTitle": "Note:",
       "noteContent": "MCP servers extend AI capabilities with custom tools. Common examples include image generation, web search, and database access. Changes require app restart to take effect.",
       "status": {

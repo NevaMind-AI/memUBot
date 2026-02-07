@@ -8,6 +8,7 @@ interface McpServer {
   args: string[]
   env: Record<string, string>
   enabled: boolean
+  builtin?: boolean  // Builtin servers cannot be deleted
 }
 
 interface McpServerConfig {
@@ -16,6 +17,7 @@ interface McpServerConfig {
     args?: string[]
     env?: Record<string, string>
     disabled?: boolean
+    builtin?: boolean
   }
 }
 
@@ -46,10 +48,54 @@ export function McpSettings(): JSX.Element {
   const [newEnvKey, setNewEnvKey] = useState('')
   const [newEnvValue, setNewEnvValue] = useState('')
 
+  // Poll for MCP status until all enabled servers are connected
   useEffect(() => {
-    loadMcpConfig()
-    loadMcpStatus()
+    let retryCount = 0
+    const maxRetries = 5
+    let timeoutId: NodeJS.Timeout | null = null
+
+    const init = async () => {
+      await loadMcpConfig()
+      await loadMcpStatus()
+    }
+
+    const checkAndRetry = () => {
+      // Check if any enabled servers are not yet showing in status
+      const enabledServers = servers.filter(s => s.enabled)
+      const connectedCount = serverStatus.filter(s => s.connected).length
+      
+      if (enabledServers.length > 0 && connectedCount < enabledServers.length && retryCount < maxRetries) {
+        retryCount++
+        timeoutId = setTimeout(async () => {
+          await loadMcpStatus()
+        }, 1500)
+      }
+    }
+
+    init()
+
+    // Check status after initial load
+    const initialCheckTimeout = setTimeout(checkAndRetry, 1000)
+
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      clearTimeout(initialCheckTimeout)
+    }
   }, [])
+
+  // Re-check when servers or status changes
+  useEffect(() => {
+    const enabledServers = servers.filter(s => s.enabled)
+    const connectedCount = serverStatus.filter(s => s.connected).length
+    
+    if (enabledServers.length > 0 && connectedCount === 0 && !loading) {
+      // Retry getting status if we have enabled servers but none connected
+      const timeout = setTimeout(() => {
+        loadMcpStatus()
+      }, 1500)
+      return () => clearTimeout(timeout)
+    }
+  }, [servers, serverStatus, loading])
 
   const loadMcpConfig = async () => {
     setLoading(true)
@@ -62,8 +108,15 @@ export function McpSettings(): JSX.Element {
           command: cfg.command,
           args: cfg.args || [],
           env: cfg.env || {},
-          enabled: !cfg.disabled
+          enabled: !cfg.disabled,
+          builtin: cfg.builtin
         }))
+        // Sort: builtin servers first
+        serverList.sort((a, b) => {
+          if (a.builtin && !b.builtin) return -1
+          if (!a.builtin && b.builtin) return 1
+          return a.name.localeCompare(b.name)
+        })
         setServers(serverList)
       }
     } catch (error) {
@@ -115,7 +168,8 @@ export function McpSettings(): JSX.Element {
           command: server.command,
           args: server.args.length > 0 ? server.args : undefined,
           env: Object.keys(server.env).length > 0 ? server.env : undefined,
-          disabled: !server.enabled ? true : undefined
+          disabled: !server.enabled ? true : undefined,
+          builtin: server.builtin  // Preserve builtin flag
         }
       }
       const result = await window.settings.saveMcpConfig(config)
@@ -291,6 +345,11 @@ export function McpSettings(): JSX.Element {
                       <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
                         {server.name}
                       </h4>
+                      {server.builtin && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-[var(--primary)]/10 text-[10px] text-[var(--primary)]">
+                          {t('settings.mcp.builtin')}
+                        </span>
+                      )}
                       {(() => {
                         const status = getServerStatus(server.name)
                         if (status?.connected) {
@@ -324,16 +383,18 @@ export function McpSettings(): JSX.Element {
                   >
                     {server.enabled ? <Square className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                   </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleRemoveServer(server.name)
-                    }}
-                    className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"
-                    title={t('common.remove')}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                  {!server.builtin && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleRemoveServer(server.name)
+                      }}
+                      className="p-1.5 rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-all"
+                      title={t('common.remove')}
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                   {expandedServer === server.name ? (
                     <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" />
                   ) : (

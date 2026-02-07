@@ -13,6 +13,21 @@ interface McpServerConfig {
   args?: string[]
   env?: Record<string, string>
   disabled?: boolean
+  builtin?: boolean  // Whether this is a builtin server (cannot be deleted)
+}
+
+/**
+ * Builtin MCP servers that are bundled with the app
+ * Users can disable them but cannot delete them
+ */
+const BUILTIN_MCP_SERVERS: Record<string, McpServerConfig> = {
+  'playwright': {
+    command: 'npx',
+    args: ['@playwright/mcp@latest'],
+    env: {},
+    disabled: false,  // Enabled by default - zero config browser automation
+    builtin: true
+  }
 }
 
 /**
@@ -81,16 +96,50 @@ class McpService {
   }
 
   /**
-   * Load MCP configuration
+   * Load MCP configuration (merges builtin servers with user config)
    */
   private async loadConfig(): Promise<Record<string, McpServerConfig>> {
+    // Start with builtin servers
+    const config: Record<string, McpServerConfig> = { ...BUILTIN_MCP_SERVERS }
+    
+    // Load user config and merge (user config can override builtin disabled state)
     try {
       const configPath = this.getMcpConfigPath()
       const content = await fs.readFile(configPath, 'utf-8')
-      return JSON.parse(content)
+      const userConfig = JSON.parse(content) as Record<string, McpServerConfig>
+      
+      for (const [name, serverConfig] of Object.entries(userConfig)) {
+        if (config[name]?.builtin) {
+          // For builtin servers, only allow overriding disabled state and env
+          config[name] = {
+            ...config[name],
+            disabled: serverConfig.disabled,
+            env: serverConfig.env || config[name].env
+          }
+        } else {
+          // User-defined servers
+          config[name] = serverConfig
+        }
+      }
     } catch {
-      return {}
+      // No user config, use defaults
     }
+    
+    return config
+  }
+
+  /**
+   * Get all MCP configuration including builtin servers (for UI display)
+   */
+  async getFullConfig(): Promise<Record<string, McpServerConfig>> {
+    return this.loadConfig()
+  }
+
+  /**
+   * Check if a server is builtin
+   */
+  isBuiltinServer(name: string): boolean {
+    return BUILTIN_MCP_SERVERS[name]?.builtin === true
   }
 
   /**
@@ -193,14 +242,21 @@ class McpService {
     })
 
     // Handle process exit
+    // Only delete if the current server's process matches (avoid race condition during reload)
     proc.on('exit', (code) => {
       console.log(`[MCP:${name}] Process exited with code ${code}`)
-      this.servers.delete(name)
+      const currentServer = this.servers.get(name)
+      if (currentServer && currentServer.process === proc) {
+        this.servers.delete(name)
+      }
     })
 
     proc.on('error', (error) => {
       console.error(`[MCP:${name}] Process error:`, error)
-      this.servers.delete(name)
+      const currentServer = this.servers.get(name)
+      if (currentServer && currentServer.process === proc) {
+        this.servers.delete(name)
+      }
     })
 
     this.servers.set(name, server)

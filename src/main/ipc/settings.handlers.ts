@@ -62,6 +62,7 @@ interface McpServerConfig {
     args?: string[]
     env?: Record<string, string>
     disabled?: boolean
+    builtin?: boolean
   }
 }
 
@@ -73,9 +74,9 @@ function getMcpConfigPath(): string {
 }
 
 /**
- * Load MCP configuration
+ * Load user MCP configuration (without builtin servers)
  */
-async function loadMcpConfig(): Promise<McpServerConfig> {
+async function loadUserMcpConfig(): Promise<McpServerConfig> {
   try {
     const configPath = getMcpConfigPath()
     const content = await fs.readFile(configPath, 'utf-8')
@@ -86,11 +87,17 @@ async function loadMcpConfig(): Promise<McpServerConfig> {
 }
 
 /**
- * Save MCP configuration
+ * Save MCP configuration (preserves builtin server settings)
  */
 async function saveMcpConfig(config: McpServerConfig): Promise<void> {
   const configPath = getMcpConfigPath()
-  await fs.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8')
+  // Remove builtin flag from saved config (it's determined by code)
+  const cleanConfig: McpServerConfig = {}
+  for (const [name, serverConfig] of Object.entries(config)) {
+    const { builtin, ...rest } = serverConfig
+    cleanConfig[name] = rest
+  }
+  await fs.writeFile(configPath, JSON.stringify(cleanConfig, null, 2), 'utf-8')
 }
 
 /**
@@ -151,10 +158,11 @@ export function setupSettingsHandlers(): void {
     }
   )
 
-  // Get MCP configuration
+  // Get MCP configuration (includes builtin servers)
   ipcMain.handle('settings:get-mcp-config', async (): Promise<IpcResponse<McpServerConfig>> => {
     try {
-      const config = await loadMcpConfig()
+      // Use mcpService to get full config with builtin servers
+      const config = await mcpService.getFullConfig()
       return { success: true, data: config }
     } catch (error) {
       return {
