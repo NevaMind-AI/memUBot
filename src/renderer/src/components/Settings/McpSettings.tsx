@@ -6,6 +6,7 @@ interface McpServer {
   name: string
   command: string
   args: string[]
+  userArgs?: string[]  // User-added args (only for builtin servers)
   env: Record<string, string>
   enabled: boolean
   builtin?: boolean  // Builtin servers cannot be deleted
@@ -15,6 +16,7 @@ interface McpServerConfig {
   [key: string]: {
     command: string
     args?: string[]
+    userArgs?: string[]
     env?: Record<string, string>
     disabled?: boolean
     builtin?: boolean
@@ -47,6 +49,12 @@ export function McpSettings(): JSX.Element {
   const [newArgsInput, setNewArgsInput] = useState('')
   const [newEnvKey, setNewEnvKey] = useState('')
   const [newEnvValue, setNewEnvValue] = useState('')
+  
+  // State for editing builtin server args/env
+  const [editingServer, setEditingServer] = useState<string | null>(null)
+  const [editArgsInput, setEditArgsInput] = useState('')
+  const [editEnvKey, setEditEnvKey] = useState('')
+  const [editEnvValue, setEditEnvValue] = useState('')
 
   // Poll for MCP status until all enabled servers are connected
   useEffect(() => {
@@ -107,6 +115,7 @@ export function McpSettings(): JSX.Element {
           name,
           command: cfg.command,
           args: cfg.args || [],
+          userArgs: cfg.userArgs || [],
           env: cfg.env || {},
           enabled: !cfg.disabled,
           builtin: cfg.builtin
@@ -164,12 +173,23 @@ export function McpSettings(): JSX.Element {
     try {
       const config: McpServerConfig = {}
       for (const server of serverList) {
-        config[server.name] = {
-          command: server.command,
-          args: server.args.length > 0 ? server.args : undefined,
-          env: Object.keys(server.env).length > 0 ? server.env : undefined,
-          disabled: !server.enabled ? true : undefined,
-          builtin: server.builtin  // Preserve builtin flag
+        if (server.builtin) {
+          // For builtin servers, only save userArgs (not args)
+          config[server.name] = {
+            command: server.command,
+            userArgs: server.userArgs && server.userArgs.length > 0 ? server.userArgs : undefined,
+            env: Object.keys(server.env).length > 0 ? server.env : undefined,
+            disabled: !server.enabled ? true : undefined,
+            builtin: true
+          }
+        } else {
+          // For user-defined servers, save args normally
+          config[server.name] = {
+            command: server.command,
+            args: server.args.length > 0 ? server.args : undefined,
+            env: Object.keys(server.env).length > 0 ? server.env : undefined,
+            disabled: !server.enabled ? true : undefined
+          }
         }
       }
       const result = await window.settings.saveMcpConfig(config)
@@ -235,6 +255,74 @@ export function McpSettings(): JSX.Element {
     const updatedServers = servers.map(s =>
       s.name === name ? { ...s, enabled: !s.enabled } : s
     )
+    setServers(updatedServers)
+    saveMcpConfig(updatedServers)
+  }
+
+  // Edit builtin server args
+  const handleStartEditServer = (server: McpServer) => {
+    setEditingServer(server.name)
+    setEditArgsInput('')
+    setEditEnvKey('')
+    setEditEnvValue('')
+  }
+
+  const handleAddEditArg = (serverName: string) => {
+    if (editArgsInput.trim()) {
+      const newArgs = editArgsInput.trim().split(/\s+/).filter(Boolean)
+      const updatedServers = servers.map(s => {
+        if (s.name !== serverName) return s
+        if (s.builtin) {
+          // For builtin servers, add to userArgs
+          const updatedUserArgs = [...(s.userArgs || []), ...newArgs]
+          return { ...s, args: [...s.args, ...newArgs], userArgs: updatedUserArgs }
+        } else {
+          return { ...s, args: [...s.args, ...newArgs] }
+        }
+      })
+      setServers(updatedServers)
+      saveMcpConfig(updatedServers)
+      setEditArgsInput('')
+    }
+  }
+
+  const handleRemoveEditArg = (serverName: string, userArgIndex: number) => {
+    // For builtin servers, only remove from userArgs (index is relative to userArgs)
+    const updatedServers = servers.map(s => {
+      if (s.name !== serverName) return s
+      if (s.builtin && s.userArgs) {
+        const updatedUserArgs = s.userArgs.filter((_, i) => i !== userArgIndex)
+        // Recalculate args: builtin args + updated userArgs
+        const builtinArgsCount = s.args.length - s.userArgs.length
+        const builtinArgs = s.args.slice(0, builtinArgsCount)
+        return { ...s, args: [...builtinArgs, ...updatedUserArgs], userArgs: updatedUserArgs }
+      }
+      return { ...s, args: s.args.filter((_, i) => i !== userArgIndex) }
+    })
+    setServers(updatedServers)
+    saveMcpConfig(updatedServers)
+  }
+
+  const handleAddEditEnv = (serverName: string) => {
+    if (editEnvKey.trim()) {
+      const updatedServers = servers.map(s =>
+        s.name === serverName ? { ...s, env: { ...s.env, [editEnvKey.trim()]: editEnvValue } } : s
+      )
+      setServers(updatedServers)
+      saveMcpConfig(updatedServers)
+      setEditEnvKey('')
+      setEditEnvValue('')
+    }
+  }
+
+  const handleRemoveEditEnv = (serverName: string, key: string) => {
+    const updatedServers = servers.map(s => {
+      if (s.name === serverName) {
+        const { [key]: _, ...rest } = s.env
+        return { ...s, env: rest }
+      }
+      return s
+    })
     setServers(updatedServers)
     saveMcpConfig(updatedServers)
   }
@@ -406,46 +494,130 @@ export function McpSettings(): JSX.Element {
               {/* Expanded Details */}
               {expandedServer === server.name && (
                 <div className="px-4 pb-4 pt-2 border-t border-[var(--border-color)] space-y-3">
+                  {/* Command - readonly */}
                   <div>
                     <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.command')}</label>
                     <code className="block px-3 py-2 rounded-lg bg-[var(--bg-input)] text-[12px] text-[var(--text-primary)] font-mono">
                       {server.command}
                     </code>
                   </div>
-                  {server.args.length > 0 && (
-                    <div>
-                      <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.arguments')}</label>
-                      <div className="flex flex-wrap gap-1">
-                        {server.args.map((arg, i) => (
-                          <span
-                            key={i}
-                            className="px-2 py-1 rounded-md bg-[var(--bg-input)] text-[11px] text-[var(--text-primary)] font-mono"
-                          >
-                            {arg}
-                          </span>
-                        ))}
+
+                  {/* Arguments - user can add extra args for builtin servers */}
+                  <div>
+                    <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.arguments')}</label>
+                    {server.args.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {(() => {
+                          // For builtin servers, separate builtin args from user args
+                          const userArgsCount = server.userArgs?.length || 0
+                          const builtinArgsCount = server.args.length - userArgsCount
+                          
+                          return server.args.map((arg, i) => {
+                            const isBuiltinArg = server.builtin && i < builtinArgsCount
+                            const userArgIndex = i - builtinArgsCount
+                            
+                            return (
+                              <span
+                                key={i}
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono ${
+                                  isBuiltinArg 
+                                    ? 'bg-[var(--primary)]/10 text-[var(--primary)]' 
+                                    : 'bg-[var(--bg-input)] text-[var(--text-primary)]'
+                                }`}
+                              >
+                                {arg}
+                                {server.builtin && !isBuiltinArg && (
+                                  <button
+                                    onClick={() => handleRemoveEditArg(server.name, userArgIndex)}
+                                    className="hover:text-red-500 transition-colors ml-1"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </span>
+                            )
+                          })
+                        })()}
                       </div>
-                    </div>
-                  )}
-                  {Object.keys(server.env).length > 0 && (
-                    <div>
-                      <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.envVars')}</label>
-                      <div className="space-y-1">
+                    )}
+                    {server.builtin && (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder={t('settings.mcp.argumentsPlaceholder')}
+                          value={editingServer === server.name ? editArgsInput : ''}
+                          onFocus={() => handleStartEditServer(server)}
+                          onChange={(e) => setEditArgsInput(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddEditArg(server.name)}
+                          className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[12px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 transition-all font-mono"
+                        />
+                        <button
+                          onClick={() => handleAddEditArg(server.name)}
+                          className="px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Environment Variables - editable for builtin servers */}
+                  <div>
+                    <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.mcp.envVars')}</label>
+                    {Object.keys(server.env).length > 0 && (
+                      <div className="space-y-1 mb-2">
                         {Object.entries(server.env).map(([key, value]) => (
                           <div
                             key={key}
-                            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--bg-input)]"
+                            className="flex items-center justify-between px-3 py-2 rounded-lg bg-[var(--bg-input)]"
                           >
-                            <span className="text-[11px] text-[var(--primary)] font-mono">{key}</span>
-                            <span className="text-[11px] text-[var(--text-muted)]">=</span>
-                            <span className="text-[11px] text-[var(--text-primary)] font-mono truncate">
-                              {value ? '••••••••' : '(empty)'}
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] text-[var(--primary)] font-mono">{key}</span>
+                              <span className="text-[11px] text-[var(--text-muted)]">=</span>
+                              <span className="text-[11px] text-[var(--text-primary)] font-mono truncate">
+                                {value ? '••••••••' : '(empty)'}
+                              </span>
+                            </div>
+                            {server.builtin && (
+                              <button
+                                onClick={() => handleRemoveEditEnv(server.name, key)}
+                                className="text-[var(--text-muted)] hover:text-red-500 transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                    {server.builtin && (
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder={t('settings.mcp.envKey')}
+                          value={editingServer === server.name ? editEnvKey : ''}
+                          onFocus={() => handleStartEditServer(server)}
+                          onChange={(e) => setEditEnvKey(e.target.value)}
+                          className="w-1/3 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[12px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 transition-all font-mono"
+                        />
+                        <input
+                          type="password"
+                          placeholder={t('settings.mcp.envValue')}
+                          value={editingServer === server.name ? editEnvValue : ''}
+                          onFocus={() => handleStartEditServer(server)}
+                          onChange={(e) => setEditEnvValue(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddEditEnv(server.name)}
+                          className="flex-1 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[12px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 transition-all font-mono"
+                        />
+                        <button
+                          onClick={() => handleAddEditEnv(server.name)}
+                          className="px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>

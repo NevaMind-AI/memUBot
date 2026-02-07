@@ -11,22 +11,25 @@ import type Anthropic from '@anthropic-ai/sdk'
 interface McpServerConfig {
   command: string
   args?: string[]
+  userArgs?: string[]  // Additional args added by user (for builtin servers)
   env?: Record<string, string>
   disabled?: boolean
   builtin?: boolean  // Whether this is a builtin server (cannot be deleted)
 }
 
 /**
- * Builtin MCP servers that are bundled with the app
- * Users can disable them but cannot delete them
+ * Get builtin MCP servers
+ * Users can customize args and env, but command is fixed
  */
-const BUILTIN_MCP_SERVERS: Record<string, McpServerConfig> = {
-  'playwright': {
-    command: 'npx',
-    args: ['@playwright/mcp@latest'],
-    env: {},
-    disabled: false,  // Enabled by default - zero config browser automation
-    builtin: true
+function getBuiltinMcpServers(): Record<string, McpServerConfig> {
+  return {
+    'playwright': {
+      command: 'npx',
+      args: ['@playwright/mcp@latest'],
+      env: {},
+      disabled: false,  // Enabled by default - zero config browser automation
+      builtin: true
+    }
   }
 }
 
@@ -100,7 +103,7 @@ class McpService {
    */
   private async loadConfig(): Promise<Record<string, McpServerConfig>> {
     // Start with builtin servers
-    const config: Record<string, McpServerConfig> = { ...BUILTIN_MCP_SERVERS }
+    const config: Record<string, McpServerConfig> = { ...getBuiltinMcpServers() }
     
     // Load user config and merge (user config can override builtin disabled state)
     try {
@@ -110,10 +113,15 @@ class McpService {
       
       for (const [name, serverConfig] of Object.entries(userConfig)) {
         if (config[name]?.builtin) {
-          // For builtin servers, only allow overriding disabled state and env
+          // For builtin servers: command and base args are fixed
+          // User can only add extra args (userArgs) and env
+          const builtinArgs = config[name].args || []
+          const userArgs = serverConfig.userArgs || []
           config[name] = {
             ...config[name],
             disabled: serverConfig.disabled,
+            args: [...builtinArgs, ...userArgs],  // Merge: builtin args + user args
+            userArgs: userArgs,  // Keep track of user-added args
             env: serverConfig.env || config[name].env
           }
         } else {
@@ -139,7 +147,7 @@ class McpService {
    * Check if a server is builtin
    */
   isBuiltinServer(name: string): boolean {
-    return BUILTIN_MCP_SERVERS[name]?.builtin === true
+    return getBuiltinMcpServers()[name]?.builtin === true
   }
 
   /**
