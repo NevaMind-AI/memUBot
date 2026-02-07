@@ -34,6 +34,7 @@ import {
   AuthCredentials,
   EasemobAuthInfo
 } from './types'
+import { getMemuApiClient, authApi } from '../api'
 
 // Firebase configuration - using import.meta.env with MAIN_VITE_ prefix
 // electron-vite exposes MAIN_VITE_* variables to main process via import.meta.env
@@ -54,20 +55,11 @@ function getFirebaseConfig() {
   return config
 }
 
-// Backend API endpoint for token exchange
-function getApiBaseUrl(): string {
-  return import.meta.env.MAIN_VITE_YUMI_API_BASE_URL || 'https://api.yumi.app'
-}
-
 // Firebase REST API for token refresh
 const FIREBASE_TOKEN_API = 'https://securetoken.googleapis.com/v1/token'
 
 // Token refresh threshold: refresh if less than 45 minutes remaining (token valid for 1 hour)
 const TOKEN_REFRESH_THRESHOLD_MS = 45 * 60 * 1000
-
-// Mock mode - set to false when backend API is ready
-// TODO: Replace with actual API calls when backend is implemented
-const USE_MOCK_API = true
 
 /**
  * Stored session data for persistence
@@ -201,9 +193,6 @@ export class YumiAuthService implements IAuthService {
 
       // Save complete session to disk
       this.saveSession()
-
-      // Test login_from_yumi API
-      await this.testLoginFromYumiApi()
 
       // Notify renderer with updated easemob info immediately
       this.notifyListeners()
@@ -376,68 +365,34 @@ export class YumiAuthService implements IAuthService {
       // Get Firebase ID token (use cached one if available and fresh)
       const idToken = this.firebaseIdToken || (await user.getIdToken())
 
-      // Mock mode: Firebase login is sufficient, generate mock credentials
-      if (USE_MOCK_API) {
-        console.log('[YumiAuth] Mock mode: Using Firebase token as credentials')
-        this.credentials = {
-          // Use Firebase ID token as access token in mock mode
-          accessToken: idToken,
-          refreshToken: `mock_refresh_${user.uid}_${Date.now()}`,
-          // Token expires in 1 hour
-          expiresAt: Date.now() + 3600 * 1000
-        }
-        // Mock Easemob info - replace with backend response later
-        this.easemobInfo = {
-          agentId: 'yumi-bot',
-          userId: 'yumi-app',
-          token:
-            'YWMtWgKRagNIEfGTeSd7kwkxqUYA2pgGPE_uh0ie2zAWRYvq6mIwA0IR8YNMObREIyM8AwMAAAGcMoqcgDeeSAA0ZCKJtyOmN-f0ZtRYf8yPV4jRD2hSzj2KJbq0rsW0Cg'
-        }
-        // Mock Memu API key - replace with backend response later
-        this.memuApiKey =
-          'mu_T_1ezd8Z5M7tvzyCA-y6J6_meKDiGHFDcQzvFMXv40JyWktIcwJm49MmdwP2XmxYaNAdVURnBH29kidzjcioiX5L1up7gEP53gg35A'
-        console.log('[YumiAuth] Mock credentials set:', {
-          agentId: this.easemobInfo.agentId,
-          userId: this.easemobInfo.userId,
-          easemobTokenPreview: `${this.easemobInfo.token.substring(0, 8)}...`,
-          memuApiKeyPreview: `${this.memuApiKey.substring(0, 12)}...`
-        })
-        return { success: true }
-      }
+      // Call Memu API to exchange Firebase token for credentials
+      console.log('[YumiAuth] Exchanging Firebase token for Memu credentials...')
+      const apiClient = getMemuApiClient()
+      const loginResult = await authApi.loginFromYumi(apiClient, idToken)
 
-      // Real API mode: Exchange Firebase token for backend credentials
-      // TODO: Implement when backend API is ready
-      // Expected response fields:
-      // - accessToken, refreshToken, expiresIn
-      // - easemobAgentId, easemobUserId, easemobToken
-      const response = await fetch(`${getApiBaseUrl()}/auth/exchange`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ firebaseToken: idToken })
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        return {
-          success: false,
-          error: errorData.message || `Server error: ${response.status}`
-        }
-      }
-
-      const data = await response.json()
+      // Set credentials from API response
       this.credentials = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-        expiresAt: Date.now() + (data.expiresIn || 3600) * 1000
+        accessToken: idToken, // Use Firebase ID token as access token
+        refreshToken: `memu_refresh_${user.uid}_${Date.now()}`,
+        expiresAt: Date.now() + 3600 * 1000 // Token expires in 1 hour
       }
+
+      // Set Easemob info from API response
       this.easemobInfo = {
-        agentId: data.easemobAgentId,
-        userId: data.easemobUserId,
-        token: data.easemobToken
+        agentId: loginResult.bot_name,
+        userId: loginResult.user_name,
+        token: loginResult.bot_token
       }
-      this.memuApiKey = data.memu_api_key || null
+
+      // Set Memu API key from API response
+      this.memuApiKey = loginResult.api_key
+
+      console.log('[YumiAuth] Credentials set from API:', {
+        agentId: this.easemobInfo.agentId,
+        userId: this.easemobInfo.userId,
+        easemobTokenPreview: `${this.easemobInfo.token.substring(0, 8)}...`,
+        memuApiKeyPreview: `${this.memuApiKey.substring(0, 12)}...`
+      })
 
       return { success: true }
     } catch (error: unknown) {
@@ -459,61 +414,47 @@ export class YumiAuthService implements IAuthService {
     }
 
     try {
-      // Mock mode: Refresh using Firebase token
-      if (USE_MOCK_API) {
-        console.log('[YumiAuth] Mock mode: Refreshing credentials with Firebase token')
+      console.log('[YumiAuth] Refreshing credentials...')
 
-        // Get fresh Firebase ID token
-        let idToken: string | null = null
-        if (this.currentUser) {
-          idToken = await this.currentUser.getIdToken(true)
-          this.firebaseIdToken = idToken
-          this.idTokenRefreshedAt = now
-        } else if (this.firebaseRefreshToken) {
-          // No current user, refresh via REST API
-          await this.refreshFirebaseTokenViaRestApi()
-          idToken = this.firebaseIdToken
-        }
+      // Get fresh Firebase ID token
+      let idToken: string | null = null
+      if (this.currentUser) {
+        idToken = await this.currentUser.getIdToken(true)
+        this.firebaseIdToken = idToken
+        this.idTokenRefreshedAt = now
+      } else if (this.firebaseRefreshToken) {
+        // No current user, refresh via REST API
+        await this.refreshFirebaseTokenViaRestApi()
+        idToken = this.firebaseIdToken
+      }
 
-        if (!idToken) {
-          console.error('[YumiAuth] Cannot refresh credentials: no valid Firebase token')
-          return
-        }
-
-        this.credentials = {
-          accessToken: idToken,
-          refreshToken: this.credentials.refreshToken,
-          expiresAt: Date.now() + 3600 * 1000
-        }
-        this.saveSession()
+      if (!idToken) {
+        console.error('[YumiAuth] Cannot refresh credentials: no valid Firebase token')
         return
       }
 
-      // Real API mode: Call refresh endpoint
-      // TODO: Implement when backend API is ready
-      const response = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ refreshToken: this.credentials.refreshToken })
-      })
+      // Re-authenticate with Memu API using fresh Firebase token
+      const apiClient = getMemuApiClient()
+      const loginResult = await authApi.loginFromYumi(apiClient, idToken)
 
-      if (!response.ok) {
-        // Refresh failed, clear credentials
-        this.credentials = null
-        this.clearStoredSession()
-        return
-      }
-
-      const data = await response.json()
       this.credentials = {
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken || this.credentials.refreshToken,
-        expiresAt: Date.now() + (data.expiresIn || 3600) * 1000
+        accessToken: idToken,
+        refreshToken: this.credentials.refreshToken,
+        expiresAt: Date.now() + 3600 * 1000
       }
+
+      // Update Easemob info
+      this.easemobInfo = {
+        agentId: loginResult.bot_name,
+        userId: loginResult.user_name,
+        token: loginResult.bot_token
+      }
+
+      // Update API key
+      this.memuApiKey = loginResult.api_key
 
       this.saveSession()
+      console.log('[YumiAuth] Credentials refreshed successfully')
     } catch (error) {
       console.error('[YumiAuth] Failed to refresh credentials:', error)
     }
@@ -582,30 +523,29 @@ export class YumiAuthService implements IAuthService {
         if (this.credentials.expiresAt - now < 5 * 60 * 1000) {
           await this.refreshCredentialsIfNeeded()
         }
-      } else {
-        // No stored credentials, need to exchange token
-        // Create a minimal pseudo-user for exchange (mock mode only)
-        if (USE_MOCK_API && this.firebaseIdToken && this.storedUserInfo) {
+      } else if (this.firebaseIdToken && this.storedUserInfo) {
+        // No stored credentials, need to exchange token with Memu API
+        console.log('[YumiAuth] No stored credentials, exchanging token with Memu API...')
+        try {
+          const apiClient = getMemuApiClient()
+          const loginResult = await authApi.loginFromYumi(apiClient, this.firebaseIdToken)
+
           this.credentials = {
             accessToken: this.firebaseIdToken,
-            refreshToken: `mock_refresh_${this.storedUserInfo.uid}_${Date.now()}`,
+            refreshToken: `memu_refresh_${this.storedUserInfo.uid}_${Date.now()}`,
             expiresAt: Date.now() + 3600 * 1000
           }
-          // Restore mock Easemob info
-          if (!this.easemobInfo) {
-            this.easemobInfo = {
-              agentId: 'yumi-bot',
-              userId: 'yumi-app',
-              token:
-                'YWMtWgKRagNIEfGTeSd7kwkxqUYA2pgGPE_uh0ie2zAWRYvq6mIwA0IR8YNMObREIyM8AwMAAAGcMoqcgDeeSAA0ZCKJtyOmN-f0ZtRYf8yPV4jRD2hSzj2KJbq0rsW0Cg'
-            }
+
+          this.easemobInfo = {
+            agentId: loginResult.bot_name,
+            userId: loginResult.user_name,
+            token: loginResult.bot_token
           }
-          // Restore mock Memu API key
-          if (!this.memuApiKey) {
-            this.memuApiKey =
-              'mu_T_1ezd8Z5M7tvzyCA-y6J6_meKDiGHFDcQzvFMXv40JyWktIcwJm49MmdwP2XmxYaNAdVURnBH29kidzjcioiX5L1up7gEP53gg35A'
-          }
+
+          this.memuApiKey = loginResult.api_key
           this.saveSession()
+        } catch (error) {
+          console.error('[YumiAuth] Failed to exchange token during session restore:', error)
         }
       }
 
@@ -614,9 +554,6 @@ export class YumiAuthService implements IAuthService {
         hasCredentials: !!this.credentials,
         hasUserInfo: !!this.storedUserInfo
       })
-
-      // Test login_from_yumi API
-      await this.testLoginFromYumiApi()
 
       this.notifyListeners()
     } catch (error) {
@@ -769,54 +706,5 @@ export class YumiAuthService implements IAuthService {
       easemob: state.easemob ? { agentId: state.easemob.agentId, userId: state.easemob.userId } : null
     })
     this.listeners.forEach((callback) => callback(state))
-  }
-
-  /**
-   * Test API: login_from_yumi
-   * This is a temporary test method to verify the API endpoint
-   */
-  private async testLoginFromYumiApi(): Promise<void> {
-    if (!this.firebaseIdToken) {
-      console.log('[YumiAuth] testLoginFromYumiApi: No idToken available')
-      return
-    }
-
-    try {
-      console.log('[YumiAuth] Testing login_from_yumi API...')
-      console.log('[YumiAuth] idToken preview:', this.firebaseIdToken.substring(0, 50) + '...')
-      
-      // Step 1: Get CSRF token
-      console.log('[YumiAuth] Fetching CSRF token...')
-      const csrfResponse = await fetch('https://api.memu.so/api/v3/auth/csrf', {
-        method: 'GET'
-      })
-      const csrfData = await csrfResponse.json().catch(() => null)
-      console.log('[YumiAuth] CSRF response:', csrfData)
-      
-      const csrfToken = csrfData?.csrf_token || csrfData?.token || csrfData
-      if (!csrfToken) {
-        console.error('[YumiAuth] Failed to get CSRF token')
-        return
-      }
-      
-      // Step 2: Call login_from_yumi with CSRF token
-      const response = await fetch('https://api.memu.so/api/v3/auth/login_from_yumi', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${this.firebaseIdToken}`,
-          'X-CSRF-Token': csrfToken,
-          'Cookie': `memu_csrf_token=${csrfToken}`
-        }
-      })
-
-      const data = await response.json().catch(() => null)
-      console.log('[YumiAuth] login_from_yumi API response:', {
-        status: response.status,
-        statusText: response.statusText,
-        data: JSON.stringify(data)
-      })
-    } catch (error) {
-      console.error('[YumiAuth] login_from_yumi API error:', error)
-    }
   }
 }
