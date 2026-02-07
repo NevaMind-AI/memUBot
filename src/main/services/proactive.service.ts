@@ -738,12 +738,17 @@ class ProactiveService {
       case 'claude':
         apiKey = settings.claudeApiKey
         baseURL = undefined
-        model = settings.claudeModel || 'claude-sonnet-4-20250514'
+        model = settings.claudeModel || 'claude-opus-4-5'
         break
       case 'minimax':
         apiKey = settings.minimaxApiKey
         baseURL = 'https://api.minimaxi.com/anthropic'
         model = settings.minimaxModel || 'MiniMax-M2.1'
+        break
+      case 'zenmux':
+        apiKey = settings.zenmuxApiKey
+        baseURL = 'https://zenmux.ai/api/anthropic'
+        model = settings.zenmuxModel
         break
       case 'custom':
         apiKey = settings.customApiKey
@@ -752,7 +757,7 @@ class ProactiveService {
         break
       default:
         apiKey = settings.claudeApiKey
-        model = settings.claudeModel || 'claude-sonnet-4-20250514'
+        model = settings.claudeModel
     }
 
     if (!apiKey) {

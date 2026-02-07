@@ -10,7 +10,8 @@ const EMPTY_STATE: AuthState = {
   isLoggedIn: false,
   user: null,
   credentials: null,
-  easemob: null
+  easemob: null,
+  memuApiKey: null
 }
 
 export class MemuAuthService implements IAuthService {

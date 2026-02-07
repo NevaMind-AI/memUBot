@@ -2,11 +2,12 @@ import { Loader2, Check, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 // LLM Provider type
-export type LLMProvider = 'claude' | 'minimax' | 'custom'
+export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'custom'
 
 // Provider options for select
 export const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
   { value: 'claude', label: 'Claude (Anthropic)' },
+  { value: 'zenmux', label: 'Zenmux' },
   { value: 'minimax', label: 'MiniMax' },
   { value: 'custom', label: 'Custom Provider' }
 ]
@@ -21,6 +22,9 @@ export interface AppSettings {
   // MiniMax settings
   minimaxApiKey: string
   minimaxModel: string
+  // Zenmux settings
+  zenmuxApiKey: string
+  zenmuxModel: string
   // Custom provider settings
   customApiKey: string
   customBaseUrl: string

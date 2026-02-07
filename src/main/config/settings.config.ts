@@ -8,7 +8,7 @@ const SETTINGS_FILE = 'settings.json'
 /**
  * LLM Provider type
  */
-export type LLMProvider = 'claude' | 'minimax' | 'custom'
+export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'custom'
 
 /**
  * Provider configurations
@@ -23,6 +23,11 @@ export const PROVIDER_CONFIGS: Record<LLMProvider, { name: string; baseUrl: stri
     name: 'MiniMax',
     baseUrl: 'https://api.minimaxi.com/anthropic',
     defaultModel: 'MiniMax-M2.1'
+  },
+  zenmux: {
+    name: 'Zenmux',
+    baseUrl: 'https://zenmux.ai/api/anthropic',
+    defaultModel: ''
   },
   custom: {
     name: 'Custom Provider',
@@ -45,6 +50,10 @@ export interface AppSettings {
   // MiniMax settings
   minimaxApiKey: string
   minimaxModel: string
+  
+  // Zenmux settings
+  zenmuxApiKey: string
+  zenmuxModel: string
   
   // Custom provider settings
   customApiKey: string
@@ -113,6 +122,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   // MiniMax settings
   minimaxApiKey: '',
   minimaxModel: 'MiniMax-M2.1',
+  
+  // Zenmux settings
+  zenmuxApiKey: '',
+  zenmuxModel: '',
   
   // Custom provider settings
   customApiKey: '',
@@ -277,6 +290,13 @@ class SettingsManager {
           apiKey: this.settings.minimaxApiKey,
           baseUrl: 'https://api.minimaxi.com/anthropic',
           model: this.settings.minimaxModel || 'MiniMax-M2.1',
+          provider
+        }
+      case 'zenmux':
+        return {
+          apiKey: this.settings.zenmuxApiKey,
+          baseUrl: 'https://zenmux.ai/api/anthropic',
+          model: this.settings.zenmuxModel,
           provider
         }
       case 'custom':

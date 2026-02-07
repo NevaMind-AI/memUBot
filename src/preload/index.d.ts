@@ -59,7 +59,7 @@ interface BotStatus {
 }
 
 // LLM Provider type
-type LLMProvider = 'claude' | 'minimax' | 'custom'
+type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'custom'
 
 // App settings type
 interface AppSettings {
@@ -71,6 +71,9 @@ interface AppSettings {
   // MiniMax settings
   minimaxApiKey: string
   minimaxModel: string
+  // Zenmux settings
+  zenmuxApiKey: string
+  zenmuxModel: string
   // Custom provider settings
   customApiKey: string
   customBaseUrl: string
@@ -459,6 +462,7 @@ interface AuthState {
   user: AuthUserInfo | null
   credentials: AuthCredentials | null
   easemob: EasemobAuthInfo | null
+  memuApiKey: string | null
 }
 
 interface AuthLoginResult {

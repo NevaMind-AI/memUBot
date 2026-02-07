@@ -29,6 +29,7 @@ export interface AuthState {
   user: UserInfo | null
   credentials: AuthCredentials | null
   easemob: EasemobAuthInfo | null
+  memuApiKey: string | null // API key for backend requests
 }
 
 export interface LoginResult {

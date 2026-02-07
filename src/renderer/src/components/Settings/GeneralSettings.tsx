@@ -47,6 +47,9 @@ export function GeneralSettings(): JSX.Element {
     // MiniMax settings
     settings.minimaxApiKey !== originalSettings.minimaxApiKey ||
     settings.minimaxModel !== originalSettings.minimaxModel ||
+    // Zenmux settings
+    settings.zenmuxApiKey !== originalSettings.zenmuxApiKey ||
+    settings.zenmuxModel !== originalSettings.zenmuxModel ||
     // Custom provider settings
     settings.customApiKey !== originalSettings.customApiKey ||
     settings.customBaseUrl !== originalSettings.customBaseUrl ||
@@ -71,6 +74,9 @@ export function GeneralSettings(): JSX.Element {
         // MiniMax settings
         minimaxApiKey: settings.minimaxApiKey,
         minimaxModel: settings.minimaxModel,
+        // Zenmux settings
+        zenmuxApiKey: settings.zenmuxApiKey,
+        zenmuxModel: settings.zenmuxModel,
         // Custom provider settings
         customApiKey: settings.customApiKey,
         customBaseUrl: settings.customBaseUrl,
@@ -149,6 +155,45 @@ export function GeneralSettings(): JSX.Element {
                   onChange={(e) => setSettings({ ...settings, claudeModel: e.target.value })}
                   className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Zenmux Settings */}
+          {settings.llmProvider === 'zenmux' && (
+            <div className="space-y-3 p-3 rounded-xl bg-cyan-500/5 border border-cyan-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.general.apiKey')}</label>
+                <input
+                  type="password"
+                  placeholder="Zenmux API Key"
+                  value={settings.zenmuxApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, zenmuxApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.model')}</label>
+                <input
+                  type="text"
+                  placeholder="anthropic/claude-opus-4.5"
+                  value={settings.zenmuxModel || ''}
+                  onChange={(e) => setSettings({ ...settings, zenmuxModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-cyan-500/50 focus:ring-2 focus:ring-cyan-500/10 transition-all"
+                />
+              </div>
+              <div className="p-2 rounded-lg bg-cyan-500/10">
+                <p className="text-[11px] text-cyan-400">
+                  {t('settings.llm.zenmuxInfo')}{' '}
+                  <a
+                    href="https://zenmux.ai/invite/QGJDYM"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-cyan-300"
+                  >
+                    zenmux.ai →
+                  </a>
+                </p>
               </div>
             </div>
           )}

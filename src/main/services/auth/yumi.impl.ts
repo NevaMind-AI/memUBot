@@ -85,6 +85,8 @@ interface StoredSession {
   credentials: AuthCredentials
   // Easemob info
   easemob: EasemobAuthInfo | null
+  // Memu API key for backend requests
+  memuApiKey: string | null
 }
 
 export class YumiAuthService implements IAuthService {
@@ -93,6 +95,7 @@ export class YumiAuthService implements IAuthService {
   private currentUser: User | null = null
   private credentials: AuthCredentials | null = null
   private easemobInfo: EasemobAuthInfo | null = null
+  private memuApiKey: string | null = null
   private listeners: Set<(state: AuthState) => void> = new Set()
   private sessionPath: string
   private unsubscribeFirebase: (() => void) | null = null
@@ -166,7 +169,8 @@ export class YumiAuthService implements IAuthService {
       isLoggedIn: !!user && !!this.credentials,
       user,
       credentials: this.credentials,
-      easemob: this.easemobInfo
+      easemob: this.easemobInfo,
+      memuApiKey: this.memuApiKey
     }
   }
 
@@ -221,17 +225,27 @@ export class YumiAuthService implements IAuthService {
 
     try {
       console.log('[YumiAuth] Signing out')
-      await firebaseSignOut(this.auth)
 
-      // Clear all session data
+      // Clear all session data BEFORE firebaseSignOut
+      // firebaseSignOut triggers onAuthStateChanged callback, which calls notifyListeners.
+      // If we clear after, the callback sees stale data (easemob still set, sessionRestored still true)
+      // and the renderer won't disconnect Easemob.
       this.credentials = null
       this.easemobInfo = null
+      this.memuApiKey = null
+      this.currentUser = null
       this.firebaseRefreshToken = null
       this.firebaseIdToken = null
       this.idTokenRefreshedAt = 0
       this.storedUserInfo = null
       this.sessionRestored = false
       this.clearStoredSession()
+
+      // Now sign out from Firebase (callback will see cleared state)
+      await firebaseSignOut(this.auth)
+
+      // Explicitly notify in case the Firebase callback didn't fire or was skipped
+      this.notifyListeners()
 
       console.log('[YumiAuth] Sign out successful')
       return { success: true }
@@ -376,10 +390,14 @@ export class YumiAuthService implements IAuthService {
           token:
             'YWMtWgKRagNIEfGTeSd7kwkxqUYA2pgGPE_uh0ie2zAWRYvq6mIwA0IR8YNMObREIyM8AwMAAAGcMoqcgDeeSAA0ZCKJtyOmN-f0ZtRYf8yPV4jRD2hSzj2KJbq0rsW0Cg'
         }
-        console.log('[YumiAuth] Mock easemob info set:', {
+        // Mock Memu API key - replace with backend response later
+        this.memuApiKey =
+          'mu_T_1ezd8Z5M7tvzyCA-y6J6_meKDiGHFDcQzvFMXv40JyWktIcwJm49MmdwP2XmxYaNAdVURnBH29kidzjcioiX5L1up7gEP53gg35A'
+        console.log('[YumiAuth] Mock credentials set:', {
           agentId: this.easemobInfo.agentId,
           userId: this.easemobInfo.userId,
-          tokenPreview: `${this.easemobInfo.token.substring(0, 8)}...`
+          easemobTokenPreview: `${this.easemobInfo.token.substring(0, 8)}...`,
+          memuApiKeyPreview: `${this.memuApiKey.substring(0, 12)}...`
         })
         return { success: true }
       }
@@ -416,6 +434,7 @@ export class YumiAuthService implements IAuthService {
         userId: data.easemobUserId,
         token: data.easemobToken
       }
+      this.memuApiKey = data.memu_api_key || null
 
       return { success: true }
     } catch (error: unknown) {
@@ -578,6 +597,11 @@ export class YumiAuthService implements IAuthService {
                 'YWMtWgKRagNIEfGTeSd7kwkxqUYA2pgGPE_uh0ie2zAWRYvq6mIwA0IR8YNMObREIyM8AwMAAAGcMoqcgDeeSAA0ZCKJtyOmN-f0ZtRYf8yPV4jRD2hSzj2KJbq0rsW0Cg'
             }
           }
+          // Restore mock Memu API key
+          if (!this.memuApiKey) {
+            this.memuApiKey =
+              'mu_T_1ezd8Z5M7tvzyCA-y6J6_meKDiGHFDcQzvFMXv40JyWktIcwJm49MmdwP2XmxYaNAdVURnBH29kidzjcioiX5L1up7gEP53gg35A'
+          }
           this.saveSession()
         }
       }
@@ -663,7 +687,8 @@ export class YumiAuthService implements IAuthService {
         idTokenRefreshedAt: this.idTokenRefreshedAt,
         userInfo: this.storedUserInfo || (this.currentUser ? this.mapFirebaseUser(this.currentUser) : { uid: '', email: null, displayName: null, photoURL: null }),
         credentials: this.credentials || { accessToken: '', refreshToken: '', expiresAt: 0 },
-        easemob: this.easemobInfo
+        easemob: this.easemobInfo,
+        memuApiKey: this.memuApiKey
       }
 
       writeFileSync(this.sessionPath, JSON.stringify(session, null, 2), 'utf-8')
@@ -698,12 +723,14 @@ export class YumiAuthService implements IAuthService {
         this.storedUserInfo = session.userInfo || null
         this.credentials = session.credentials?.accessToken ? session.credentials : null
         this.easemobInfo = session.easemob || null
+        this.memuApiKey = session.memuApiKey || null
 
         console.log('[YumiAuth] Loaded stored session:', {
           hasRefreshToken: !!this.firebaseRefreshToken,
           hasIdToken: !!this.firebaseIdToken,
           hasUserInfo: !!this.storedUserInfo,
           hasCredentials: !!this.credentials,
+          hasMemuApiKey: !!this.memuApiKey,
           tokenAge: this.idTokenRefreshedAt ? `${Math.round((Date.now() - this.idTokenRefreshedAt) / 60000)} minutes` : 'unknown'
         })
       }

@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import path from 'path'
 import { app } from 'electron'
 import { loadSettings } from '../../config/settings.config'
+import { getAuthService } from '../auth'
 
 /**
  * Maximum number of historical messages to load as context
@@ -88,6 +89,11 @@ const YUMI_LLM_CONFIG = {
   model: 'anthropic/claude-opus-4.5'
 }
 
+// const YUMI_LLM_CONFIG = {
+//   baseURL: 'https://memu-dev.tail13fa45.ts.net/u/wu/be/api/v3/yumi/anthropic-complete',
+//   model: ''
+// }
+
 /**
  * Create Anthropic client with current settings
  * Supports multiple providers: Claude, MiniMax, or custom Anthropic-compatible API
@@ -97,6 +103,8 @@ const YUMI_LLM_CONFIG = {
 export async function createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number; provider: string }> {
   const settings = await loadSettings()
   const appMode = getAppMode()
+  const memuApiKey = getAuthService().getAuthState().memuApiKey
+  console.log(`[Agent] Memu API key: ${memuApiKey}`)
 
   // Yumi mode: use hardcoded configuration
   if (appMode === 'yumi') {
@@ -104,6 +112,11 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
       apiKey: YUMI_LLM_CONFIG.apiKey,
       baseURL: YUMI_LLM_CONFIG.baseURL
     })
+
+    // const client = new Anthropic({
+    //   apiKey: memuApiKey,
+    //   baseURL: YUMI_LLM_CONFIG.baseURL,
+    // })
 
     console.log(`[Agent] Yumi mode - using fixed LLM config: model: ${YUMI_LLM_CONFIG.model}, baseURL: ${YUMI_LLM_CONFIG.baseURL}`)
 
@@ -133,6 +146,11 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
       apiKey = settings.minimaxApiKey
       baseURL = 'https://api.minimaxi.com/anthropic'
       model = settings.minimaxModel || 'MiniMax-M2.1'
+      break
+    case 'zenmux':
+      apiKey = settings.zenmuxApiKey
+      baseURL = 'https://zenmux.ai/api/anthropic'
+      model = settings.zenmuxModel
       break
     case 'custom':
       apiKey = settings.customApiKey
