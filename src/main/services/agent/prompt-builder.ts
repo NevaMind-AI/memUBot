@@ -6,16 +6,18 @@ import { skillsService } from '../skills.service'
 import { serviceManagerService } from '../service-manager.service'
 import { getDefaultOutputDir } from './utils'
 import {
-  TELEGRAM_SYSTEM_PROMPT,
-  DISCORD_SYSTEM_PROMPT,
-  WHATSAPP_SYSTEM_PROMPT,
-  SLACK_SYSTEM_PROMPT,
-  LINE_SYSTEM_PROMPT,
-  FEISHU_SYSTEM_PROMPT,
-  DEFAULT_SYSTEM_PROMPT,
+  getSystemPrompt,
+  getDefaultSystemPrompt,
   VISUAL_DEMO_PROMPT
 } from './prompts'
 import type { MessagePlatform } from './types'
+
+/**
+ * Get the current app mode
+ */
+function getAppMode(): 'memu' | 'yumi' {
+  return (import.meta.env.MAIN_VITE_APP_MODE as 'memu' | 'yumi') || 'memu'
+}
 
 /**
  * Get operating system information for system prompt
@@ -94,35 +96,16 @@ Timezone: ${timezone} (${tzString})`
 export async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<string> {
   const settings = await loadSettings()
   const defaultOutputDir = getDefaultOutputDir()
+  const appMode = getAppMode()
   
   // Get base system prompt
   let basePrompt: string
   if (settings.systemPrompt) {
     basePrompt = settings.systemPrompt
+  } else if (platform === 'none') {
+    basePrompt = getDefaultSystemPrompt(appMode)
   } else {
-    switch (platform) {
-      case 'telegram':
-        basePrompt = TELEGRAM_SYSTEM_PROMPT
-        break
-      case 'discord':
-        basePrompt = DISCORD_SYSTEM_PROMPT
-        break
-      case 'whatsapp':
-        basePrompt = WHATSAPP_SYSTEM_PROMPT
-        break
-      case 'slack':
-        basePrompt = SLACK_SYSTEM_PROMPT
-        break
-      case 'line':
-        basePrompt = LINE_SYSTEM_PROMPT
-        break
-      case 'feishu':
-        basePrompt = FEISHU_SYSTEM_PROMPT
-        break
-      case 'none':
-      default:
-        basePrompt = DEFAULT_SYSTEM_PROMPT
-    }
+    basePrompt = getSystemPrompt(platform, appMode)
   }
   
   // Add system info and current time information at the beginning

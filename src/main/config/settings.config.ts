@@ -64,6 +64,7 @@ export interface AppSettings {
   maxTokens: number
   temperature: number
   systemPrompt: string
+  modelTier: 'agile' | 'smart' | 'deep'
 
   memuBaseUrl: string
   memuApiKey: string
@@ -136,6 +137,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxTokens: 8192,
   temperature: 0.7,
   systemPrompt: '',
+  modelTier: 'smart',
 
   memuBaseUrl: 'https://api.memu.so',
   memuApiKey: '',

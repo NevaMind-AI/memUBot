@@ -107,7 +107,13 @@
       "or": "または",
       "loginWithGoogle": "Google でログイン",
       "imStatus": "IM 状態",
-      "imStatusHint": "IM 接続状態"
+      "imStatusHint": "IM 接続状態",
+      "noEmail": "メール未設定",
+      "balance": "残高",
+      "balanceHint": "利用可能なクレジット",
+      "topUp": "チャージ",
+      "topUpComingSoon": "チャージ機能は近日公開予定です！",
+      "processing": "処理中..."
     },
     "general": {
       "title": "一般設定",

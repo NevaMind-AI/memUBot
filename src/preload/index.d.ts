@@ -82,6 +82,7 @@ interface AppSettings {
   maxTokens: number
   temperature: number
   systemPrompt: string
+  modelTier: 'agile' | 'smart' | 'deep'
   memuBaseUrl: string
   memuApiKey: string
   memuUserId: string

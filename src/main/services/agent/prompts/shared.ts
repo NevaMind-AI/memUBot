@@ -1,22 +1,26 @@
 /**
- * System prompts for different platforms
- * Refactored to reduce duplication
+ * Shared prompt components used by both memu-bot and yumi
  */
 
+import type { PlatformConfig } from './types'
+
 // ============================================
-// Shared prompt components
+// Tool descriptions
 // ============================================
 
-const INTRO = `You are a helpful AI assistant. You are working together (cowork) with the user to accomplish tasks.`
-
-const BASE_TOOLS = `1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
+export const BASE_TOOLS = `1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
 2. **Text editor** - View and edit files with precision`
 
-const BASE_GUIDELINES = `- Use bash for command-line tasks, file operations, git, npm, etc.
-- Use the text editor for viewing and editing code files
-- **IMPORTANT**: Ask for confirmation before destructive operations (e.g., deleting files, modifying system settings)`
+// ============================================
+// Guidelines
+// ============================================
 
-const COMMUNICATION_GUIDELINES = `Communication Guidelines:
+export const BASE_GUIDELINES = `- Use bash for command-line tasks, file operations, git, npm, etc.
+- Use the text editor for viewing and editing code files
+- **IMPORTANT**: Ask for confirmation before destructive operations (e.g., deleting files, modifying system settings)
+- When you receive audio/voice files, try to transcribe them using available tools (e.g., whisper, ffmpeg) before saying you cannot process them. Attempt first, ask questions later.`
+
+export const COMMUNICATION_GUIDELINES = `Communication Guidelines:
 - Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
 - **AVOID** sending status updates like "Task started" - just do the work
 - **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
@@ -36,7 +40,7 @@ const COMMUNICATION_GUIDELINES = `Communication Guidelines:
   - Sending multiple backup messages in one conversation
   - Including backup/summary content in your final response`
 
-const EXPERTISE_BASE = `You are an expert assistant that can help with:
+export const EXPERTISE_BASE = `You are an expert assistant that can help with:
 - Software development and coding
 - System administration
 - File management`
@@ -45,13 +49,7 @@ const EXPERTISE_BASE = `You are an expert assistant that can help with:
 // Platform-specific messaging capabilities
 // ============================================
 
-interface PlatformConfig {
-  name: string
-  messagingCapabilities: string
-  toolGuideline: string
-}
-
-const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
+export const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
   telegram: {
     name: 'Telegram',
     messagingCapabilities: `3. **Telegram messaging** - Send various types of content to the user via Telegram:
@@ -112,54 +110,6 @@ const PLATFORM_CONFIGS: Record<string, PlatformConfig> = {
     toolGuideline: '- Use Feishu tools to send rich content (images, files, cards) to the user'
   }
 }
-
-// ============================================
-// Prompt builder function
-// ============================================
-
-function buildPlatformPrompt(platform: keyof typeof PLATFORM_CONFIGS): string {
-  const config = PLATFORM_CONFIGS[platform]
-  
-  return `${INTRO}
-
-You have access to:
-${BASE_TOOLS}
-${config.messagingCapabilities}
-
-Guidelines:
-${BASE_GUIDELINES}
-${config.toolGuideline}
-
-${COMMUNICATION_GUIDELINES}
-
-${EXPERTISE_BASE}
-- Sharing files and media via ${config.name}
-- Any command-line task the user needs help with`
-}
-
-// ============================================
-// Exported prompts
-// ============================================
-
-export const TELEGRAM_SYSTEM_PROMPT = buildPlatformPrompt('telegram')
-export const DISCORD_SYSTEM_PROMPT = buildPlatformPrompt('discord')
-export const WHATSAPP_SYSTEM_PROMPT = buildPlatformPrompt('whatsapp')
-export const SLACK_SYSTEM_PROMPT = buildPlatformPrompt('slack')
-export const LINE_SYSTEM_PROMPT = buildPlatformPrompt('line')
-export const FEISHU_SYSTEM_PROMPT = buildPlatformPrompt('feishu')
-
-export const DEFAULT_SYSTEM_PROMPT = `${INTRO}
-
-You have access to:
-${BASE_TOOLS}
-
-Guidelines:
-${BASE_GUIDELINES}
-- **AVOID** repeating yourself - keep responses concise
-- **NEVER** send "backup", "emergency backup", or "context summary" messages - do NOT claim context is being cleared or try to preserve information across sessions
-
-${EXPERTISE_BASE}
-- Any command-line task the user needs help with`
 
 // ============================================
 // Visual Demo Mode prompt (experimental)

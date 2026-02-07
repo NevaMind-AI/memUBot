@@ -91,7 +91,6 @@ const YUMI_LLM_CONFIG = {
 
 // const YUMI_LLM_CONFIG = {
 //   baseURL: 'https://memu-dev.tail13fa45.ts.net/u/wu/be/api/v3/yumi/anthropic-complete',
-//   model: ''
 // }
 
 /**
@@ -104,7 +103,7 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
   const settings = await loadSettings()
   const appMode = getAppMode()
   const memuApiKey = getAuthService().getAuthState().memuApiKey
-  console.log(`[Agent] Memu API key: ${memuApiKey}`)
+  const memuModelTier = settings.modelTier
 
   // Yumi mode: use hardcoded configuration
   if (appMode === 'yumi') {
@@ -123,6 +122,7 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
     return {
       client,
       model: YUMI_LLM_CONFIG.model,
+      // model: memuModelTier,
       maxTokens: settings.maxTokens,
       provider: 'yumi'
     }

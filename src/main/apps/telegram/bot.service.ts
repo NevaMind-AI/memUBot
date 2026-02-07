@@ -478,7 +478,7 @@ export class TelegramBotService {
     let textContent = msg.text || msg.caption || ''
     if (filePaths.length > 0) {
       const fileInfo = filePaths.map(f => `- ${f.name} (${f.mimeType}): ${f.path}`).join('\n')
-      const fileMessage = `\n\n[Attached files - use file_read tool to read content]:\n${fileInfo}`
+      const fileMessage = `\n\n[Attached files downloaded to local]:\n${fileInfo}`
       textContent = textContent ? textContent + fileMessage : fileMessage.trim()
     }
 
@@ -545,7 +545,7 @@ export class TelegramBotService {
     }
 
     try {
-      // Handle photos - get the largest size
+      // Handle photos - get the largest size and download to local
       if (msg.photo && msg.photo.length > 0) {
         const photo = msg.photo[msg.photo.length - 1] // Largest photo
         const fileLink = await this.bot.getFileLink(photo.file_id)
@@ -558,8 +558,17 @@ export class TelegramBotService {
           width: photo.width,
           height: photo.height
         })
-        imageUrls.push(fileLink)
-        console.log('[Telegram] Photo attachment:', fileLink)
+        
+        // Download photo to local storage to avoid LLM URL fetch issues (robots.txt blocking)
+        const localPath = await this.downloadFile(fileLink, 'photo.jpg')
+        if (localPath) {
+          imageUrls.push(localPath)
+          console.log('[Telegram] Photo downloaded to local:', localPath)
+        } else {
+          // Fallback to URL if download fails
+          imageUrls.push(fileLink)
+          console.log('[Telegram] Photo attachment (URL fallback):', fileLink)
+        }
       }
 
       // Handle documents (PDF, DOC, TXT, etc.) - download to local storage
@@ -585,49 +594,73 @@ export class TelegramBotService {
         }
       }
 
-      // Handle video
+      // Handle video - download to local for Agent to process
       if (msg.video) {
         const video = msg.video
         const fileLink = await this.bot.getFileLink(video.file_id)
+        const mimeType = video.mime_type || 'video/mp4'
         attachments.push({
           id: video.file_id,
           name: 'video.mp4',
           url: fileLink,
-          contentType: video.mime_type || 'video/mp4',
+          contentType: mimeType,
           size: video.file_size,
           width: video.width,
           height: video.height
         })
         console.log('[Telegram] Video attachment:', fileLink)
+        
+        // Download video to local storage for Agent to process
+        const localPath = await this.downloadFile(fileLink, 'video.mp4')
+        if (localPath) {
+          filePaths.push({ path: localPath, name: 'video.mp4', mimeType })
+          console.log('[Telegram] Video downloaded to local:', localPath)
+        }
       }
 
-      // Handle audio
+      // Handle audio - download to local for Agent to process
       if (msg.audio) {
         const audio = msg.audio
         const fileLink = await this.bot.getFileLink(audio.file_id)
         const fileName = audio.title ? `${audio.title}.mp3` : 'audio.mp3'
+        const mimeType = audio.mime_type || 'audio/mpeg'
         attachments.push({
           id: audio.file_id,
           name: fileName,
           url: fileLink,
-          contentType: audio.mime_type || 'audio/mpeg',
+          contentType: mimeType,
           size: audio.file_size
         })
         console.log('[Telegram] Audio attachment:', fileLink)
+        
+        // Download audio to local storage for Agent to process
+        const localPath = await this.downloadFile(fileLink, fileName)
+        if (localPath) {
+          filePaths.push({ path: localPath, name: fileName, mimeType })
+          console.log('[Telegram] Audio downloaded to local:', localPath)
+        }
       }
 
-      // Handle voice message
+      // Handle voice message - download to local for Agent to process
       if (msg.voice) {
         const voice = msg.voice
         const fileLink = await this.bot.getFileLink(voice.file_id)
+        const mimeType = voice.mime_type || 'audio/ogg'
         attachments.push({
           id: voice.file_id,
           name: 'voice.ogg',
           url: fileLink,
-          contentType: voice.mime_type || 'audio/ogg',
+          contentType: mimeType,
           size: voice.file_size
         })
         console.log('[Telegram] Voice attachment:', fileLink)
+        
+        // Download voice to local storage for Agent to process
+        const localPath = await this.downloadFile(fileLink, 'voice.ogg')
+        if (localPath) {
+          filePaths.push({ path: localPath, name: 'voice.ogg', mimeType })
+          console.log('[Telegram] Voice downloaded to local:', localPath)
+        }
       }
 
       // Handle sticker
@@ -636,17 +669,26 @@ export class TelegramBotService {
         // Stickers can be static (webp) or animated (tgs/webm)
         if (!sticker.is_animated && !sticker.is_video) {
           const fileLink = await this.bot.getFileLink(sticker.file_id)
+          const stickerName = sticker.set_name ? `${sticker.set_name}.webp` : 'sticker.webp'
           attachments.push({
             id: sticker.file_id,
-            name: sticker.set_name ? `${sticker.set_name}.webp` : 'sticker.webp',
+            name: stickerName,
             url: fileLink,
             contentType: 'image/webp',
             size: sticker.file_size,
             width: sticker.width,
             height: sticker.height
           })
-          imageUrls.push(fileLink)
-          console.log('[Telegram] Sticker attachment:', fileLink)
+          
+          // Download sticker to local storage
+          const localPath = await this.downloadFile(fileLink, stickerName)
+          if (localPath) {
+            imageUrls.push(localPath)
+            console.log('[Telegram] Sticker downloaded to local:', localPath)
+          } else {
+            imageUrls.push(fileLink)
+            console.log('[Telegram] Sticker attachment (URL fallback):', fileLink)
+          }
         }
       }
     } catch (error) {

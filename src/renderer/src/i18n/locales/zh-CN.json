@@ -107,7 +107,13 @@
       "or": "或",
       "loginWithGoogle": "使用 Google 登录",
       "imStatus": "IM 状态",
-      "imStatusHint": "即时消息连接状态"
+      "imStatusHint": "即时消息连接状态",
+      "noEmail": "未设置邮箱",
+      "balance": "余额",
+      "balanceHint": "可用额度",
+      "topUp": "充值",
+      "topUpComingSoon": "充值功能即将上线！",
+      "processing": "处理中..."
     },
     "general": {
       "title": "通用设置",

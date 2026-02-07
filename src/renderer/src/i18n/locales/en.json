@@ -107,7 +107,13 @@
       "or": "or",
       "loginWithGoogle": "Continue with Google",
       "imStatus": "IM Status",
-      "imStatusHint": "IM connection status"
+      "imStatusHint": "IM connection status",
+      "noEmail": "No email",
+      "balance": "Balance",
+      "balanceHint": "Your available credits",
+      "topUp": "Top Up",
+      "topUpComingSoon": "Top-up feature coming soon!",
+      "processing": "Processing..."
     },
     "general": {
       "title": "General Settings",

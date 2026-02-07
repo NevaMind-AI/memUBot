@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw } from 'lucide-react'
+import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw, Wallet, CreditCard } from 'lucide-react'
 import { MessageDisplay } from './shared'
 import { changeLanguage, languages } from '../../i18n'
 import { useEasemobStore } from '../../stores/easemobStore'
@@ -120,38 +120,44 @@ export function AccountSettings(): JSX.Element {
       <div className="space-y-3">
         {isLoggedIn && userInfo ? (
           // Logged in state
-          <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="w-14 h-14 rounded-full bg-[var(--primary-bg)] flex items-center justify-center overflow-hidden">
-                {userInfo.photoURL ? (
-                  <img src={userInfo.photoURL} alt="" className="w-14 h-14 rounded-full object-cover" />
+          <>
+            {/* User Profile Card */}
+            <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-14 h-14 rounded-full bg-[var(--primary-bg)] flex items-center justify-center overflow-hidden">
+                  {userInfo.photoURL ? (
+                    <img src={userInfo.photoURL} alt="" className="w-14 h-14 rounded-full object-cover" />
+                  ) : (
+                    <User className="w-7 h-7 text-[var(--primary)]" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[15px] font-medium text-[var(--text-primary)] truncate">
+                    {userInfo.displayName || 'Yumi User'}
+                  </h4>
+                  <p className="text-[12px] text-[var(--text-muted)] truncate">
+                    {userInfo.email || t('settings.account.noEmail')}
+                  </p>
+                </div>
+              </div>
+              
+              <button
+                onClick={handleLogout}
+                disabled={loading}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-secondary)] text-[13px] font-medium hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <User className="w-7 h-7 text-[var(--primary)]" />
+                  <LogOut className="w-4 h-4" />
                 )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-[15px] font-medium text-[var(--text-primary)] truncate">
-                  {userInfo.displayName || userInfo.email || 'User'}
-                </h4>
-                {userInfo.email && (
-                  <p className="text-[12px] text-[var(--text-muted)] truncate">{userInfo.email}</p>
-                )}
-              </div>
+                <span>{t('settings.account.logout')}</span>
+              </button>
             </div>
-            
-            <button
-              onClick={handleLogout}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-secondary)] text-[13px] font-medium hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <LogOut className="w-4 h-4" />
-              )}
-              <span>{t('settings.account.logout')}</span>
-            </button>
-          </div>
+
+            {/* Balance Card */}
+            <BalanceCard />
+          </>
         ) : (
           // Login form
           <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
@@ -349,6 +355,106 @@ function IMStatusCard({
           {error}
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * Balance Card with top-up button
+ */
+function BalanceCard(): JSX.Element {
+  const { t } = useTranslation()
+  const [balance, setBalance] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [topUpLoading, setTopUpLoading] = useState(false)
+
+  useEffect(() => {
+    // TODO: Fetch balance from API
+    const fetchBalance = async () => {
+      setLoading(true)
+      try {
+        // Placeholder: simulate API call
+        await new Promise(resolve => setTimeout(resolve, 500))
+        setBalance(0) // Default to 0 for new users
+      } catch (error) {
+        console.error('Failed to fetch balance:', error)
+        setBalance(null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBalance()
+  }, [])
+
+  const handleTopUp = async () => {
+    setTopUpLoading(true)
+    try {
+      // TODO: Integrate with Stripe checkout
+      // const result = await window.billing.createCheckoutSession()
+      // if (result.url) {
+      //   window.open(result.url, '_blank')
+      // }
+      console.log('TODO: Implement Stripe checkout')
+      // For now, just show a placeholder message
+      alert(t('settings.account.topUpComingSoon'))
+    } catch (error) {
+      console.error('Failed to initiate top-up:', error)
+    } finally {
+      setTopUpLoading(false)
+    }
+  }
+
+  const formatBalance = (amount: number | null): string => {
+    if (amount === null) return '--'
+    return `$${amount.toFixed(2)}`
+  }
+
+  return (
+    <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+            <Wallet className="w-5 h-5 text-emerald-500" />
+          </div>
+          <div>
+            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+              {t('settings.account.balance')}
+            </h4>
+            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+              {t('settings.account.balanceHint')}
+            </p>
+          </div>
+        </div>
+        <div className="text-right">
+          {loading ? (
+            <Loader2 className="w-5 h-5 animate-spin text-[var(--text-muted)]" />
+          ) : (
+            <span className="text-[20px] font-semibold text-[var(--text-primary)]">
+              {formatBalance(balance)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={handleTopUp}
+        disabled={topUpLoading || loading}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white text-[13px] font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+      >
+        {topUpLoading ? (
+          <>
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span>{t('settings.account.processing')}</span>
+          </>
+        ) : (
+          <>
+            <CreditCard className="w-4 h-4" />
+            <span>{t('settings.account.topUp')}</span>
+          </>
+        )}
+      </button>
     </div>
   )
 }
