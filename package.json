@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "memU bot - AI Assistant for messaging platforms",
   "main": "./out/main/index.js",
+  "engines": {
+    "node": "24.13.0"
+  },
   "author": "",
   "license": "MIT",
   "scripts": {
@@ -12,7 +15,7 @@
     "start": "electron-vite preview",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
-    "build:win": "npm run build && electron-builder --win",
+    "build:win": "tsx scripts/build-win.ts",
     "build:mac": "tsx scripts/build-mac.ts",
     "build:linux": "npm run build && electron-builder --linux",
     "release:mac": "tsx scripts/release-mac.ts",
@@ -21,9 +24,9 @@
     "build:memu": "APP_MODE=memu electron-vite build --mode memu",
     "build:yumi": "APP_MODE=yumi electron-vite build --mode yumi",
     "build:memu:mac": "APP_MODE=memu tsx scripts/build-mac.ts",
-    "build:memu:win": "APP_MODE=memu npm run build:memu && electron-builder --win",
+    "build:memu:win": "APP_MODE=memu tsx scripts/build-win.ts",
     "build:yumi:mac": "APP_MODE=yumi tsx scripts/build-mac.ts",
-    "build:yumi:win": "APP_MODE=yumi npm run build:yumi && electron-builder --win",
+    "build:yumi:win": "APP_MODE=yumi tsx scripts/build-win.ts",
     "prepare-mode": "tsx scripts/prepare-mode.ts"
   },
   "dependencies": {
