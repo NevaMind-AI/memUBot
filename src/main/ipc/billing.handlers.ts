@@ -40,7 +40,12 @@ export function registerBillingHandlers(): void {
         return { success: false, error: 'Not authenticated' }
       }
 
-      const result = await getWalletBalance(apiClient, accessToken)
+      const { organizationId } = authService.getAuthState()
+      if (!organizationId) {
+        return { success: false, error: 'Organization ID not available' }
+      }
+
+      const result = await getWalletBalance(apiClient, accessToken, organizationId)
 
       return {
         success: true,
@@ -71,17 +76,27 @@ export function registerBillingHandlers(): void {
           return { success: false, error: 'Not authenticated' }
         }
 
+        const { organizationId } = authService.getAuthState()
+        if (!organizationId) {
+          return { success: false, error: 'Organization ID not available' }
+        }
+
         // Use Yumi-specific URLs for redirect
-        const baseUrl = 'https://yumi.memu.so'
+        const baseUrl = 'https://app.memu.so'
         const successUrl = `${baseUrl}/purchase-result?status=success&from=yumi`
         const cancelUrl = `${baseUrl}/purchase-result?status=error&from=yumi`
 
-        const result = await createCheckoutSession(apiClient, accessToken, {
-          amount_cents: amountCents,
-          success_url: successUrl,
-          cancel_url: cancelUrl,
-          allow_promotion_codes: false
-        })
+        const result = await createCheckoutSession(
+          apiClient,
+          accessToken,
+          {
+            amount_cents: amountCents,
+            success_url: successUrl,
+            cancel_url: cancelUrl,
+            allow_promotion_codes: false
+          },
+          organizationId
+        )
 
         return {
           success: true,

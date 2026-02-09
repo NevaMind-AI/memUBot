@@ -31,6 +31,7 @@ export interface LoginFromYumiResponse {
   bot_name: string
   bot_token: string
   api_key: string
+  default_org_id: string
 }
 
 // ============================================

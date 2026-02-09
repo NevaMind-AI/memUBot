@@ -79,6 +79,8 @@ interface StoredSession {
   easemob: EasemobAuthInfo | null
   // Memu API key for backend requests
   memuApiKey: string | null
+  // Organization ID for wallet API
+  organizationId: string | null
 }
 
 export class YumiAuthService implements IAuthService {
@@ -88,6 +90,7 @@ export class YumiAuthService implements IAuthService {
   private credentials: AuthCredentials | null = null
   private easemobInfo: EasemobAuthInfo | null = null
   private memuApiKey: string | null = null
+  private organizationId: string | null = null
   private listeners: Set<(state: AuthState) => void> = new Set()
   private sessionPath: string
   private unsubscribeFirebase: (() => void) | null = null
@@ -162,7 +165,8 @@ export class YumiAuthService implements IAuthService {
       user,
       credentials: this.credentials,
       easemob: this.easemobInfo,
-      memuApiKey: this.memuApiKey
+      memuApiKey: this.memuApiKey,
+      organizationId: this.organizationId
     }
   }
 
@@ -225,6 +229,7 @@ export class YumiAuthService implements IAuthService {
       this.credentials = null
       this.easemobInfo = null
       this.memuApiKey = null
+      this.organizationId = null
       this.currentUser = null
       this.firebaseRefreshToken = null
       this.firebaseIdToken = null
@@ -384,12 +389,14 @@ export class YumiAuthService implements IAuthService {
         token: loginResult.bot_token
       }
 
-      // Set Memu API key from API response
+      // Set Memu API key and organization ID from API response
       this.memuApiKey = loginResult.api_key
+      this.organizationId = loginResult.default_org_id
 
       console.log('[YumiAuth] Credentials set from API:', {
         agentId: this.easemobInfo.agentId,
         userId: this.easemobInfo.userId,
+        organizationId: this.organizationId,
         easemobTokenPreview: `${this.easemobInfo.token.substring(0, 8)}...`,
         memuApiKeyPreview: `${this.memuApiKey.substring(0, 12)}...`
       })
@@ -450,8 +457,9 @@ export class YumiAuthService implements IAuthService {
         token: loginResult.bot_token
       }
 
-      // Update API key
+      // Update API key and organization ID
       this.memuApiKey = loginResult.api_key
+      this.organizationId = loginResult.default_org_id
 
       this.saveSession()
       console.log('[YumiAuth] Credentials refreshed successfully')
@@ -543,6 +551,7 @@ export class YumiAuthService implements IAuthService {
           }
 
           this.memuApiKey = loginResult.api_key
+          this.organizationId = loginResult.default_org_id
           this.saveSession()
         } catch (error) {
           console.error('[YumiAuth] Failed to exchange token during session restore:', error)
@@ -631,7 +640,8 @@ export class YumiAuthService implements IAuthService {
         userInfo: this.storedUserInfo || (this.currentUser ? this.mapFirebaseUser(this.currentUser) : { uid: '', email: null, displayName: null, photoURL: null }),
         credentials: this.credentials || { accessToken: '', refreshToken: '', expiresAt: 0 },
         easemob: this.easemobInfo,
-        memuApiKey: this.memuApiKey
+        memuApiKey: this.memuApiKey,
+        organizationId: this.organizationId
       }
 
       writeFileSync(this.sessionPath, JSON.stringify(session, null, 2), 'utf-8')
@@ -667,6 +677,7 @@ export class YumiAuthService implements IAuthService {
         this.credentials = session.credentials?.accessToken ? session.credentials : null
         this.easemobInfo = session.easemob || null
         this.memuApiKey = session.memuApiKey || null
+        this.organizationId = session.organizationId || null
 
         console.log('[YumiAuth] Loaded stored session:', {
           hasRefreshToken: !!this.firebaseRefreshToken,
@@ -674,6 +685,7 @@ export class YumiAuthService implements IAuthService {
           hasUserInfo: !!this.storedUserInfo,
           hasCredentials: !!this.credentials,
           hasMemuApiKey: !!this.memuApiKey,
+          hasOrganizationId: !!this.organizationId,
           tokenAge: this.idTokenRefreshedAt ? `${Math.round((Date.now() - this.idTokenRefreshedAt) / 60000)} minutes` : 'unknown'
         })
       }

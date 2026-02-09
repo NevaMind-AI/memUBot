@@ -40,6 +40,7 @@
     "disconnected": "未接続",
     "connecting": "接続中...",
     "reconnect": "再接続",
+    "refresh": "更新",
     "enabled": "有効",
     "disabled": "無効",
     "search": "検索",
@@ -113,7 +114,12 @@
       "balanceHint": "利用可能なクレジット",
       "topUp": "チャージ",
       "topUpComingSoon": "チャージ機能は近日公開予定です！",
-      "processing": "処理中..."
+      "processing": "処理中...",
+      "addCredits": "クレジットを追加",
+      "amountToAdd": "追加金額",
+      "amountRange": "${{min}} から ${{max}} の間で金額を入力してください",
+      "continue": "続ける",
+      "topUpError": "チェックアウトセッションの作成に失敗しました"
     },
     "general": {
       "title": "一般設定",

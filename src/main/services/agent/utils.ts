@@ -85,7 +85,7 @@ function getAppMode(): 'memu' | 'yumi' {
  * Yumi-specific LLM configuration (hardcoded for now)
  */
 const YUMI_LLM_CONFIG = {
-  baseURL: `${DEFAULT_BASE_URL}/api/v3/yumi/anthropic-complete`,
+  baseURL: `${DEFAULT_BASE_URL}/api/v3/yumi/anthropic`,
 }
 
 /**
@@ -103,7 +103,7 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
   // Yumi mode: use hardcoded configuration
   if (appMode === 'yumi') {
     const client = new Anthropic({
-      apiKey: memuApiKey,
+      authToken: memuApiKey,
       baseURL: YUMI_LLM_CONFIG.baseURL
     })
 

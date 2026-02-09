@@ -11,7 +11,8 @@ const EMPTY_STATE: AuthState = {
   user: null,
   credentials: null,
   easemob: null,
-  memuApiKey: null
+  memuApiKey: null,
+  organizationId: null
 }
 
 export class MemuAuthService implements IAuthService {

@@ -30,6 +30,7 @@ export interface AuthState {
   credentials: AuthCredentials | null
   easemob: EasemobAuthInfo | null
   memuApiKey: string | null // API key for backend requests
+  organizationId: string | null // Organization ID for wallet API
 }
 
 export interface LoginResult {

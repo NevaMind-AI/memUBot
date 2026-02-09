@@ -4,7 +4,8 @@
  * Modal dialog for selecting top-up amount
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { X, DollarSign, Loader2 } from 'lucide-react'
 
@@ -30,6 +31,31 @@ export function ChargeDialog({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Animation states
+  const [shouldRender, setShouldRender] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+
+  // Handle open/close with animation
+  useEffect(() => {
+    if (open) {
+      // Open: render first, then animate in
+      setShouldRender(true)
+      // Use requestAnimationFrame to ensure DOM is ready before animating
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else {
+      // Close: animate out, then unmount
+      setIsAnimating(false)
+      const timer = setTimeout(() => {
+        setShouldRender(false)
+      }, 200) // Match animation duration
+      return () => clearTimeout(timer)
+    }
+  }, [open])
+
   // Reset amount when dialog opens
   useEffect(() => {
     if (open) {
@@ -41,6 +67,12 @@ export function ChargeDialog({
   const amountNum = Number.parseInt(amount, 10)
   const amountValid =
     Number.isInteger(amountNum) && amountNum >= minAmount && amountNum <= maxAmount
+
+  const handleClose = useCallback(() => {
+    if (!loading) {
+      onClose()
+    }
+  }, [loading, onClose])
 
   const handleContinue = async (): Promise<void> => {
     if (!amountValid) return
@@ -76,26 +108,45 @@ export function ChargeDialog({
     }
     // Close on Escape
     if (e.key === 'Escape') {
-      onClose()
+      handleClose()
     }
   }
 
-  if (!open) return null
+  // Don't render if not needed
+  if (!shouldRender) return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+  const dialogContent = (
+    <div
+      className="fixed inset-0 flex items-center justify-center transition-opacity duration-200 ease-out"
+      style={{
+        zIndex: 9999,
+        opacity: isAnimating ? 1 : 0
+      }}
+    >
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/60 transition-opacity duration-200"
+        style={{ opacity: isAnimating ? 1 : 0 }}
+        onClick={handleClose}
+      />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-sm mx-4 bg-[var(--bg-primary)] rounded-2xl shadow-xl border border-[var(--glass-border)] overflow-hidden">
+      <div
+        className="relative w-full max-w-sm mx-4 rounded-2xl shadow-2xl border border-[var(--glass-border)] overflow-hidden transition-all duration-200 ease-out"
+        style={{
+          background: 'var(--bg-card, #ffffff)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05)',
+          transform: isAnimating ? 'scale(1) translateY(0)' : 'scale(0.95) translateY(10px)',
+          opacity: isAnimating ? 1 : 0
+        }}
+      >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)]">
+        <div className="flex items-center justify-between p-4 border-b border-[var(--border-color)] bg-[var(--bg-secondary)]">
           <h3 className="text-[15px] font-semibold text-[var(--text-primary)]">
             {t('settings.account.addCredits')}
           </h3>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-lg hover:bg-[var(--bg-input)] transition-colors text-[var(--text-muted)]"
           >
             <X className="w-4 h-4" />
@@ -103,7 +154,7 @@ export function ChargeDialog({
         </div>
 
         {/* Content */}
-        <div className="p-4 space-y-4">
+        <div className="p-4 space-y-4 bg-[var(--bg-tertiary,#1a1a1a)]">
           <div>
             <label className="block text-[13px] font-medium text-[var(--text-secondary)] mb-2">
               {t('settings.account.amountToAdd')}
@@ -136,9 +187,9 @@ export function ChargeDialog({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 p-4 border-t border-[var(--border-color)]">
+        <div className="flex items-center justify-end gap-2 p-4 border-t border-[var(--border-color)] bg-[var(--bg-secondary)]">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             disabled={loading}
             className="px-4 py-2.5 rounded-xl text-[13px] font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-input)] transition-colors disabled:opacity-50"
           >
@@ -167,4 +218,7 @@ export function ChargeDialog({
       </div>
     </div>
   )
+
+  // Use portal to render at document body level
+  return createPortal(dialogContent, document.body)
 }

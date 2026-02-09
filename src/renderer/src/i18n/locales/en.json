@@ -40,6 +40,7 @@
     "disconnected": "Disconnected",
     "connecting": "Connecting...",
     "reconnect": "Reconnect",
+    "refresh": "Refresh",
     "enabled": "Enabled",
     "disabled": "Disabled",
     "search": "Search",
@@ -113,7 +114,12 @@
       "balanceHint": "Your available credits",
       "topUp": "Top Up",
       "topUpComingSoon": "Top-up feature coming soon!",
-      "processing": "Processing..."
+      "processing": "Processing...",
+      "addCredits": "Add Credits",
+      "amountToAdd": "Amount to add",
+      "amountRange": "Enter an amount between ${{min}} and ${{max}}",
+      "continue": "Continue",
+      "topUpError": "Failed to create checkout session"
     },
     "general": {
       "title": "General Settings",

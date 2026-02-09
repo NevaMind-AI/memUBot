@@ -40,6 +40,7 @@
     "disconnected": "未连接",
     "connecting": "连接中...",
     "reconnect": "重新连接",
+    "refresh": "刷新",
     "enabled": "已启用",
     "disabled": "已禁用",
     "search": "搜索",
@@ -113,7 +114,12 @@
       "balanceHint": "可用额度",
       "topUp": "充值",
       "topUpComingSoon": "充值功能即将上线！",
-      "processing": "处理中..."
+      "processing": "处理中...",
+      "addCredits": "充值额度",
+      "amountToAdd": "充值金额",
+      "amountRange": "请输入 ${{min}} 到 ${{max}} 之间的金额",
+      "continue": "继续",
+      "topUpError": "创建支付会话失败"
     },
     "general": {
       "title": "通用设置",

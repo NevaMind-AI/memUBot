@@ -368,10 +368,15 @@ function BalanceCard(): JSX.Element {
   const [balanceCents, setBalanceCents] = useState<number | null>(null)
   const [currency, setCurrency] = useState<string>('USD')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [chargeDialogOpen, setChargeDialogOpen] = useState(false)
 
-  const fetchBalance = async (): Promise<void> => {
-    setLoading(true)
+  const fetchBalance = async (isRefresh = false): Promise<void> => {
+    if (isRefresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
     try {
       const result = await window.billing.getBalance()
       if (result.success && result.data) {
@@ -386,11 +391,27 @@ function BalanceCard(): JSX.Element {
       setBalanceCents(null)
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
+  // Initial load
   useEffect(() => {
     fetchBalance()
+  }, [])
+
+  // Refresh balance when app comes to foreground
+  useEffect(() => {
+    const handleVisibilityChange = (): void => {
+      if (document.visibilityState === 'visible') {
+        fetchBalance(true)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [])
 
   const handleTopUp = async (amountCents: number): Promise<void> => {
@@ -422,9 +443,19 @@ function BalanceCard(): JSX.Element {
               <Wallet className="w-5 h-5 text-emerald-500" />
             </div>
             <div>
-              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
-                {t('settings.account.balance')}
-              </h4>
+              <div className="flex items-center gap-1.5">
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                  {t('settings.account.balance')}
+                </h4>
+                <button
+                  onClick={() => fetchBalance(true)}
+                  disabled={refreshing || loading}
+                  className="p-1 rounded-md hover:bg-[var(--bg-input)] transition-colors text-[var(--text-muted)] hover:text-[var(--text-secondary)] disabled:opacity-50"
+                  title={t('common.refresh', 'Refresh')}
+                >
+                  <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
               <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
                 {t('settings.account.balanceHint')}
               </p>

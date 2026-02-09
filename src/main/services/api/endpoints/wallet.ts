@@ -44,13 +44,13 @@ const buildEndpoints = (organizationId: string) => ({
  * Get wallet balance for the current user
  * @param client The API client instance
  * @param accessToken Firebase access token
- * @param organizationId Organization ID (defaults to '123' for now)
+ * @param organizationId Organization ID
  * @returns Balance response with cents and currency
  */
 export async function getWalletBalance(
   client: MemuApiClient,
   accessToken: string,
-  organizationId: string = '123'
+  organizationId: string
 ): Promise<WalletBalanceResponse> {
   console.log('[MemuAPI:Wallet] Fetching wallet balance...', { organizationId })
 
@@ -80,14 +80,14 @@ export async function getWalletBalance(
  * @param client The API client instance
  * @param accessToken Firebase access token
  * @param request Checkout session parameters
- * @param organizationId Organization ID (defaults to '123' for now)
+ * @param organizationId Organization ID
  * @returns Checkout session response with URL
  */
 export async function createCheckoutSession(
   client: MemuApiClient,
   accessToken: string,
   request: CheckoutSessionRequest,
-  organizationId: string = '123'
+  organizationId: string
 ): Promise<CheckoutSessionResponse> {
   console.log('[MemuAPI:Wallet] Creating checkout session...', {
     amountCents: request.amount_cents,
