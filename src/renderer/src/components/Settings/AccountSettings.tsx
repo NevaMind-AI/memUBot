@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw, Wallet, CreditCard } from 'lucide-react'
+import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw, Wallet, CreditCard, UserPlus } from 'lucide-react'
 import { MessageDisplay } from './shared'
 import { ChargeDialog } from './ChargeDialog'
 import { changeLanguage, languages } from '../../i18n'
@@ -23,9 +23,11 @@ export function AccountSettings(): JSX.Element {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const { connected, connecting, error } = useEasemobStore()
   
-  // Login form state
+  // Auth form state
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   // Load initial auth state
   useEffect(() => {
@@ -81,6 +83,71 @@ export function AccountSettings(): JSX.Element {
     }
   }
 
+  const handleRegister = async () => {
+    if (!email || !password || !confirmPassword) {
+      setMessage({ type: 'error', text: t('settings.account.fillAllFields') })
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setMessage({ type: 'error', text: t('settings.account.passwordMismatch') })
+      return
+    }
+
+    if (password.length < 6) {
+      setMessage({ type: 'error', text: t('settings.account.passwordTooShort') })
+      return
+    }
+
+    setLoading(true)
+    setMessage(null)
+
+    try {
+      const result = await window.auth.signUpWithEmail(email, password)
+      
+      if (result.success && result.user) {
+        setUserInfo(result.user)
+        setIsLoggedIn(true)
+        setEmail('')
+        setPassword('')
+        setConfirmPassword('')
+        setMessage({ type: 'success', text: t('settings.account.registerSuccess') })
+        setTimeout(() => setMessage(null), 3000)
+      } else {
+        setMessage({ type: 'error', text: result.error || t('settings.account.registerError') })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: t('settings.account.registerError') })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setMessage({ type: 'error', text: t('settings.account.enterEmailFirst') })
+      return
+    }
+
+    setLoading(true)
+    setMessage(null)
+
+    try {
+      const result = await window.auth.resetPassword(email)
+      
+      if (result.success) {
+        setMessage({ type: 'success', text: t('settings.account.resetEmailSent') })
+        setTimeout(() => setMessage(null), 5000)
+      } else {
+        setMessage({ type: 'error', text: result.error || t('settings.account.resetEmailError') })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: t('settings.account.resetEmailError') })
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleLogout = async () => {
     setLoading(true)
     try {
@@ -124,21 +191,19 @@ export function AccountSettings(): JSX.Element {
           <>
             {/* User Profile Card */}
             <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-full bg-[var(--primary-bg)] flex items-center justify-center overflow-hidden">
-                  {userInfo.photoURL ? (
-                    <img src={userInfo.photoURL} alt="" className="w-14 h-14 rounded-full object-cover" />
-                  ) : (
-                    <User className="w-7 h-7 text-[var(--primary)]" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="text-[15px] font-medium text-[var(--text-primary)] truncate">
-                    {userInfo.displayName || 'Yumi User'}
-                  </h4>
-                  <p className="text-[12px] text-[var(--text-muted)] truncate">
-                    {userInfo.email || t('settings.account.noEmail')}
-                  </p>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[var(--primary-bg)] flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-[var(--primary)]" />
+                  </div>
+                  <div>
+                    <h4 className="text-[13px] font-medium text-[var(--text-primary)] truncate">
+                      {userInfo.email || t('settings.account.noEmail')}
+                    </h4>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                      {t('settings.account.loggedIn')}
+                    </p>
+                  </div>
                 </div>
               </div>
               
@@ -160,18 +225,37 @@ export function AccountSettings(): JSX.Element {
             <BalanceCard />
           </>
         ) : (
-          // Login form
+          // Login/Register form
           <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl bg-[var(--primary-bg)] flex items-center justify-center">
-                <User className="w-5 h-5 text-[var(--primary)]" />
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[var(--primary-bg)] flex items-center justify-center">
+                  {authMode === 'login' ? (
+                    <User className="w-5 h-5 text-[var(--primary)]" />
+                  ) : (
+                    <UserPlus className="w-5 h-5 text-[var(--primary)]" />
+                  )}
+                </div>
+                <div>
+                  <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                    {authMode === 'login' ? t('settings.account.login') : t('settings.account.register')}
+                  </h4>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                    {authMode === 'login' ? t('settings.account.loginHint') : t('settings.account.registerHint')}
+                  </p>
+                </div>
               </div>
-              <div>
-                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">{t('settings.account.login')}</h4>
-                <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-                  {t('settings.account.loginHint')}
-                </p>
-              </div>
+              <button
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'register' : 'login')
+                  setMessage(null)
+                  setConfirmPassword('')
+                }}
+                disabled={loading}
+                className="text-[12px] text-[var(--primary)] hover:underline disabled:opacity-50"
+              >
+                {authMode === 'login' ? t('settings.account.switchToRegister') : t('settings.account.switchToLogin')}
+              </button>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -196,15 +280,45 @@ export function AccountSettings(): JSX.Element {
                   placeholder={t('settings.account.passwordPlaceholder')}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && !loading && handleLogin()}
+                  onKeyDown={(e) => e.key === 'Enter' && !loading && authMode === 'login' && handleLogin()}
                   disabled={loading}
                   className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-50"
                 />
               </div>
 
-              {/* Login Button */}
+              {/* Confirm Password (Register only) */}
+              {authMode === 'register' && (
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)]" />
+                  <input
+                    type="password"
+                    placeholder={t('settings.account.confirmPasswordPlaceholder')}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && !loading && handleRegister()}
+                    disabled={loading}
+                    className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-50"
+                  />
+                </div>
+              )}
+
+              {/* Forgot Password (Login only) */}
+              {authMode === 'login' && (
+                <div className="text-right">
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={loading}
+                    className="text-[11px] text-[var(--text-muted)] hover:text-[var(--primary)] hover:underline disabled:opacity-50 transition-colors"
+                  >
+                    {t('settings.account.forgotPassword')}
+                  </button>
+                </div>
+              )}
+
+              {/* Submit Button */}
               <button
-                onClick={handleLogin}
+                onClick={authMode === 'login' ? handleLogin : handleRegister}
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 mt-3 px-4 py-3 rounded-xl text-white text-[13px] font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ background: 'var(--primary-gradient)', boxShadow: 'var(--shadow-primary)' }}
@@ -212,12 +326,12 @@ export function AccountSettings(): JSX.Element {
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{t('settings.account.loggingIn')}</span>
+                    <span>{authMode === 'login' ? t('settings.account.loggingIn') : t('settings.account.registering')}</span>
                   </>
                 ) : (
                   <>
-                    <LogIn className="w-4 h-4" />
-                    <span>{t('settings.account.login')}</span>
+                    {authMode === 'login' ? <LogIn className="w-4 h-4" /> : <UserPlus className="w-4 h-4" />}
+                    <span>{authMode === 'login' ? t('settings.account.login') : t('settings.account.register')}</span>
                   </>
                 )}
               </button>

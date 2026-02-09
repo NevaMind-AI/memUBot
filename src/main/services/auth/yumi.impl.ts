@@ -18,6 +18,8 @@ import { initializeApp, FirebaseApp } from 'firebase/app'
 import {
   getAuth,
   signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
   signOut as firebaseSignOut,
   onAuthStateChanged as firebaseOnAuthStateChanged,
   Auth,
@@ -210,6 +212,67 @@ export class YumiAuthService implements IAuthService {
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.error('[YumiAuth] Sign in failed:', errorMessage)
+      return { success: false, error: this.mapFirebaseError(error) }
+    }
+  }
+
+  async signUpWithEmail(email: string, password: string): Promise<LoginResult> {
+    if (!this.auth) {
+      return { success: false, error: 'Auth service not initialized' }
+    }
+
+    try {
+      console.log('[YumiAuth] Signing up with email:', email)
+      const userCredential = await createUserWithEmailAndPassword(this.auth, email, password)
+      const user = userCredential.user
+
+      // Extract and store Firebase tokens for session persistence
+      this.extractAndStoreFirebaseTokens(user)
+
+      // Exchange Firebase token for backend credentials
+      const exchangeResult = await this.exchangeTokenForCredentials(user)
+      if (!exchangeResult.success) {
+        // Sign out from Firebase if token exchange fails
+        await firebaseSignOut(this.auth)
+        this.clearStoredSession()
+        return { success: false, error: exchangeResult.error }
+      }
+
+      // Store user info for session restoration
+      this.storedUserInfo = this.mapFirebaseUser(user)
+
+      // Save complete session to disk
+      this.saveSession()
+
+      // Notify renderer with updated easemob info immediately
+      this.notifyListeners()
+
+      console.log('[YumiAuth] Sign up successful')
+      return {
+        success: true,
+        user: this.mapFirebaseUser(user),
+        easemob: this.easemobInfo || undefined
+      }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[YumiAuth] Sign up failed:', errorMessage)
+      return { success: false, error: this.mapFirebaseError(error) }
+    }
+  }
+
+  async resetPassword(email: string): Promise<{ success: boolean; error?: string }> {
+    if (!this.auth) {
+      return { success: false, error: 'Auth service not initialized' }
+    }
+
+    try {
+      console.log('[YumiAuth] Sending password reset email to:', email)
+      await sendPasswordResetEmail(this.auth, email)
+      console.log('[YumiAuth] Password reset email sent')
+      return { success: true }
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      console.error('[YumiAuth] Password reset failed:', errorMessage)
       return { success: false, error: this.mapFirebaseError(error) }
     }
   }

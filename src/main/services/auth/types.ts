@@ -62,6 +62,16 @@ export interface IAuthService {
   signInWithEmail(email: string, password: string): Promise<LoginResult>
 
   /**
+   * Sign up with email and password
+   */
+  signUpWithEmail(email: string, password: string): Promise<LoginResult>
+
+  /**
+   * Send password reset email
+   */
+  resetPassword(email: string): Promise<{ success: boolean; error?: string }>
+
+  /**
    * Sign out
    */
   signOut(): Promise<LogoutResult>

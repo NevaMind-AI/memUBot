@@ -36,6 +36,27 @@ export function registerAuthHandlers(): void {
     }
   )
 
+  // Sign up with email/password
+  ipcMain.handle(
+    'auth:signUpWithEmail',
+    async (_event, email: string, password: string) => {
+      const result = await authService.signUpWithEmail(email, password)
+      console.log('[AuthIPC] signUpWithEmail result:', {
+        success: result.success,
+        hasUser: !!result.user,
+        easemob: result.easemob ? { agentId: result.easemob.agentId, userId: result.easemob.userId } : null
+      })
+      return result
+    }
+  )
+
+  // Reset password
+  ipcMain.handle('auth:resetPassword', async (_event, email: string) => {
+    const result = await authService.resetPassword(email)
+    console.log('[AuthIPC] resetPassword result:', { success: result.success })
+    return result
+  })
+
   // Sign out
   ipcMain.handle('auth:signOut', async () => {
     return authService.signOut()

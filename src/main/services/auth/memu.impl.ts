@@ -31,6 +31,20 @@ export class MemuAuthService implements IAuthService {
     }
   }
 
+  async signUpWithEmail(_email: string, _password: string): Promise<LoginResult> {
+    return {
+      success: false,
+      error: 'Authentication is not available in this mode'
+    }
+  }
+
+  async resetPassword(_email: string): Promise<{ success: boolean; error?: string }> {
+    return {
+      success: false,
+      error: 'Authentication is not available in this mode'
+    }
+  }
+
   async signOut(): Promise<LogoutResult> {
     return { success: true }
   }

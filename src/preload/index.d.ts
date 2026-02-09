@@ -556,6 +556,8 @@ interface YumiApi {
 interface AuthApi {
   getState: () => Promise<AuthState>
   signInWithEmail: (email: string, password: string) => Promise<AuthLoginResult>
+  signUpWithEmail: (email: string, password: string) => Promise<AuthLoginResult>
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>
   signOut: () => Promise<AuthLogoutResult>
   getAccessToken: () => Promise<string | null>
   onStateChanged: (callback: (state: AuthState) => void) => () => void

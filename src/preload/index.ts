@@ -308,6 +308,9 @@ const authApi = {
   getState: () => ipcRenderer.invoke('auth:getState'),
   signInWithEmail: (email: string, password: string) =>
     ipcRenderer.invoke('auth:signInWithEmail', email, password),
+  signUpWithEmail: (email: string, password: string) =>
+    ipcRenderer.invoke('auth:signUpWithEmail', email, password),
+  resetPassword: (email: string) => ipcRenderer.invoke('auth:resetPassword', email),
   signOut: () => ipcRenderer.invoke('auth:signOut'),
   getAccessToken: () => ipcRenderer.invoke('auth:getAccessToken'),
   // Event listener for auth state changes
