@@ -134,8 +134,8 @@
       "providerHint": "选择 LLM 提供商（Anthropic 兼容 API）",
       "model": "模型名称",
       "baseUrl": "API 地址",
-      "minimaxInfo": "使用 MiniMax M2.1（Anthropic 兼容 API）。请在 platform.minimaxi.com 获取 API Key",
-      "zenmuxInfo": "多模型代理服务。获取 API Key："
+      "minimaxInfo": "使用 MiniMax M2.1（Anthropic 兼容 API）",
+      "zenmuxInfo": "多模型代理服务"
     },
     "platforms": {
       "description": "配置消息平台连接",

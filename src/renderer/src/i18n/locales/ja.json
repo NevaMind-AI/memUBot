@@ -134,8 +134,8 @@
       "providerHint": "LLM プロバイダーを選択（Anthropic 互換 API）",
       "model": "モデル名",
       "baseUrl": "API ベース URL",
-      "minimaxInfo": "MiniMax M2.1（Anthropic 互換 API）を使用。platform.minimaxi.com で API キーを取得してください",
-      "zenmuxInfo": "マルチモデルプロキシサービス。API キー取得："
+      "minimaxInfo": "MiniMax M2.1（Anthropic 互換 API）を使用",
+      "zenmuxInfo": "マルチモデルプロキシサービス"
     },
     "platforms": {
       "description": "メッセージングプラットフォームの接続設定",

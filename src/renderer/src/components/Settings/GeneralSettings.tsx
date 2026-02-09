@@ -223,7 +223,15 @@ export function GeneralSettings(): JSX.Element {
               </div>
               <div className="p-2 rounded-lg bg-blue-500/10">
                 <p className="text-[11px] text-blue-400">
-                  {t('settings.llm.minimaxInfo')}
+                  {t('settings.llm.minimaxInfo')}{' '}
+                  <a
+                    href="https://platform.minimaxi.com/subscribe/coding-plan?code=G81r84oX6N&source=link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-blue-300"
+                  >
+                    platform.minimaxi.com →
+                  </a>
                 </p>
               </div>
             </div>

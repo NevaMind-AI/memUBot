@@ -134,8 +134,8 @@
       "providerHint": "Choose your LLM provider (Anthropic-compatible API)",
       "model": "Model Name",
       "baseUrl": "API Base URL",
-      "minimaxInfo": "Using MiniMax M2.1 via Anthropic-compatible API. Get your API key from platform.minimaxi.com",
-      "zenmuxInfo": "Multi-model proxy service. Get your API key from"
+      "minimaxInfo": "Using MiniMax M2.1 via Anthropic-compatible API.",
+      "zenmuxInfo": "Multi-model proxy service."
     },
     "platforms": {
       "description": "Configure messaging platform connections",
