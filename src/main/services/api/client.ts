@@ -149,7 +149,7 @@ export class MemuApiClient {
 // Default Instance
 // ============================================
 
-const DEFAULT_BASE_URL = 'https://api.memu.so'
+export const DEFAULT_BASE_URL = 'https://api.memu.so'
 
 let defaultClient: MemuApiClient | null = null
 

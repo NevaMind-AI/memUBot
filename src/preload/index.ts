@@ -321,6 +321,14 @@ const authApi = {
   }
 }
 
+// Billing API (Yumi only - wallet and top-up)
+const billingApi = {
+  getBalance: () => ipcRenderer.invoke('billing:getBalance'),
+  createCheckout: (amountCents: number) =>
+    ipcRenderer.invoke('billing:createCheckout', amountCents),
+  openCheckout: (url: string) => ipcRenderer.invoke('billing:openCheckout', url)
+}
+
 // Expose APIs to renderer
 if (process.contextIsolated) {
   try {
@@ -342,6 +350,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('analytics', analyticsApi)
     contextBridge.exposeInMainWorld('yumi', yumiApi)
     contextBridge.exposeInMainWorld('auth', authApi)
+    contextBridge.exposeInMainWorld('billing', billingApi)
   } catch (error) {
     console.error(error)
   }
@@ -382,4 +391,6 @@ if (process.contextIsolated) {
   window.yumi = yumiApi
   // @ts-ignore (define in dts)
   window.auth = authApi
+  // @ts-ignore (define in dts)
+  window.billing = billingApi
 }

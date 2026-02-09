@@ -561,6 +561,24 @@ interface AuthApi {
   onStateChanged: (callback: (state: AuthState) => void) => () => void
 }
 
+// Billing types
+interface WalletBalanceResult {
+  balanceCents: number
+  currency: string
+}
+
+interface CheckoutResult {
+  checkoutUrl: string
+  sessionId: string
+}
+
+// Billing API interface (Yumi only - wallet and top-up)
+interface BillingApi {
+  getBalance: () => Promise<IpcResponse<WalletBalanceResult>>
+  createCheckout: (amountCents: number) => Promise<IpcResponse<CheckoutResult>>
+  openCheckout: (url: string) => Promise<IpcResponse>
+}
+
 declare global {
   interface Window {
     electron: ElectronAPI
@@ -580,5 +598,6 @@ declare global {
     services: ServicesApi
     yumi: YumiApi
     auth: AuthApi
+    billing: BillingApi
   }
 }

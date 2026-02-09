@@ -483,11 +483,14 @@ export function SkillsSettings(): JSX.Element {
 
                   {/* Expanded readme */}
                   {isExpanded && skill.readme && (
-                    <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
-                      <pre className="text-[11px] text-[var(--text-muted)] whitespace-pre-wrap font-mono max-h-48 overflow-y-auto">
+                    <div className="mt-3 pt-3 border-t border-[var(--border-color)] w-full overflow-hidden">
+                      <div 
+                        className="text-[11px] text-[var(--text-muted)] whitespace-pre-wrap break-words font-mono max-h-48 overflow-y-auto w-full"
+                        style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}
+                      >
                         {skill.readme.slice(0, 2000)}
                         {skill.readme.length > 2000 && '...'}
-                      </pre>
+                      </div>
                     </div>
                   )}
                 </div>

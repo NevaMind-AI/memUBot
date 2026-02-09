@@ -3,6 +3,7 @@ import path from 'path'
 import { app } from 'electron'
 import { loadSettings } from '../../config/settings.config'
 import { getAuthService } from '../auth'
+import { DEFAULT_BASE_URL } from '../api/client'
 
 /**
  * Maximum number of historical messages to load as context
@@ -84,14 +85,8 @@ function getAppMode(): 'memu' | 'yumi' {
  * Yumi-specific LLM configuration (hardcoded for now)
  */
 const YUMI_LLM_CONFIG = {
-  apiKey: 'sk-ai-v1-0e42523cdbf0e1c4b6d65d516c3ef9c7c031697078d6a70bcca851dcd1545452',
-  baseURL: 'https://zenmux.ai/api/anthropic',
-  model: 'anthropic/claude-opus-4.5'
+  baseURL: `${DEFAULT_BASE_URL}/api/v3/yumi/anthropic-complete`,
 }
-
-// const YUMI_LLM_CONFIG = {
-//   baseURL: 'https://memu-dev.tail13fa45.ts.net/u/wu/be/api/v3/yumi/anthropic-complete',
-// }
 
 /**
  * Create Anthropic client with current settings
@@ -108,21 +103,16 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
   // Yumi mode: use hardcoded configuration
   if (appMode === 'yumi') {
     const client = new Anthropic({
-      apiKey: YUMI_LLM_CONFIG.apiKey,
+      apiKey: memuApiKey,
       baseURL: YUMI_LLM_CONFIG.baseURL
     })
 
-    // const client = new Anthropic({
-    //   apiKey: memuApiKey,
-    //   baseURL: YUMI_LLM_CONFIG.baseURL,
-    // })
-
-    console.log(`[Agent] Yumi mode - using fixed LLM config: model: ${YUMI_LLM_CONFIG.model}, baseURL: ${YUMI_LLM_CONFIG.baseURL}`)
+    const maskedKey = memuApiKey ? `${memuApiKey.slice(0, 8)}****${memuApiKey.slice(-4)}` : 'undefined'
+    console.log(`[Agent] Yumi mode - using fixed LLM config: model: ${memuModelTier}, baseURL: ${YUMI_LLM_CONFIG.baseURL}, apiKey: ${maskedKey}`)
 
     return {
       client,
-      model: YUMI_LLM_CONFIG.model,
-      // model: memuModelTier,
+      model: memuModelTier,
       maxTokens: settings.maxTokens,
       provider: 'yumi'
     }

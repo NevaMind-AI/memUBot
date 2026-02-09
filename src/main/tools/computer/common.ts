@@ -13,6 +13,7 @@ import * as https from 'https'
 import * as http from 'http'
 import { app, screen, nativeImage } from 'electron'
 import screenshot from 'screenshot-desktop'
+import { getAuthService } from '../../services/auth'
 
 const execAsync = promisify(exec)
 
@@ -587,9 +588,61 @@ interface SearchResult {
 }
 
 /**
- * Search using Tavily API
+ * Search using Tavily API - main entry point
  */
-function searchTavily(apiKey: string, query: string, maxResults: number): Promise<SearchResult[]> {
+export function searchTavily(apiKey: string, query: string, maxResults: number): Promise<SearchResult[]> {
+  const mode = (import.meta.env.MAIN_VITE_APP_MODE as 'memu' | 'yumi') || 'memu'
+  
+  if (mode === 'yumi') {
+    return searchTavilyYumi(apiKey, query, maxResults)
+  } else {
+    return searchTavilyMemu(apiKey, query, maxResults)
+  }
+}
+
+/**
+ * Search using Tavily API via Yumi proxy (simple fetch, no streaming)
+ */
+async function searchTavilyYumi(apiKey: string, query: string, maxResults: number): Promise<SearchResult[]> {
+  const requestBody = {
+    query: query,
+    search_depth: 'basic',
+    max_results: maxResults,
+    include_answer: false,
+    include_raw_content: false
+  }
+
+  const response = await fetch('https://api.memu.so/api/v3/yumi/tavily-search', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    throw new Error(`Tavily search failed: ${response.status} ${response.statusText}`)
+  }
+
+  const data = await response.json()
+
+  if (data.error) {
+    throw new Error(data.error)
+  }
+
+  return (data.results || []).map((r: { title: string; url: string; content: string; score?: number }) => ({
+    title: r.title || '',
+    url: r.url || '',
+    content: r.content || '',
+    score: r.score
+  }))
+}
+
+/**
+ * Search using Tavily API directly (streaming via https)
+ */
+function searchTavilyMemu(apiKey: string, query: string, maxResults: number): Promise<SearchResult[]> {
   return new Promise((resolve, reject) => {
     const requestBody = JSON.stringify({
       api_key: apiKey,
@@ -665,8 +718,15 @@ export async function executeWebSearchTool(input: {
 }): Promise<{ success: boolean; data?: unknown; error?: string }> {
   const { loadSettings } = await import('../../config/settings.config')
   const settings = await loadSettings()
+  const mode = (import.meta.env.MAIN_VITE_APP_MODE as 'memu' | 'yumi') || 'memu'
+  let apiKey: string | null = null
 
-  const apiKey = settings.tavilyApiKey
+  if (mode === 'yumi') {
+    apiKey = getAuthService().getAuthState().memuApiKey
+  } else {
+    apiKey = settings.tavilyApiKey
+  }
+
   if (!apiKey) {
     return {
       success: false,

@@ -146,6 +146,7 @@ export class FeishuBotService {
     console.log('[Feishu] From:', event.sender.sender_id.open_id)
     console.log('[Feishu] Chat Type:', event.message.chat_type)
     console.log('[Feishu] Message Type:', event.message.message_type)
+    console.log('[Feishu] Raw Content:', event.message.content)
     console.log('[Feishu] ======================================')
 
     try {
@@ -473,21 +474,73 @@ export class FeishuBotService {
         break
 
       case 'post':
-        // Rich text - extract plain text from content
+        // Rich text - extract text and images from content
+        // Post content can be nested under language keys (zh_cn, en_us, etc.) or directly at root level
         try {
-          const postContent = content as { title?: string; content?: Array<Array<{ tag: string; text?: string }>> }
-          const parts: string[] = []
-          if (postContent.title) parts.push(postContent.title)
-          if (postContent.content) {
-            for (const paragraph of postContent.content) {
-              for (const element of paragraph) {
-                if (element.tag === 'text' && element.text) {
-                  parts.push(element.text)
+          // Define the structure type for post content
+          type PostElement = { tag: string; text?: string; image_key?: string }
+          type PostContentBody = { title?: string; content?: Array<Array<PostElement>> }
+          
+          // Try to get content body - might be nested under language keys or at root
+          let postBody: PostContentBody | undefined
+          const rawContent = content as Record<string, unknown>
+          
+          // Check if content is nested under language keys (zh_cn, en_us, ja_jp, etc.)
+          const langKeys = ['zh_cn', 'en_us', 'ja_jp', 'zh_hk', 'zh_tw']
+          for (const langKey of langKeys) {
+            if (rawContent[langKey] && typeof rawContent[langKey] === 'object') {
+              postBody = rawContent[langKey] as PostContentBody
+              console.log(`[Feishu] Found post content under language key: ${langKey}`)
+              break
+            }
+          }
+          
+          // If not found under language keys, try root level
+          if (!postBody && rawContent.content) {
+            postBody = rawContent as PostContentBody
+            console.log('[Feishu] Found post content at root level')
+          }
+          
+          if (postBody) {
+            const parts: string[] = []
+            const imageKeys: string[] = []
+            
+            if (postBody.title) parts.push(postBody.title)
+            
+            if (postBody.content) {
+              for (const paragraph of postBody.content) {
+                for (const element of paragraph) {
+                  if (element.tag === 'text' && element.text) {
+                    parts.push(element.text)
+                  } else if (element.tag === 'img' && element.image_key) {
+                    // Found image in rich text
+                    imageKeys.push(element.image_key)
+                    console.log(`[Feishu] Found image in post content: ${element.image_key}`)
+                  }
                 }
               }
             }
+            
+            text = parts.join('\n')
+            
+            // Download images found in post content
+            for (const imageKey of imageKeys) {
+              try {
+                const localPath = await this.downloadImage(imageKey, messageId)
+                if (localPath) {
+                  attachments.push({
+                    id: imageKey,
+                    name: `image_${imageKey}.png`,
+                    url: localPath,
+                    contentType: 'image/png'
+                  })
+                  imageUrls.push(localPath)
+                }
+              } catch (e) {
+                console.error(`[Feishu] Failed to download post image ${imageKey}:`, e)
+              }
+            }
           }
-          text = parts.join('\n')
         } catch (e) {
           console.error('[Feishu] Failed to parse post content:', e)
         }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw, Wallet, CreditCard } from 'lucide-react'
 import { MessageDisplay } from './shared'
+import { ChargeDialog } from './ChargeDialog'
 import { changeLanguage, languages } from '../../i18n'
 import { useEasemobStore } from '../../stores/easemobStore'
 import { reconnectEasemob } from '../../services/easemob/autoConnect'
@@ -364,97 +365,98 @@ function IMStatusCard({
  */
 function BalanceCard(): JSX.Element {
   const { t } = useTranslation()
-  const [balance, setBalance] = useState<number | null>(null)
+  const [balanceCents, setBalanceCents] = useState<number | null>(null)
+  const [currency, setCurrency] = useState<string>('USD')
   const [loading, setLoading] = useState(true)
-  const [topUpLoading, setTopUpLoading] = useState(false)
+  const [chargeDialogOpen, setChargeDialogOpen] = useState(false)
+
+  const fetchBalance = async (): Promise<void> => {
+    setLoading(true)
+    try {
+      const result = await window.billing.getBalance()
+      if (result.success && result.data) {
+        setBalanceCents(result.data.balanceCents)
+        setCurrency(result.data.currency)
+      } else {
+        console.error('Failed to fetch balance:', result.error)
+        setBalanceCents(null)
+      }
+    } catch (error) {
+      console.error('Failed to fetch balance:', error)
+      setBalanceCents(null)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    // TODO: Fetch balance from API
-    const fetchBalance = async () => {
-      setLoading(true)
-      try {
-        // Placeholder: simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500))
-        setBalance(0) // Default to 0 for new users
-      } catch (error) {
-        console.error('Failed to fetch balance:', error)
-        setBalance(null)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchBalance()
   }, [])
 
-  const handleTopUp = async () => {
-    setTopUpLoading(true)
-    try {
-      // TODO: Integrate with Stripe checkout
-      // const result = await window.billing.createCheckoutSession()
-      // if (result.url) {
-      //   window.open(result.url, '_blank')
-      // }
-      console.log('TODO: Implement Stripe checkout')
-      // For now, just show a placeholder message
-      alert(t('settings.account.topUpComingSoon'))
-    } catch (error) {
-      console.error('Failed to initiate top-up:', error)
-    } finally {
-      setTopUpLoading(false)
+  const handleTopUp = async (amountCents: number): Promise<void> => {
+    const result = await window.billing.createCheckout(amountCents)
+    if (result.success && result.data?.checkoutUrl) {
+      // Open checkout URL in browser
+      await window.billing.openCheckout(result.data.checkoutUrl)
+    } else {
+      throw new Error(result.error || 'Failed to create checkout session')
     }
   }
 
-  const formatBalance = (amount: number | null): string => {
-    if (amount === null) return '--'
-    return `$${amount.toFixed(2)}`
+  const formatCents = (cents: number | null, curr: string): string => {
+    if (cents === null) return '--'
+    const symbol = curr === 'USD' ? '$' : curr
+    const amount = cents / 100
+    if (amount < 0.01 && cents > 0) {
+      return `< ${symbol} 0.01`
+    }
+    return `${symbol} ${amount.toFixed(2)}`
   }
 
   return (
-    <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
-            <Wallet className="w-5 h-5 text-emerald-500" />
+    <>
+      <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+              <Wallet className="w-5 h-5 text-emerald-500" />
+            </div>
+            <div>
+              <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                {t('settings.account.balance')}
+              </h4>
+              <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                {t('settings.account.balanceHint')}
+              </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
-              {t('settings.account.balance')}
-            </h4>
-            <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
-              {t('settings.account.balanceHint')}
-            </p>
+          <div className="text-right">
+            {loading ? (
+              <Loader2 className="w-5 h-5 animate-spin text-[var(--text-muted)]" />
+            ) : (
+              <span className="text-[20px] font-semibold text-[var(--text-primary)]">
+                {formatCents(balanceCents, currency)}
+              </span>
+            )}
           </div>
         </div>
-        <div className="text-right">
-          {loading ? (
-            <Loader2 className="w-5 h-5 animate-spin text-[var(--text-muted)]" />
-          ) : (
-            <span className="text-[20px] font-semibold text-[var(--text-primary)]">
-              {formatBalance(balance)}
-            </span>
-          )}
-        </div>
+
+        <button
+          onClick={() => setChargeDialogOpen(true)}
+          disabled={loading}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white text-[13px] font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+        >
+          <CreditCard className="w-4 h-4" />
+          <span>{t('settings.account.topUp')}</span>
+        </button>
       </div>
 
-      <button
-        onClick={handleTopUp}
-        disabled={topUpLoading || loading}
-        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white text-[13px] font-medium shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
-      >
-        {topUpLoading ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>{t('settings.account.processing')}</span>
-          </>
-        ) : (
-          <>
-            <CreditCard className="w-4 h-4" />
-            <span>{t('settings.account.topUp')}</span>
-          </>
-        )}
-      </button>
-    </div>
+      <ChargeDialog
+        open={chargeDialogOpen}
+        onClose={() => setChargeDialogOpen(false)}
+        onContinue={handleTopUp}
+      />
+    </>
   )
 }

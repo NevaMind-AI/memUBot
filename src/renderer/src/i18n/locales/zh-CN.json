@@ -385,11 +385,20 @@
       "title": "关于",
       "description": "应用信息",
       "version": "版本",
-      "tagline": "基于 memU 的 AI 队友 — 全天候待命，随时响应。",
-      "feature1": "基于 memU：跨会话持久记忆，深度理解上下文",
-      "feature2": "7×24 小时：全天候工作，不错过任何消息",
-      "feature3": "主动助手：预判需求，主动出击",
-      "feature4": "协同工作：跨平台无缝协作",
+      "memu": {
+        "tagline": "基于 memU 的 AI 队友 — 全天候待命，随时响应。",
+        "feature1": "基于 memU：跨会话持久记忆，深度理解上下文",
+        "feature2": "7×24 小时：全天候工作，不错过任何消息",
+        "feature3": "主动助手：预判需求，主动出击",
+        "feature4": "协同工作：跨平台无缝协作"
+      },
+      "yumi": {
+        "tagline": "您的私人 AI 助手 — 全天候待命，随时响应。",
+        "feature1": "本地 AI：运行在您的电脑上，完全隐私可控",
+        "feature2": "7×24 小时：全天候工作，不错过任何消息",
+        "feature3": "主动助手：预判需求，主动出击",
+        "feature4": "协同工作：跨平台无缝协作"
+      },
       "poweredBy": "由 Claude AI 驱动",
       "buildInfo": "构建信息",
       "electron": "Electron",

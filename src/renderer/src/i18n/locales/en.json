@@ -387,11 +387,20 @@
       "title": "About",
       "description": "Application information",
       "version": "Version",
-      "tagline": "Your AI teammate powered by memU — always on, always ready.",
-      "feature1": "Built on memU: Persistent memory across sessions for contextual understanding",
-      "feature2": "24/7 Availability: Works around the clock, never misses a message",
-      "feature3": "Proactive Assistant: Anticipates needs and takes initiative",
-      "feature4": "Collaborative Workflow: Seamlessly coworks with you across platforms",
+      "memu": {
+        "tagline": "Your AI teammate powered by memU — always on, always ready.",
+        "feature1": "Built on memU: Persistent memory across sessions for contextual understanding",
+        "feature2": "24/7 Availability: Works around the clock, never misses a message",
+        "feature3": "Proactive Assistant: Anticipates needs and takes initiative",
+        "feature4": "Collaborative Workflow: Seamlessly coworks with you across platforms"
+      },
+      "yumi": {
+        "tagline": "Your personal AI assistant — always on, always ready.",
+        "feature1": "Local AI: Runs on your computer with full privacy and control",
+        "feature2": "24/7 Availability: Works around the clock, never misses a message",
+        "feature3": "Proactive Assistant: Anticipates needs and takes initiative",
+        "feature4": "Collaborative Workflow: Seamlessly coworks with you across platforms"
+      },
       "poweredBy": "Powered by Claude AI",
       "buildInfo": "Build Information",
       "electron": "Electron",

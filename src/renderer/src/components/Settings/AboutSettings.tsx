@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { appIcon } from '../../assets'
 
+const appMode = import.meta.env.VITE_APP_MODE || 'memu'
+
 interface LogEntry {
   timestamp: number
   level: 'log' | 'info' | 'warn' | 'error'
@@ -10,6 +12,7 @@ interface LogEntry {
 
 export function AboutSettings(): JSX.Element {
   const { t } = useTranslation()
+  const appName = appMode === 'yumi' ? 'Yumi' : 'memU bot'
   const [clickCount, setClickCount] = useState(0)
   const [showLogs, setShowLogs] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
@@ -171,9 +174,9 @@ export function AboutSettings(): JSX.Element {
 
       <div className="p-6 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm text-center">
         <div className="w-20 h-20 mx-auto mb-4 rounded-2xl bg-[var(--icon-bg)] flex items-center justify-center shadow-lg">
-          <img src={appIcon} alt="memU" className="w-16 h-16 rounded-xl" />
+          <img src={appIcon} alt={appName} className="w-16 h-16 rounded-xl" />
         </div>
-        <h4 className="text-lg font-semibold text-[var(--text-primary)]">memU bot</h4>
+        <h4 className="text-lg font-semibold text-[var(--text-primary)]">{appName}</h4>
         <p 
           className="text-[12px] text-[var(--text-muted)] mt-0.5 cursor-pointer select-none"
           onClick={handleVersionClick}
@@ -182,24 +185,24 @@ export function AboutSettings(): JSX.Element {
         </p>
         <div className="mt-4 pt-4 border-t border-[var(--border-color)] text-left space-y-2">
           <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
-            {t('settings.about.tagline')}
+            {t(`settings.about.${appMode}.tagline`)}
           </p>
           <ul className="text-[12px] text-[var(--text-muted)] leading-relaxed space-y-1.5">
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.feature1')}</span>
+              <span>{t(`settings.about.${appMode}.feature1`)}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.feature2')}</span>
+              <span>{t(`settings.about.${appMode}.feature2`)}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.feature3')}</span>
+              <span>{t(`settings.about.${appMode}.feature3`)}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.feature4')}</span>
+              <span>{t(`settings.about.${appMode}.feature4`)}</span>
             </li>
           </ul>
         </div>
