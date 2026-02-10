@@ -10,6 +10,7 @@ import { executeLineTool } from '../../tools/line.executor'
 import { executeFeishuTool } from '../../tools/feishu.executor'
 import { executeYumiTool } from '../../tools/yumi.executor'
 import { executeServiceTool } from '../../tools/service.executor'
+import { executeMemuTool } from '../../tools/memu.executor'
 import { mcpService } from '../mcp.service'
 import type { MessagePlatform, ToolResult } from './types'
 
@@ -120,6 +121,11 @@ export async function executeTool(
   // Service tools
   if (name.startsWith('service_')) {
     return await executeServiceTool(name, input)
+  }
+
+  // Memu tools (memory retrieval)
+  if (name.startsWith('memu_')) {
+    return await executeMemuTool(name, input)
   }
 
   // MCP tools
