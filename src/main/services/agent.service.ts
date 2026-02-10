@@ -78,6 +78,7 @@ import {
   estimateTokens,
   createClient
 } from './agent/utils'
+import { compactToolResults, cleanupOffloadedFiles } from './agent/context'
 import { getToolsForPlatform } from './agent/tools'
 import { executeTool } from './agent/tool-executor'
 import { getSystemPromptForPlatform } from './agent/prompt-builder'
@@ -116,6 +117,7 @@ export class AgentService {
   private isAborted = false
   private currentPlatform: MessagePlatform = 'none'
   private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
+  private contextLoadedForChatId: string | null = null // Track which chatId's context is loaded (for per-chat isolation)
   private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from
   private processingLock: MessagePlatform | null = null // Global lock for processMessage - only one platform at a time
   private activityLog: AgentActivityItem[] = [] // Track agent activity for UI display
@@ -257,8 +259,43 @@ export class AgentService {
    * Truncate conversation history if it exceeds token limit
    * Removes oldest messages while ensuring tool_use/tool_result pairs stay together
    */
+  /**
+   * Enforce message count limit on conversation history
+   * Should be called once before the agent loop starts, not during iterations.
+   * Agent loop tool calls should accumulate freely within the current task.
+   */
+  private enforceMessageCountLimit(): void {
+    const maxMessages = MAX_CONTEXT_MESSAGES * 3 // ~60 entries (user + assistant + tool pairs for 20 rounds)
+    if (this.conversationHistory.length <= maxMessages) {
+      return
+    }
+
+    const excess = this.conversationHistory.length - maxMessages
+    // Find a safe cut point that doesn't break tool pairs
+    let cutIndex = 0
+    let removed = 0
+    while (cutIndex < this.conversationHistory.length && removed < excess) {
+      const currentMsg = this.conversationHistory[cutIndex]
+      if (this.hasToolUse(currentMsg)) {
+        cutIndex += 2
+        removed += 2
+      } else if (this.hasToolResult(currentMsg)) {
+        cutIndex += 1
+        removed += 1
+      } else {
+        cutIndex += 1
+        removed += 1
+      }
+    }
+    if (cutIndex > 0) {
+      const removedMsgs = this.conversationHistory.splice(0, cutIndex)
+      this.verifyAndFixToolPairs()
+      console.log(`[Agent] Message count limit: removed ${removedMsgs.length} old messages (${this.conversationHistory.length} remaining)`)
+    }
+  }
+
   private truncateContextIfNeeded(): void {
-    // Calculate total tokens
+    // Enforce token limit
     let totalTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
     
     if (totalTokens <= MAX_CONTEXT_TOKENS) {
@@ -307,7 +344,7 @@ export class AgentService {
       const removed = this.conversationHistory.splice(0, cutIndex)
       const removedTokens = removed.reduce((sum, msg) => sum + estimateTokens(msg), 0)
       totalTokens -= removedTokens
-      console.log(`[Agent] Removed ${removed.length} messages (${removedTokens} tokens)`)
+      console.log(`[Agent] Token limit: removed ${removed.length} messages (${removedTokens} tokens)`)
     }
     
     // Verify tool_use/tool_result integrity after truncation
@@ -431,21 +468,24 @@ export class AgentService {
   /**
    * Load historical context from storage for a specific platform
    */
-  private async loadContextFromStorage(platform: MessagePlatform): Promise<void> {
+  private async loadContextFromStorage(platform: MessagePlatform, chatId?: string): Promise<void> {
     // Skip if platform is 'none'
     if (platform === 'none') {
       return
     }
 
-    // If switching platforms, clear previous context and reload
-    if (this.contextLoadedForPlatform !== null && this.contextLoadedForPlatform !== platform) {
-      console.log(`[Agent] Platform switched from ${this.contextLoadedForPlatform} to ${platform}, clearing context...`)
+    // If switching platforms or chats, clear previous context and reload
+    const platformChanged = this.contextLoadedForPlatform !== null && this.contextLoadedForPlatform !== platform
+    const chatChanged = chatId && this.contextLoadedForChatId !== null && this.contextLoadedForChatId !== chatId
+    if (platformChanged || chatChanged) {
+      console.log(`[Agent] Context switched (platform: ${this.contextLoadedForPlatform}->${platform}, chat: ${this.contextLoadedForChatId}->${chatId || 'none'}), clearing context...`)
       this.conversationHistory = []
       this.contextLoadedForPlatform = null
+      this.contextLoadedForChatId = null
     }
 
-    // Skip if context already loaded for this platform
-    if (this.contextLoadedForPlatform === platform) {
+    // Skip if context already loaded for this platform and chat
+    if (this.contextLoadedForPlatform === platform && this.contextLoadedForChatId === (chatId || null)) {
       return
     }
 
@@ -473,7 +513,7 @@ export class AgentService {
           isFromBot: m.isFromBot
         }))
       } else if (platform === 'feishu') {
-        const storedMessages = await feishuStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        const storedMessages = await feishuStorage.getMessages(MAX_CONTEXT_MESSAGES, chatId)
         // For Feishu, also include image attachments in context
         for (const m of storedMessages) {
           const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
@@ -687,6 +727,7 @@ export class AgentService {
     }
 
     this.contextLoadedForPlatform = platform
+    this.contextLoadedForChatId = chatId || null
   }
 
   /**
@@ -699,7 +740,8 @@ export class AgentService {
   async processMessage(
     userMessage: string,
     platform: MessagePlatform = 'none',
-    imageUrls: string[] = []
+    imageUrls: string[] = [],
+    chatId?: string
   ): Promise<AgentResponse> {
     // Check if another platform is currently processing
     const lockCheck = this.canProcess(platform)
@@ -716,9 +758,9 @@ export class AgentService {
     this.processingLock = platform
     console.log(`[Agent] Lock acquired by ${platform}`)
 
-    // Load historical context if this is a new session or platform changed
+    // Load historical context if this is a new session or platform/chat changed
     if (platform !== 'none') {
-      await this.loadContextFromStorage(platform)
+      await this.loadContextFromStorage(platform, chatId)
     }
 
     // Reset abort state
@@ -879,6 +921,10 @@ export class AgentService {
       computerUseEnabled: settings.experimentalComputerUse
     })
 
+    // Enforce message count limit once before the loop starts
+    // This trims old historical context while preserving current task's tool calls
+    this.enforceMessageCountLimit()
+
     console.log(`[Agent] Using tools for platform: ${this.currentPlatform}`)
     console.log(`[Agent] Visual mode: ${settings.experimentalVisualMode ? 'enabled' : 'disabled'}`)
     console.log(`[Agent] Computer use: ${settings.experimentalComputerUse ? 'enabled' : 'disabled'}`)
@@ -931,44 +977,83 @@ export class AgentService {
       // Custom providers (minimax, custom) may not support beta features
       let response: Anthropic.Message
       
-      if (provider === 'claude') {
-        // Use beta API with context management for automatic tool result clearing
-        const betaResponse = await client.beta.messages.create({
-          model,
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          tools,
-          messages: this.conversationHistory,
-          // Enable context editing to automatically clear old tool results when approaching token limit
-          betas: ['context-management-2025-06-27'],
-          context_management: {
-            edits: [{
-              type: 'clear_tool_uses_20250919',
-              trigger: { type: 'input_tokens', value: 100000 },
-              keep: { type: 'tool_uses', value: 5 },
-              clear_at_least: { type: 'input_tokens', value: 10000 }
-            }]
+      try {
+        if (provider === 'claude') {
+          // Use beta API with context management for automatic tool result clearing
+          const betaResponse = await client.beta.messages.create({
+            model,
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            tools,
+            messages: this.conversationHistory,
+            // Enable context editing to automatically clear old tool results when approaching token limit
+            betas: ['context-management-2025-06-27'],
+            context_management: {
+              edits: [{
+                type: 'clear_tool_uses_20250919',
+                trigger: { type: 'input_tokens', value: 100000 },
+                keep: { type: 'tool_uses', value: 5 },
+                clear_at_least: { type: 'input_tokens', value: 10000 }
+              }]
+            }
+          })
+          
+          // Log context editing if applied (beta API feature)
+          const contextMgmt = (betaResponse as unknown as { context_management?: { applied_edits?: Array<{ cleared_tool_uses?: number; cleared_input_tokens?: number }> } }).context_management
+          if (contextMgmt?.applied_edits?.length) {
+            for (const edit of contextMgmt.applied_edits) {
+              console.log(`[Agent] Context editing applied: cleared ${edit.cleared_tool_uses ?? 0} tool uses (${edit.cleared_input_tokens ?? 0} tokens)`)
+            }
           }
-        })
-        
-        // Log context editing if applied (beta API feature)
-        const contextMgmt = (betaResponse as unknown as { context_management?: { applied_edits?: Array<{ cleared_tool_uses?: number; cleared_input_tokens?: number }> } }).context_management
-        if (contextMgmt?.applied_edits?.length) {
-          for (const edit of contextMgmt.applied_edits) {
-            console.log(`[Agent] Context editing applied: cleared ${edit.cleared_tool_uses ?? 0} tool uses (${edit.cleared_input_tokens ?? 0} tokens)`)
+          
+          response = betaResponse as unknown as Anthropic.Message
+        } else {
+          // For non-Claude providers: offload old large tool_results to files
+          // LLM can use file_read to access the content on demand
+          const compacted = await compactToolResults(this.conversationHistory)
+          if (compacted > 0) {
+            console.log(`[Agent] Context compaction: offloaded ${compacted} old tool results to files`)
           }
+
+          // Use standard API for non-Claude providers
+          response = await client.messages.create({
+            model,
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            tools,
+            messages: this.conversationHistory
+          })
         }
-        
-        response = betaResponse as unknown as Anthropic.Message
-      } else {
-        // Use standard API for non-Claude providers
-        response = await client.messages.create({
-          model,
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          tools,
-          messages: this.conversationHistory
-        })
+      } catch (apiError: unknown) {
+        // Check if this is a token limit / context length error
+        const errorStr = String(apiError)
+        const isTokenLimitError =
+          (apiError instanceof Error && 'status' in apiError && (apiError as { status: number }).status === 400 &&
+            (errorStr.includes('context length') || errorStr.includes('token') || errorStr.includes('too long'))) ||
+          errorStr.includes('maximum context length') ||
+          errorStr.includes('input tokens exceeds')
+
+        if (isTokenLimitError && this.conversationHistory.length > 4) {
+          // Force truncate half the context and retry
+          const halfLen = Math.floor(this.conversationHistory.length / 2)
+          let cutIndex = halfLen
+          // Ensure we don't break tool pairs
+          while (cutIndex < this.conversationHistory.length - 2) {
+            const msg = this.conversationHistory[cutIndex]
+            if (this.hasToolResult(msg)) {
+              cutIndex++
+            } else {
+              break
+            }
+          }
+          const removed = this.conversationHistory.splice(0, cutIndex)
+          this.verifyAndFixToolPairs()
+          console.log(`[Agent] Token limit exceeded by API - force truncated ${removed.length} messages (${this.conversationHistory.length} remaining), retrying...`)
+          continue // Retry the loop iteration
+        }
+
+        // Not a token limit error, re-throw
+        throw apiError
       }
 
       // Check if aborted after API call
@@ -1187,6 +1272,9 @@ export class AgentService {
   clearHistory(): void {
     this.conversationHistory = []
     this.contextLoadedForPlatform = null
+    this.contextLoadedForChatId = null
+    // Clean up old offloaded files in the background
+    cleanupOffloadedFiles().catch(() => {})
   }
 
   /**

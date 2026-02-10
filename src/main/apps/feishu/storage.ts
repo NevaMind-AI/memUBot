@@ -82,11 +82,16 @@ export class FeishuStorage {
   }
 
   /**
-   * Get all messages (sorted by date ascending)
+   * Get messages (sorted by date ascending)
+   * @param limit Maximum number of messages to return (from the end)
+   * @param chatId Optional chat ID to filter messages by specific conversation
    */
-  async getMessages(limit?: number): Promise<StoredFeishuMessage[]> {
+  async getMessages(limit?: number, chatId?: string): Promise<StoredFeishuMessage[]> {
     await this.ensureInitialized()
-    const sorted = [...this.messages].sort((a, b) => a.date - b.date)
+    const filtered = chatId
+      ? this.messages.filter((m) => m.chatId === chatId)
+      : this.messages
+    const sorted = [...filtered].sort((a, b) => a.date - b.date)
     return limit ? sorted.slice(-limit) : sorted
   }
 

@@ -30,6 +30,9 @@ export class FeishuBotService {
   // This is needed because Feishu SDK may redeliver messages on WebSocket reconnect
   private processedMessageIds: Set<string> = new Set()
   private readonly MAX_PROCESSED_IDS = 1000 // Limit memory usage
+  
+  // Track chatType per chatId so bot replies can use the correct type
+  private chatTypeMap: Map<string, 'p2p' | 'group'> = new Map()
 
   /**
    * Connect to Feishu using WebSocket
@@ -322,7 +325,11 @@ export class FeishuBotService {
 
     const messageContent = JSON.parse(event.message.content)
     const chatId = event.message.chat_id
+    const chatType = (event.message.chat_type === 'group' ? 'group' : 'p2p') as 'p2p' | 'group'
     const senderId = event.sender.sender_id.open_id
+
+    // Remember chatType for this chatId so bot replies use the correct type
+    this.chatTypeMap.set(chatId, chatType)
 
     // Extract attachments and text
     const { attachments, imageUrls, filePaths, text } = await this.extractMessageContent(
@@ -681,7 +688,7 @@ export class FeishuBotService {
         return
       }
 
-      const response = await agentService.processMessage(userMessage, 'feishu', imageUrls)
+      const response = await agentService.processMessage(userMessage, 'feishu', imageUrls, chatId)
 
       if (!response.success && response.busyWith) {
         const platformNames: Record<string, string> = {
@@ -711,7 +718,7 @@ export class FeishuBotService {
           const botReply: StoredFeishuMessage = {
             messageId: result.messageId,
             chatId,
-            chatType: 'p2p',
+            chatType: this.chatTypeMap.get(chatId) || 'p2p',
             fromId: this.botOpenId || 'bot',
             fromName: this.status.botName || 'Bot',
             text: response.message,
@@ -847,7 +854,7 @@ export class FeishuBotService {
           const storedMsg: StoredFeishuMessage = {
             messageId,
             chatId,
-            chatType: 'p2p',
+            chatType: this.chatTypeMap.get(chatId) || 'p2p',
             fromId: this.botOpenId || 'bot',
             fromName: this.status.botName || 'Bot',
             text,
@@ -912,7 +919,7 @@ export class FeishuBotService {
           const storedMsg: StoredFeishuMessage = {
             messageId,
             chatId,
-            chatType: 'p2p',
+            chatType: this.chatTypeMap.get(chatId) || 'p2p',
             fromId: this.botOpenId || 'bot',
             fromName: this.status.botName || 'Bot',
             text: markdown,
@@ -986,7 +993,7 @@ export class FeishuBotService {
           const storedMsg: StoredFeishuMessage = {
             messageId,
             chatId,
-            chatType: 'p2p',
+            chatType: this.chatTypeMap.get(chatId) || 'p2p',
             fromId: this.botOpenId || 'bot',
             fromName: this.status.botName || 'Bot',
             attachments: [
@@ -1079,7 +1086,7 @@ export class FeishuBotService {
           const storedMsg: StoredFeishuMessage = {
             messageId,
             chatId,
-            chatType: 'p2p',
+            chatType: this.chatTypeMap.get(chatId) || 'p2p',
             fromId: this.botOpenId || 'bot',
             fromName: this.status.botName || 'Bot',
             attachments: [
