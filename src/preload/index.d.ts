@@ -531,6 +531,18 @@ interface YumiSendMessageRequest {
   responseChannel?: string
 }
 
+// User-initiated message params (sent via backend IM API)
+interface SendUserMessageParams {
+  type: 'txt' | 'img' | 'file'
+  content?: string        // text content (for txt type)
+  buffer?: number[]       // file data as byte array (for img/file type)
+  filename?: string       // original filename (for img/file type)
+  mimeType?: string       // MIME type (for img/file type)
+  width?: number          // image width (for img type)
+  height?: number         // image height (for img type)
+  fileSize?: number       // file size (for file type)
+}
+
 // Yumi API interface (standard IPC, same pattern as other platforms)
 interface YumiApi {
   // Message retrieval
@@ -550,6 +562,9 @@ interface YumiApi {
 
   // Listen for send message requests from main process
   onSendMessage: (callback: (request: YumiSendMessageRequest) => void) => () => void
+
+  // Send a user-initiated message via backend IM API
+  sendUserMessage: (params: SendUserMessageParams) => Promise<IpcResponse<{ messageId?: string }>>
 }
 
 // Auth API interface

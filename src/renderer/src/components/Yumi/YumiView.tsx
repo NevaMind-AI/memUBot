@@ -1,4 +1,5 @@
 import { YumiHeader } from './YumiHeader'
+import { YumiMessageInput } from './YumiMessageInput'
 import { YumiMessageList } from './YumiMessageList'
 import './YumiView.css'
 
@@ -16,6 +17,9 @@ export function YumiView({ onShowActivity }: YumiViewProps): JSX.Element {
       <div className="flex-1 flex bg-[var(--bg-secondary)] overflow-hidden">
         <YumiMessageList />
       </div>
+
+      {/* Message Input */}
+      <YumiMessageInput />
     </div>
   )
 }

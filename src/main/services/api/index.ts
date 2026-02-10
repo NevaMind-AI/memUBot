@@ -21,4 +21,4 @@ export {
 } from './client'
 
 // Endpoints
-export { authApi } from './endpoints'
+export { authApi, imApi } from './endpoints'

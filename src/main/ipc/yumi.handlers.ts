@@ -1,7 +1,10 @@
 import { ipcMain } from 'electron'
-import { yumiBotService, convertToAppMessage } from '../apps/yumi'
 import type { StoredYumiMessage } from '../apps/yumi'
-import type { IpcResponse, AppMessage, BotStatus } from '../types'
+import { yumiBotService } from '../apps/yumi'
+import { getMemuApiClient, imApi } from '../services/api'
+import { IMSendFileParams, IMSendImageParams } from '../services/api/endpoints/im'
+import { getAuthService } from '../services/auth'
+import type { AppMessage, BotStatus, IpcResponse } from '../types'
 
 /**
  * Setup Yumi-related IPC handlers
@@ -107,6 +110,116 @@ export async function setupYumiHandlers(): Promise<void> {
         }
         return { success: false, error: result.error }
       } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      }
+    }
+  )
+
+  // ============================================
+  // User-initiated messages via backend IM API
+  // ============================================
+
+  const apiClient = getMemuApiClient()
+  const authService = getAuthService()
+
+  // Send a user message (text, image, or file) via backend IM API
+  ipcMain.handle(
+    'yumi:send-user-message',
+    async (
+      _event,
+      params: {
+        type: 'txt' | 'img' | 'file'
+        content?: string        // text content (for txt type)
+        buffer?: number[]       // file data as byte array (for img/file type)
+        filename?: string       // original filename (for img/file type)
+        mimeType?: string       // MIME type (for img/file type)
+        width?: number          // image width (for img type)
+        height?: number         // image height (for img type)
+        fileSize?: number       // file size (for file type)
+      }
+    ): Promise<IpcResponse<{ messageId?: string }>> => {
+      try {
+        const accessToken = await authService.getAccessToken()
+        if (!accessToken) {
+          return { success: false, error: 'Not authenticated' }
+        }
+
+        const { easemob } = authService.getAuthState()
+        if (!easemob?.userId || !easemob?.agentId) {
+          return { success: false, error: 'Easemob user/agent info not available' }
+        }
+
+        // from = current user, to = bot (agent)
+        const from = easemob.userId
+        const to = [easemob.agentId]
+
+        // Text message: send directly
+        if (params.type === 'txt') {
+          if (!params.content) {
+            return { success: false, error: 'Content is required for text messages' }
+          }
+          const result = await imApi.sendMessage(apiClient, accessToken, {
+            from,
+            to,
+            type: 'txt',
+            body: { msg: params.content },
+            sync_device: true
+          })
+          return { success: true, data: { messageId: result.message_id } }
+        }
+
+        // Image or file message: upload first, then send
+        if (!params.buffer || !params.filename) {
+          return { success: false, error: 'Buffer and filename are required for image/file messages' }
+        }
+
+        const fileBuffer = Buffer.from(params.buffer)
+        const uploadResult = await imApi.uploadFile(
+          apiClient,
+          accessToken,
+          fileBuffer,
+          params.filename,
+          params.mimeType
+        )
+
+        if (params.type === 'img') {
+          const requestBody = {
+            from,
+            to,
+            type: 'img',
+            body: {
+              filename: params.filename,
+              secret: uploadResult.secret,
+              url: uploadResult.url,
+              size: params.width && params.height
+                ? { width: params.width, height: params.height }
+                : undefined
+            },
+            sync_device: true
+          } as IMSendImageParams
+          const result = await imApi.sendMessage(apiClient, accessToken, requestBody)
+          return { success: true, data: { messageId: result.message_id } }
+        }
+
+        // File message
+        const requestBody = {
+          from,
+          to,
+          type: 'file',
+          body: {
+            filename: params.filename,
+            secret: uploadResult.secret,
+            url: uploadResult.url
+          },
+          sync_device: true
+        } as IMSendFileParams
+        const result = await imApi.sendMessage(apiClient, accessToken, requestBody)
+        return { success: true, data: { messageId: result.message_id } }
+      } catch (error) {
+        console.error('[YumiIPC] Failed to send user message:', error)
         return {
           success: false,
           error: error instanceof Error ? error.message : String(error)

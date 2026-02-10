@@ -138,6 +138,52 @@ export class MemuApiClient {
   }
 
   /**
+   * Upload a file using multipart/form-data
+   * Content-Type is omitted so fetch auto-sets the boundary.
+   */
+  async upload<T>(
+    endpoint: string,
+    formData: FormData,
+    options: {
+      headers?: Record<string, string>
+      requiresCsrf?: boolean
+    } = {}
+  ): Promise<ApiResponse<T>> {
+    const { headers = {}, requiresCsrf = true } = options
+
+    if (requiresCsrf) {
+      await this.ensureCsrfToken()
+    }
+
+    const requestHeaders: Record<string, string> = {
+      'Accept': 'application/json',
+      ...headers
+    }
+
+    if (requiresCsrf && this.csrfToken) {
+      requestHeaders['X-CSRF-Token'] = this.csrfToken
+      requestHeaders['Cookie'] = `memu_csrf_token=${this.csrfToken}`
+    }
+
+    // NOTE: Do NOT set Content-Type — fetch sets it automatically with the boundary
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers: requestHeaders,
+      body: formData
+    })
+
+    const data = await response.json() as ApiResponse<T>
+
+    if (!response.ok || data.status === 'error') {
+      const errorMessage = data.message || `Upload failed: ${response.status}`
+      console.error(`[MemuAPI] Upload error: ${errorMessage}`, data)
+      throw new MemuApiError(errorMessage, response.status, data.error_code, data.details)
+    }
+
+    return data
+  }
+
+  /**
    * Clear cached CSRF token (call on logout)
    */
   clearSession(): void {

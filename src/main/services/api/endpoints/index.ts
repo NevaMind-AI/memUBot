@@ -5,3 +5,4 @@
  */
 
 export * as authApi from './auth'
+export * as imApi from './im'

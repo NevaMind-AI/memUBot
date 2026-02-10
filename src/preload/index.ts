@@ -300,7 +300,19 @@ const yumiApi = {
   ) => {
     ipcRenderer.on('yumi:send-message', (_event, request) => callback(request))
     return () => ipcRenderer.removeAllListeners('yumi:send-message')
-  }
+  },
+
+  // Send a user-initiated message via backend IM API
+  sendUserMessage: (params: {
+    type: 'txt' | 'img' | 'file'
+    content?: string
+    buffer?: number[]
+    filename?: string
+    mimeType?: string
+    width?: number
+    height?: number
+    fileSize?: number
+  }) => ipcRenderer.invoke('yumi:send-user-message', params)
 }
 
 // Auth API (Yumi only - Firebase authentication)
