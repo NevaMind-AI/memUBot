@@ -19,6 +19,7 @@
     "build:mac": "tsx scripts/build-mac.ts",
     "build:linux": "npm run build && electron-builder --linux",
     "release:mac": "tsx scripts/release-mac.ts",
+    "release:win": "tsx scripts/release-win.ts",
     "dev:memu": "APP_MODE=memu electron-vite dev --mode memu",
     "dev:yumi": "APP_MODE=yumi electron-vite dev --mode yumi",
     "build:memu": "APP_MODE=memu electron-vite build --mode memu",
