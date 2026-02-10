@@ -73,6 +73,9 @@ export interface AppSettings {
   memuProactiveUserId: string
   memuProactiveAgentId: string
 
+  memuYumiUserId: string
+  memuYumiAgentId: string
+
   // Telegram settings
   telegramBotToken: string
   telegramAutoConnect: boolean
@@ -145,6 +148,9 @@ const DEFAULT_SETTINGS: AppSettings = {
   memuAgentId: 'bot_main_agent',
   memuProactiveUserId: 'bot_proactive_user',
   memuProactiveAgentId: 'bot_proactive_agent',
+
+  memuYumiUserId: 'yumi_user',
+  memuYumiAgentId: 'yumi_agent',
 
   telegramBotToken: '',
   telegramAutoConnect: true,

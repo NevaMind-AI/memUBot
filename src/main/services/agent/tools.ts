@@ -8,6 +8,7 @@ import { lineTools } from '../../tools/line.definitions'
 import { feishuTools } from '../../tools/feishu.definitions'
 import { yumiTools } from '../../tools/yumi.definitions'
 import { serviceTools } from '../../tools/service.definitions'
+import { memuTools } from '../../tools/memu.definitions'
 import { getMacOSTools } from '../../tools/macos/definitions'
 import { getVisualTools } from '../../tools/macos/visual.definitions'
 import { mcpService } from '../mcp.service'
@@ -41,7 +42,7 @@ export function getToolsForPlatform(platform: MessagePlatform, options: Experime
   // Add MCP tools to all platforms
   const mcpTools = mcpService.getTools()
   
-  // Service tools are available on all platforms
+  // Service tools and memu (memory) tools are available on all platforms
   const svcTools = [...serviceTools]
   
   // Visual tools - only injected when experimentalVisualMode is enabled
@@ -50,21 +51,21 @@ export function getToolsForPlatform(platform: MessagePlatform, options: Experime
   
   switch (platform) {
     case 'telegram':
-      return [...baseTools, ...platformTools, ...visualTools, ...telegramTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...telegramTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'discord':
-      return [...baseTools, ...platformTools, ...visualTools, ...discordTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...discordTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'whatsapp':
-      return [...baseTools, ...platformTools, ...visualTools, ...whatsappTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...whatsappTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'slack':
-      return [...baseTools, ...platformTools, ...visualTools, ...slackTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...slackTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'line':
-      return [...baseTools, ...platformTools, ...visualTools, ...lineTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...lineTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'feishu':
-      return [...baseTools, ...platformTools, ...visualTools, ...feishuTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...feishuTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'yumi':
-      return [...baseTools, ...platformTools, ...visualTools, ...yumiTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...yumiTools, ...svcTools, ...memuTools, ...mcpTools]
     case 'none':
     default:
-      return [...baseTools, ...platformTools, ...visualTools, ...svcTools, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...svcTools, ...memuTools, ...mcpTools]
   }
 }
