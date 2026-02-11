@@ -188,7 +188,7 @@ export function YumiMessageInput(): JSX.Element {
     <div className="px-4 py-3 border-t border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-xl">
       <div className="flex items-end gap-2 max-w-3xl mx-auto">
         {/* Attachment button */}
-        {/* <button
+        <button
           type="button"
           onClick={handleAttachClick}
           disabled={sending}
@@ -199,7 +199,7 @@ export function YumiMessageInput(): JSX.Element {
           title="Attach file"
         >
           <Paperclip className="w-4 h-4" />
-        </button> */}
+        </button>
 
         {/* Hidden file input */}
         <input

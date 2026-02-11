@@ -2,7 +2,7 @@ import { ipcMain } from 'electron'
 import type { StoredYumiMessage } from '../apps/yumi'
 import { yumiBotService } from '../apps/yumi'
 import { getMemuApiClient, imApi } from '../services/api'
-import { IMSendFileParams, IMSendImageParams } from '../services/api/endpoints/im'
+import { IMSendFileParams, IMSendImageParams, IMSendTextParams } from '../services/api/endpoints/im'
 import { getAuthService } from '../services/auth'
 import type { AppMessage, BotStatus, IpcResponse } from '../types'
 
@@ -161,13 +161,15 @@ export async function setupYumiHandlers(): Promise<void> {
           if (!params.content) {
             return { success: false, error: 'Content is required for text messages' }
           }
-          const result = await imApi.sendMessage(apiClient, accessToken, {
+
+          const requestBody = {
             from,
             to,
             type: 'txt',
             body: { msg: params.content },
             sync_device: true
-          })
+          } as IMSendTextParams
+          const result = await imApi.sendMessage(apiClient, accessToken, requestBody)
           return { success: true, data: { messageId: result.message_id } }
         }
 
@@ -192,7 +194,7 @@ export async function setupYumiHandlers(): Promise<void> {
             type: 'img',
             body: {
               filename: params.filename,
-              secret: uploadResult.secret,
+              secret: uploadResult.shareSecret ?? '',
               url: uploadResult.url,
               size: params.width && params.height
                 ? { width: params.width, height: params.height }
@@ -211,7 +213,7 @@ export async function setupYumiHandlers(): Promise<void> {
           type: 'file',
           body: {
             filename: params.filename,
-            secret: uploadResult.secret,
+            secret: uploadResult.shareSecret ?? '',
             url: uploadResult.url
           },
           sync_device: true

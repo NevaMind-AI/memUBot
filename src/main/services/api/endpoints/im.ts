@@ -13,10 +13,29 @@ import { getAuthService } from '../../auth'
 // Types
 // ============================================
 
-export interface IMUploadResponse {
+/** Raw Easemob chatfiles upload response (inside ApiResponse.data) */
+export interface EasemobUploadResponse {
+  action: string
+  application: string
+  path: string
+  uri: string
+  entities: Array<{
+    uuid: string
+    type: string
+    'share-secret': string | null
+  }>
+  timestamp: number
+  duration: number
+  organization: string
+  applicationName: string
+}
+
+/** Parsed upload result for callers */
+export interface UploadResult {
   uuid: string
+  shareSecret: string | null
+  /** Constructed URL: {uri}/{uuid} */
   url: string
-  secret: string
 }
 
 /**
@@ -95,30 +114,37 @@ export async function uploadFile(
   fileBuffer: Buffer,
   filename: string,
   mimeType?: string
-): Promise<IMUploadResponse> {
+): Promise<UploadResult> {
   console.log('[MemuAPI:IM] Uploading file...', { filename, size: fileBuffer.length, mimeType })
 
   const formData = new FormData()
   const blob = new Blob([fileBuffer], { type: mimeType || 'application/octet-stream' })
-  formData.append('file', blob as unknown as globalThis.Blob, filename)
+  formData.append('file', blob as unknown as globalThis.Blob)
 
-  const response = await client.upload<IMUploadResponse>(ENDPOINTS.UPLOAD, formData, {
+  const response = await client.upload<EasemobUploadResponse>(ENDPOINTS.UPLOAD, formData, {
     headers: {
       Authorization: `Bearer ${accessToken}`
     },
     requiresCsrf: true
   })
 
-  if (!response.data) {
-    throw new Error('No data in upload response')
+  if (!response.data?.entities?.[0]) {
+    throw new Error('No entity in upload response')
+  }
+
+  const entity = response.data.entities[0]
+  const result: UploadResult = {
+    uuid: entity.uuid,
+    shareSecret: entity['share-secret'],
+    url: `${response.data.uri}/${entity.uuid}`
   }
 
   console.log('[MemuAPI:IM] File uploaded:', {
-    uuid: response.data.uuid,
-    url: response.data.url?.substring(0, 60) + '...'
+    uuid: result.uuid,
+    url: result.url.substring(0, 60) + '...'
   })
 
-  return response.data
+  return result
 }
 
 /**
@@ -148,7 +174,7 @@ export async function sendMessage(
     throw new Error('No data in send message response')
   }
 
-  console.log('[MemuAPI:IM] Message sent:', { messageId: response.data.message_id })
+  console.log('[MemuAPI:IM] Message sent:', { response: JSON.stringify(response, null, 2) })
 
   return response.data
 }
