@@ -35,7 +35,7 @@ export interface MessageApi {
 interface UseMessageListOptions {
   api: MessageApi
   pageSize?: number
-  platform?: 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line'
+  platform?: 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line' | 'feishu'
 }
 
 interface UseMessageListReturn {

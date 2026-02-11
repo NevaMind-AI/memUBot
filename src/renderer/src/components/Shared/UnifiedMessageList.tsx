@@ -10,7 +10,7 @@ interface UnifiedMessageListProps {
   emptyTitle: string
   emptyDescription: string
   pageSize?: number
-  platform?: 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line'
+  platform?: 'telegram' | 'discord' | 'slack' | 'whatsapp' | 'line' | 'feishu'
   /** Optional custom empty state renderer. When provided, replaces the default empty state. */
   renderEmpty?: () => JSX.Element
 }

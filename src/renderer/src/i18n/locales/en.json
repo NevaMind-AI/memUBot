@@ -481,7 +481,17 @@
     "copy": "Copy",
     "delete": "Delete",
     "retry": "Retry",
-    "failed": "Failed to send"
+    "failed": "Failed to send",
+    "empty": {
+      "title": "No Messages Yet",
+      "telegram": "Connect your bot and start chatting on Telegram.",
+      "discord": "@mention the bot in your Discord server to start chatting.",
+      "whatsapp": "Connect to WhatsApp to start chatting.",
+      "slack": "Message the bot in Slack to start chatting.",
+      "line": "Connect your Line bot to start chatting.",
+      "feishu": "Connect your bot and start chatting on Feishu.",
+      "yumi": "Waiting for conversation to start."
+    }
   },
   "status": {
     "online": "Online",

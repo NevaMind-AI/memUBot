@@ -479,7 +479,17 @@
     "copy": "复制",
     "delete": "删除",
     "retry": "重试",
-    "failed": "发送失败"
+    "failed": "发送失败",
+    "empty": {
+      "title": "暂无消息",
+      "telegram": "连接机器人，在 Telegram 上开始聊天。",
+      "discord": "在 Discord 服务器中 @机器人开始聊天。",
+      "whatsapp": "连接 WhatsApp 开始聊天。",
+      "slack": "在 Slack 中给机器人发消息开始聊天。",
+      "line": "连接 Line 机器人开始聊天。",
+      "feishu": "连接机器人，在飞书上开始聊天。",
+      "yumi": "等待对话开始。"
+    }
   },
   "status": {
     "online": "在线",

@@ -10,6 +10,7 @@
 
 import { Paperclip, ArrowUp, Loader2 } from 'lucide-react'
 import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type ChangeEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 
 // ============================================
 // Constants
@@ -61,6 +62,7 @@ function getImageDimensions(file: File): Promise<{ width: number; height: number
 // ============================================
 
 export function YumiMessageInput(): JSX.Element {
+  const { t } = useTranslation()
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -186,7 +188,7 @@ export function YumiMessageInput(): JSX.Element {
     <div className="px-4 py-3 border-t border-[var(--glass-border)] bg-[var(--glass-bg)] backdrop-blur-xl">
       <div className="flex items-end gap-2 max-w-3xl mx-auto">
         {/* Attachment button */}
-        <button
+        {/* <button
           type="button"
           onClick={handleAttachClick}
           disabled={sending}
@@ -197,7 +199,7 @@ export function YumiMessageInput(): JSX.Element {
           title="Attach file"
         >
           <Paperclip className="w-4 h-4" />
-        </button>
+        </button> */}
 
         {/* Hidden file input */}
         <input
@@ -216,7 +218,7 @@ export function YumiMessageInput(): JSX.Element {
             onChange={handleTextChange}
             onKeyDown={handleKeyDown}
             disabled={sending}
-            placeholder="Type a message..."
+            placeholder={t('messages.typeMessage', 'Type a message...')}
             rows={1}
             className="w-full min-h-10 resize-none rounded-xl px-3.5 py-2 text-[13px]
               bg-[var(--bg-input)] border border-[var(--glass-border)]

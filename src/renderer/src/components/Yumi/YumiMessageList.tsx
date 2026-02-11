@@ -58,6 +58,7 @@ function YumiEmptyState(): JSX.Element {
 }
 
 export function YumiMessageList(): JSX.Element {
+  const { t } = useTranslation()
   const renderEmpty = useCallback(() => <YumiEmptyState />, [])
 
   return (
@@ -65,8 +66,8 @@ export function YumiMessageList(): JSX.Element {
       api={window.yumi}
       colors={yumiColors}
       emptyIcon={MessageSquare}
-      emptyTitle="No Messages Yet"
-      emptyDescription="Waiting for conversation to start."
+      emptyTitle={t('messages.empty.title', 'No Messages Yet')}
+      emptyDescription={t('messages.empty.yumi', 'Waiting for conversation to start.')}
       renderEmpty={renderEmpty}
     />
   )
