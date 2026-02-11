@@ -129,5 +129,35 @@ Environment variables available to the service:
       },
       required: ['serviceId']
     }
+  },
+  {
+    name: 'service_dry_run',
+    description: `Run a service in dry-run mode to verify it works before starting it for real.
+
+The service is executed with MEMU_DRY_RUN=true environment variable. The service code
+MUST detect this and: run the main data-fetching/processing logic once, print the results
+(including fetched data and local filter decisions), then exit.
+
+Returns the captured stdout, stderr, and exit code. Use this to verify:
+1. The service can successfully fetch data from external sources
+2. The local filtering logic produces meaningful results
+3. No runtime errors occur
+
+If dry run fails or output is not meaningful, fix the service code and retry.
+If after multiple attempts (max 3) it still fails, delete the service and report to user.`,
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        serviceId: {
+          type: 'string',
+          description: 'The service ID to dry-run'
+        },
+        timeoutMs: {
+          type: 'number',
+          description: 'Max execution time in milliseconds (default: 30000). Increase for services that call slow external APIs.'
+        }
+      },
+      required: ['serviceId']
+    }
   }
 ]

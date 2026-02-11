@@ -1,6 +1,7 @@
 import { exec } from 'child_process'
 import { promisify } from 'util'
-import { serviceManagerService, type ServiceType, type ServiceRuntime } from '../services/service-manager.service'
+import { serviceManager } from '../services/back-service'
+import type { ServiceType, ServiceRuntime } from '../services/back-service'
 
 const execAsync = promisify(exec)
 
@@ -47,6 +48,11 @@ interface ServiceIdInput {
   serviceId: string
 }
 
+interface ServiceDryRunInput {
+  serviceId: string
+  timeoutMs?: number
+}
+
 /**
  * Execute a service tool
  */
@@ -73,6 +79,9 @@ export async function executeServiceTool(
 
       case 'service_get_info':
         return await executeServiceGetInfo(input as ServiceIdInput)
+
+      case 'service_dry_run':
+        return await executeServiceDryRun(input as ServiceDryRunInput)
 
       default:
         return { success: false, error: `Unknown service tool: ${toolName}` }
@@ -103,7 +112,7 @@ async function executeServiceCreate(input: ServiceCreateInput): Promise<{
     }
   }
 
-  const result = await serviceManagerService.createService({
+  const result = await serviceManager.createService({
     name: input.name,
     description: input.description,
     type: input.type,
@@ -142,7 +151,7 @@ async function executeServiceList(): Promise<{
   data?: unknown
   error?: string
 }> {
-  const services = await serviceManagerService.listServices()
+  const services = await serviceManager.listServices()
   return {
     success: true,
     data: {
@@ -168,7 +177,7 @@ async function executeServiceStart(input: ServiceIdInput): Promise<{
   error?: string
 }> {
   // When started via tool, enable auto-start (same as UI behavior)
-  const result = await serviceManagerService.startService(input.serviceId, { enableAutoStart: true })
+  const result = await serviceManager.startService(input.serviceId, { enableAutoStart: true })
   if (result.success) {
     return {
       success: true,
@@ -187,7 +196,7 @@ async function executeServiceStop(input: ServiceIdInput): Promise<{
   error?: string
 }> {
   // When stopped via tool, disable auto-start (same as UI behavior)
-  const result = await serviceManagerService.stopService(input.serviceId, { disableAutoStart: true })
+  const result = await serviceManager.stopService(input.serviceId, { disableAutoStart: true })
   if (result.success) {
     return {
       success: true,
@@ -205,7 +214,7 @@ async function executeServiceDelete(input: ServiceIdInput): Promise<{
   data?: unknown
   error?: string
 }> {
-  const result = await serviceManagerService.deleteService(input.serviceId)
+  const result = await serviceManager.deleteService(input.serviceId)
   if (result.success) {
     return {
       success: true,
@@ -223,11 +232,69 @@ async function executeServiceGetInfo(input: ServiceIdInput): Promise<{
   data?: unknown
   error?: string
 }> {
-  const service = await serviceManagerService.getService(input.serviceId)
+  const service = await serviceManager.getService(input.serviceId)
   if (service) {
     return { success: true, data: service }
   }
   return { success: false, error: 'Service not found' }
+}
+
+/**
+ * Dry-run a service to verify it works
+ */
+async function executeServiceDryRun(input: ServiceDryRunInput): Promise<{
+  success: boolean
+  data?: unknown
+  error?: string
+}> {
+  const result = await serviceManager.dryRunService(input.serviceId, input.timeoutMs)
+
+  if (result.error) {
+    return { success: false, error: result.error }
+  }
+
+  // Build a structured report for the Agent to evaluate
+  const report = {
+    exitCode: result.exitCode,
+    timedOut: result.timedOut,
+    stdout: result.stdout.length > 4000 ? result.stdout.slice(-4000) : result.stdout,
+    stderr: result.stderr.length > 2000 ? result.stderr.slice(-2000) : result.stderr,
+    diagnosis: getDryRunDiagnosis(result)
+  }
+
+  return {
+    success: result.success,
+    data: report
+  }
+}
+
+/**
+ * Provide a brief diagnosis based on dry run output
+ */
+function getDryRunDiagnosis(result: {
+  success: boolean
+  stdout: string
+  stderr: string
+  exitCode: number | null
+  timedOut: boolean
+}): string {
+  if (result.timedOut) {
+    return 'TIMEOUT: Service did not exit within the time limit. Ensure the dry run mode runs the main function once and exits immediately (no setInterval/while loops in dry run mode).'
+  }
+
+  if (result.exitCode !== 0) {
+    return `CRASH: Service exited with code ${result.exitCode}. Check stderr for error details and fix the code.`
+  }
+
+  if (!result.stdout.trim()) {
+    return 'NO_OUTPUT: Service exited successfully but produced no output. The dry run mode should print the fetched data and filter results so you can verify correctness.'
+  }
+
+  if (result.stdout.includes('[DRY_RUN_RESULT]')) {
+    return 'OK: Dry run completed with structured output. Evaluate the results to confirm they are meaningful and match user expectations.'
+  }
+
+  return 'OK: Dry run completed. Review stdout to verify the output is meaningful and the service logic works correctly.'
 }
 
 /**
@@ -243,12 +310,8 @@ function getServiceTemplate(runtime: ServiceRuntime, type: ServiceType): string 
 
 function getNodeTemplate(type: ServiceType): string {
   const baseTemplate = `// Service: Auto-generated by memu
-// Environment: MEMU_SERVICE_ID, MEMU_API_URL
-
-const http = require('http');
-
-const SERVICE_ID = process.env.MEMU_SERVICE_ID;
-const API_URL = process.env.MEMU_API_URL || 'http://127.0.0.1:31415';
+// The invoke helper (invoke.js) is auto-generated — just require and use it.
+const { invoke, dryRunResult, DRY_RUN, SERVICE_ID } = require('./invoke');
 
 // Context from user request (customize these)
 const CONTEXT = {
@@ -258,97 +321,77 @@ const CONTEXT = {
 };
 
 /**
- * Call the invoke API to report data and let LLM decide whether to notify user
- */
-async function invoke(summary, details, metadata = {}) {
-  const payload = {
-    context: CONTEXT,
-    data: {
-      summary,
-      details,
-      timestamp: new Date().toISOString(),
-      metadata
-    },
-    serviceId: SERVICE_ID
-  };
-
-  return new Promise((resolve, reject) => {
-    const url = new URL('/api/v1/invoke', API_URL);
-    const options = {
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    };
-
-    const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (e) {
-          reject(e);
-        }
-      });
-    });
-
-    req.on('error', reject);
-    req.write(JSON.stringify(payload));
-    req.end();
-  });
-}
-
-/**
  * Your monitoring/task logic here
  */
 async function checkAndReport() {
   try {
     // TODO: Implement your monitoring logic
-    // Example: fetch data, check conditions, etc.
+    // Example: fetch data, check conditions, apply local filter
     
-    const summary = "Event summary here";
-    const details = "Detailed information here";
+    const fetchedData = {}; // Replace with actual fetched data
+    const passesFilter = true; // Replace with actual filter logic
+    const filterReason = "TODO: describe filter result";
+
+    // Dry run: print results and return (skip invoke)
+    if (DRY_RUN) {
+      dryRunResult(fetchedData, { passed: passesFilter, reason: filterReason }, passesFilter);
+      return;
+    }
+
+    if (!passesFilter) {
+      console.log(\`[\${SERVICE_ID}] \${filterReason}, skipping\`);
+      return;
+    }
     
-    const result = await invoke(summary, details);
+    const result = await invoke({
+      context: CONTEXT,
+      summary: "Event summary here",
+      details: "Detailed information here"
+    });
     console.log('Invoke result:', result);
   } catch (error) {
     console.error('Error:', error);
+    if (DRY_RUN) throw error; // Let dry run fail visibly
   }
 }
 `
 
   if (type === 'longRunning') {
     return baseTemplate + `
-// Long-running service: runs continuously
-const INTERVAL_MS = 60000; // Check every minute
-
-console.log(\`[Service:\${SERVICE_ID}] Starting long-running service...\`);
-
-// Initial check
-checkAndReport();
-
-// Periodic checks
-setInterval(checkAndReport, INTERVAL_MS);
-
-// Keep process alive
-process.on('SIGTERM', () => {
-  console.log(\`[Service:\${SERVICE_ID}] Received SIGTERM, shutting down...\`);
-  process.exit(0);
-});
+// ============ ENTRY POINT ============
+if (DRY_RUN) {
+  console.log(\`[\${SERVICE_ID}] Running in DRY RUN mode...\`);
+  checkAndReport()
+    .then(() => process.exit(0))
+    .catch((e) => { console.error(\`[\${SERVICE_ID}] Dry run failed:\`, e.message); process.exit(1); });
+} else {
+  const INTERVAL_MS = 60000; // Check every minute
+  console.log(\`[Service:\${SERVICE_ID}] Starting long-running service...\`);
+  checkAndReport();
+  setInterval(checkAndReport, INTERVAL_MS);
+  process.on('SIGTERM', () => {
+    console.log(\`[Service:\${SERVICE_ID}] Received SIGTERM, shutting down...\`);
+    process.exit(0);
+  });
+}
 `
   } else {
     return baseTemplate + `
-// Scheduled service: runs once per invocation
-console.log(\`[Service:\${SERVICE_ID}] Running scheduled task...\`);
-
-checkAndReport().then(() => {
-  console.log(\`[Service:\${SERVICE_ID}] Task completed\`);
-}).catch(error => {
-  console.error(\`[Service:\${SERVICE_ID}] Task failed:\`, error);
-  process.exit(1);
-});
+// ============ ENTRY POINT ============
+if (DRY_RUN) {
+  console.log(\`[\${SERVICE_ID}] Running in DRY RUN mode...\`);
+  checkAndReport()
+    .then(() => process.exit(0))
+    .catch((e) => { console.error(\`[\${SERVICE_ID}] Dry run failed:\`, e.message); process.exit(1); });
+} else {
+  console.log(\`[Service:\${SERVICE_ID}] Running scheduled task...\`);
+  checkAndReport().then(() => {
+    console.log(\`[Service:\${SERVICE_ID}] Task completed\`);
+  }).catch(error => {
+    console.error(\`[Service:\${SERVICE_ID}] Task failed:\`, error);
+    process.exit(1);
+  });
+}
 `
   }
 }
@@ -356,16 +399,9 @@ checkAndReport().then(() => {
 function getPythonTemplate(type: ServiceType): string {
   const baseTemplate = `#!/usr/bin/env python3
 # Service: Auto-generated by memu
-# Environment: MEMU_SERVICE_ID, MEMU_API_URL
-
-import os
-import json
+# The invoke helper (invoke.py) is auto-generated — just import and use it.
 import time
-import urllib.request
-from datetime import datetime
-
-SERVICE_ID = os.environ.get('MEMU_SERVICE_ID', 'unknown')
-API_URL = os.environ.get('MEMU_API_URL', 'http://127.0.0.1:31415')
+from invoke import invoke, dry_run_result, DRY_RUN, SERVICE_ID
 
 # Context from user request (customize these)
 CONTEXT = {
@@ -374,72 +410,73 @@ CONTEXT = {
     "notifyPlatform": "telegram"  # or discord, slack, etc.
 }
 
-def invoke(summary: str, details: str = "", metadata: dict = None):
-    """Call the invoke API to report data and let LLM decide whether to notify user"""
-    payload = {
-        "context": CONTEXT,
-        "data": {
-            "summary": summary,
-            "details": details,
-            "timestamp": datetime.now().isoformat(),
-            "metadata": metadata or {}
-        },
-        "serviceId": SERVICE_ID
-    }
-    
-    url = f"{API_URL}/api/v1/invoke"
-    data = json.dumps(payload).encode('utf-8')
-    
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={'Content-Type': 'application/json'},
-        method='POST'
-    )
-    
-    try:
-        with urllib.request.urlopen(req) as response:
-            return json.loads(response.read().decode('utf-8'))
-    except Exception as e:
-        print(f"Error calling invoke API: {e}")
-        return None
-
 def check_and_report():
     """Your monitoring/task logic here"""
     try:
         # TODO: Implement your monitoring logic
-        # Example: fetch data, check conditions, etc.
+        # Example: fetch data, check conditions, apply local filter
         
-        summary = "Event summary here"
-        details = "Detailed information here"
+        fetched_data = {}  # Replace with actual fetched data
+        passes_filter = True  # Replace with actual filter logic
+        filter_reason = "TODO: describe filter result"
+
+        # Dry run: print results and return (skip invoke)
+        if DRY_RUN:
+            dry_run_result(fetched_data, {'passed': passes_filter, 'reason': filter_reason}, passes_filter)
+            return
+
+        if not passes_filter:
+            print(f"[{SERVICE_ID}] {filter_reason}, skipping")
+            return
         
-        result = invoke(summary, details)
+        result = invoke(
+            context=CONTEXT,
+            summary="Event summary here",
+            details="Detailed information here"
+        )
         print(f"Invoke result: {result}")
     except Exception as e:
         print(f"Error: {e}")
+        if DRY_RUN:
+            raise  # Let dry run fail visibly
 `
 
   if (type === 'longRunning') {
     return baseTemplate + `
 
-# Long-running service: runs continuously
+# ============ ENTRY POINT ============
 INTERVAL_SECONDS = 60  # Check every minute
 
 if __name__ == "__main__":
-    print(f"[Service:{SERVICE_ID}] Starting long-running service...")
-    
-    while True:
-        check_and_report()
-        time.sleep(INTERVAL_SECONDS)
+    if DRY_RUN:
+        print(f"[{SERVICE_ID}] Running in DRY RUN mode...")
+        try:
+            check_and_report()
+        except Exception as e:
+            print(f"[{SERVICE_ID}] Dry run failed: {e}")
+            exit(1)
+    else:
+        print(f"[Service:{SERVICE_ID}] Starting long-running service...")
+        while True:
+            check_and_report()
+            time.sleep(INTERVAL_SECONDS)
 `
   } else {
     return baseTemplate + `
 
-# Scheduled service: runs once per invocation
+# ============ ENTRY POINT ============
 if __name__ == "__main__":
-    print(f"[Service:{SERVICE_ID}] Running scheduled task...")
-    check_and_report()
-    print(f"[Service:{SERVICE_ID}] Task completed")
+    if DRY_RUN:
+        print(f"[{SERVICE_ID}] Running in DRY RUN mode...")
+        try:
+            check_and_report()
+        except Exception as e:
+            print(f"[{SERVICE_ID}] Dry run failed: {e}")
+            exit(1)
+    else:
+        print(f"[Service:{SERVICE_ID}] Running scheduled task...")
+        check_and_report()
+        print(f"[Service:{SERVICE_ID}] Task completed")
 `
   }
 }

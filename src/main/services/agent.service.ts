@@ -118,7 +118,7 @@ export class AgentService {
   private currentPlatform: MessagePlatform = 'none'
   private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
   private contextLoadedForChatId: string | null = null // Track which chatId's context is loaded (for per-chat isolation)
-  private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from
+  private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from (persisted to disk)
   private processingLock: MessagePlatform | null = null // Global lock for processMessage - only one platform at a time
   private activityLog: AgentActivityItem[] = [] // Track agent activity for UI display
   private activityIdCounter = 0 // Counter for generating unique activity IDs
@@ -142,6 +142,37 @@ export class AgentService {
    */
   getRecentReplyPlatform(): MessagePlatform {
     return this.recentReplyPlatform
+  }
+
+  /**
+   * Load persisted recent reply platform from disk (call during init)
+   */
+  async loadPersistedRecentPlatform(): Promise<void> {
+    try {
+      const { app } = await import('electron')
+      const filePath = path.join(app.getPath('userData'), 'recent-platform.json')
+      const content = await fs.readFile(filePath, 'utf-8')
+      const data = JSON.parse(content)
+      if (data.platform && data.platform !== 'none') {
+        this.recentReplyPlatform = data.platform
+        console.log(`[Agent] Restored recent reply platform: ${data.platform}`)
+      }
+    } catch {
+      // File doesn't exist yet — first launch
+    }
+  }
+
+  /**
+   * Persist recent reply platform to disk
+   */
+  private async persistRecentPlatform(platform: MessagePlatform): Promise<void> {
+    try {
+      const { app } = await import('electron')
+      const filePath = path.join(app.getPath('userData'), 'recent-platform.json')
+      await fs.writeFile(filePath, JSON.stringify({ platform, updatedAt: new Date().toISOString() }))
+    } catch {
+      // Non-critical, ignore
+    }
   }
 
   /**
@@ -771,9 +802,10 @@ export class AgentService {
     // Clear activity log for new processing session
     this.clearActivityLog()
     
-    // Track the platform the user most recently sent a message from
+    // Track the platform the user most recently sent a message from (persist to disk)
     if (platform !== 'none') {
       this.recentReplyPlatform = platform
+      this.persistRecentPlatform(platform)
     }
 
     try {

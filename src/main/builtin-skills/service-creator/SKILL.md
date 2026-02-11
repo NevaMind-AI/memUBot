@@ -7,6 +7,21 @@ description: Guide for creating background monitoring services that can proactiv
 
 This skill guides you on how to create background services that monitor data and proactively notify users.
 
+**Reference documents directory**: `{{SKILL_DIR}}/reference/`
+
+When you need detailed information on a specific topic below, use `read_file` to load the corresponding reference document. Do NOT read all references upfront — only load what you need for the current step.
+
+| Reference File | When to Read |
+|----------------|--------------|
+| `reference/architecture.md` | Before designing a new service's filtering logic |
+| `reference/dry-run.md` | When implementing dry run mode or verifying dry run output |
+| `reference/modification.md` | When modifying an existing service |
+| `reference/guidelines.md` | For best practices and example conversations |
+| `reference/templates-minimal.md` | When writing service code (recommended starting point) |
+| `reference/templates-stock-monitor.md` | When building a data-monitoring service with local filtering |
+| `reference/templates-python-monitor.md` | When building a Python monitoring service |
+| `reference/templates-reminder.md` | When building a reminder/time-based service |
+
 ## When to Use
 
 Create a service when the user asks you to:
@@ -21,37 +36,10 @@ Create a service when the user asks you to:
 - "Check my server status every 5 minutes"
 - "Monitor this folder for new files"
 
-## Architecture: Two-Layer Filtering
+## Architecture Overview
 
-**CRITICAL: Services must implement local rule filtering BEFORE calling the invoke API.**
-
-```
-Data Source → Local Rules Filter → (passes?) → Invoke API → LLM Evaluation → User
-                    ↓ (fails)
-                 Discard silently
-```
-
-### Why Two Layers?
-
-1. **Local Rules (Fast, Free)**: Quick algorithmic checks that filter out 99% of irrelevant data
-2. **LLM Evaluation (Smart, Costly)**: Intelligent judgment for edge cases that pass local rules
-
-### Example: Stock Monitoring
-
-User: "Monitor AAPL, notify me if it drops more than 5%"
-
-**Layer 1 - Local Rules** (in service code):
-- Calculate price change percentage
-- Only proceed if change > 3% (slightly lower threshold as buffer)
-
-**Layer 2 - LLM Evaluation** (via invoke API):
-- LLM receives: "AAPL dropped 4.2% in the last hour"
-- LLM decides: Should this trigger a notification? (Yes, it's close to 5% and significant)
-
-This way:
-- Normal 0.5% fluctuations → filtered locally, no LLM call
-- 4.2% drop → passes local filter, LLM makes final decision
-- Saves 95%+ of LLM calls while maintaining intelligent judgment
+Services use a **two-layer filtering** pattern: Local Rules Filter → Invoke API (LLM Evaluation).
+Read `reference/architecture.md` for full details when designing filter logic.
 
 ## Service Creation Workflow
 
@@ -87,424 +75,54 @@ Use the `service_create` tool with:
 
 After creating the service, write the code to the returned `servicePath`.
 
+**Before writing code**: Read `reference/templates-minimal.md` for the recommended pattern. For more complex scenarios, read the appropriate full template.
+
+**Pre-built invoke helper**: The `service_create` tool automatically generates an invoke helper file in the service directory:
+- **Node.js**: `invoke.js` — use `const { invoke, dryRunResult, DRY_RUN, SERVICE_ID } = require('./invoke');`
+- **Python**: `invoke.py` — use `from invoke import invoke, dry_run_result, DRY_RUN, SERVICE_ID`
+
+**Invoke API uses named parameters** (NOT positional args):
+- **Node.js**: `await invoke({ context: CONTEXT, summary: '...', details: '...', metadata: {} })`
+- **Python**: `invoke(context=CONTEXT, summary='...', details='...', metadata={})`
+
+This eliminates the need to copy-paste the invoke boilerplate. Just import and use it.
+
 **CRITICAL: Service Code Requirements**
 
 1. **Service lifecycle depends on type**:
    - `longRunning`: Never exit - keep running indefinitely with `setInterval`
    - `scheduled`: Exit with `process.exit(0)` after task completion (e.g., reminder sent, N executions done)
-2. **Implement local filtering first** - Use algorithms/rules to filter data before calling API
-3. **Set appropriate thresholds** - Use slightly lower thresholds than user specified to catch edge cases
-4. **Only call invoke when conditions are potentially met** - Save LLM tokens for important decisions
-5. **Include context** - Pass the user's original request and expectations to LLM
-6. **Validate external API responses** - Always check HTTP status code AND response structure before accessing nested properties. External APIs may return rate limit errors, unexpected JSON, or HTML error pages.
-7. **Handle errors gracefully** - Wrap all API calls in try-catch and log meaningful error messages. Don't let the service crash due to temporary API failures.
-8. **Respect rate limits** - Free APIs often have rate limits (e.g., 10-30 requests/minute). Don't poll too frequently.
+2. **Use the pre-built invoke helper** - Import from `./invoke` instead of writing your own HTTP client
+3. **Implement local filtering first** - Use algorithms/rules to filter data before calling API
+4. **Set appropriate thresholds** - Use slightly lower thresholds than user specified to catch edge cases
+5. **Only call invoke when conditions are potentially met** - Save LLM tokens for important decisions
+6. **Include context** - Pass the user's original request and expectations to LLM
+7. **Validate external API responses** - Always check HTTP status code AND response structure before accessing nested properties. External APIs may return rate limit errors, unexpected JSON, or HTML error pages.
+8. **Handle errors gracefully** - Wrap all API calls in try-catch and log meaningful error messages. Don't let the service crash due to temporary API failures.
+9. **Respect rate limits** - Free APIs often have rate limits (e.g., 10-30 requests/minute). Don't poll too frequently.
+10. **Implement dry run mode** - The service MUST support dry run mode. Read `reference/dry-run.md` for the specification and patterns.
+11. **Only use built-in modules** - Only use Node.js or Python standard library modules (http, https, fs, os, json, urllib, etc.). Do NOT use third-party packages (no axios, requests, cheerio, etc.) to avoid dependency issues.
 
 **IMPORTANT**: Use `setInterval()` (Node.js) or loops (Python) to keep the service running. For `scheduled` type, call `process.exit(0)` when the task is complete.
 
-### Step 3: Start the Service
+### Step 3: Verify with Dry Run (MANDATORY)
 
-Use `service_start` with the serviceId to start the service.
+After writing the service code, you MUST run `service_dry_run` to verify it works. Read `reference/dry-run.md` for full verification criteria, iteration rules, and failure handling.
+
+### Step 4: Start the Service
+
+Only after a successful dry run, use `service_start` with the serviceId to start the service.
 
 ## Modifying Existing Services
 
-When the user asks to change an existing service, you must keep **three data sources in sync**:
-
-| Location | Contains | Purpose |
-|----------|----------|---------|
-| Service code (logic) | Actual parameters, thresholds, targets | Runtime behavior |
-| Service code (`CONTEXT`) | `userRequest`, `expectation` | Sent to invoke API |
-| `service.json` | `context` object | Service metadata |
-
-### The Synchronization Rule
-
-**Any change to user requirements must be reflected in ALL three locations.**
-
-The `invoke` API uses `context.userRequest` and `context.expectation` for LLM evaluation. If these don't match the actual service behavior:
-- The LLM may reject valid notifications (outdated context suggests different criteria)
-- The LLM may approve invalid notifications (context doesn't reflect current logic)
-
-### Common Modification Scenarios
-
-| User Request | Code Logic | CONTEXT.userRequest | CONTEXT.expectation |
-|--------------|------------|---------------------|---------------------|
-| "Change to 5pm" | Update time constant | Update to mention 5pm | Update target time |
-| "Make it 3% instead" | Update threshold variable | Update percentage mentioned | Update threshold description |
-| "Monitor BTC instead of ETH" | Update asset symbol | Update asset name | Update what to monitor |
-| "Check every 10 minutes" | Update interval | Update frequency mentioned | Update check interval |
-| "Only notify on drops" | Update condition logic | Update trigger description | Update notification criteria |
-
-### Modification Workflow
-
-1. **Stop**: `service_stop` to halt the running service
-2. **Update code**: Use `str_replace_editor` to modify:
-   - The actual logic/parameters
-   - The `CONTEXT` object (`userRequest` and `expectation`)
-3. **Update metadata**: Use `str_replace_editor` on `service.json` to update the `context` field
-4. **Restart**: `service_start` to apply changes
-
-### Key Principle
-
-Think of it this way: if someone reads `service.json` or the `CONTEXT` in code, they should understand **exactly** what the service currently does - not what it was originally created to do.
-
-## Code Templates
-
-### Node.js Stock Monitor (with Local Filtering)
-
-```javascript
-const http = require('http');
-const https = require('https');
-
-const SERVICE_ID = process.env.MEMU_SERVICE_ID;
-const API_URL = process.env.MEMU_API_URL || 'http://127.0.0.1:31415';
-
-// User's original request
-const CONTEXT = {
-  userRequest: "Monitor AAPL stock, notify me if it drops more than 5%",
-  expectation: "Notify when AAPL price drops more than 5% from reference price",
-  notifyPlatform: "telegram"
-};
-
-// ============ LOCAL FILTERING CONFIG ============
-// Set threshold slightly lower than user's requirement (5% -> 3%)
-// This allows LLM to make judgment calls on edge cases
-const LOCAL_THRESHOLD_PERCENT = 3.0;
-let referencePrice = null;
-let lastNotifiedPrice = null;
-
-// ============ INVOKE API ============
-async function invoke(summary, details, metadata = {}) {
-  const payload = {
-    context: CONTEXT,
-    data: { summary, details, timestamp: new Date().toISOString(), metadata },
-    serviceId: SERVICE_ID
-  };
-
-  return new Promise((resolve, reject) => {
-    const url = new URL('/api/v1/invoke', API_URL);
-    const req = http.request({
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
-    });
-    req.on('error', reject);
-    req.write(JSON.stringify(payload));
-    req.end();
-  });
-}
-
-// ============ DATA FETCHING ============
-// IMPORTANT: Always validate API responses! External APIs may return:
-// - Rate limit errors (429)
-// - Unexpected JSON structure
-// - HTML error pages instead of JSON
-async function fetchStockPrice(symbol) {
-  // Example using a free API (replace with your preferred source)
-  return new Promise((resolve, reject) => {
-    https.get(`https://api.example.com/stock/${symbol}/price`, (res) => {
-      // Check HTTP status first
-      if (res.statusCode !== 200) {
-        reject(new Error(`API returned status ${res.statusCode}`));
-        return;
-      }
-      
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const json = JSON.parse(data);
-          
-          // CRITICAL: Validate response structure before accessing nested properties
-          if (!json || typeof json.price === 'undefined') {
-            reject(new Error(`Invalid API response: missing 'price' field. Got: ${data.substring(0, 100)}`));
-            return;
-          }
-          
-          resolve(json.price);
-        } catch (e) {
-          // JSON parse failed - API might have returned HTML error page
-          reject(new Error(`Failed to parse API response: ${e.message}. Raw: ${data.substring(0, 100)}`));
-        }
-      });
-    }).on('error', reject);
-  });
-}
-
-// ============ MAIN LOGIC WITH LOCAL FILTERING ============
-async function checkAndReport() {
-  try {
-    const currentPrice = await fetchStockPrice('AAPL');
-    console.log(`[${SERVICE_ID}] AAPL: $${currentPrice}`);
-    
-    // Initialize reference price on first run
-    if (referencePrice === null) {
-      referencePrice = currentPrice;
-      console.log(`[${SERVICE_ID}] Reference price set: $${referencePrice}`);
-      return;
-    }
-    
-    // Calculate change percentage
-    const changePercent = ((currentPrice - referencePrice) / referencePrice) * 100;
-    
-    // ====== LOCAL FILTER ======
-    // Only call LLM if change exceeds local threshold
-    if (Math.abs(changePercent) < LOCAL_THRESHOLD_PERCENT) {
-      console.log(`[${SERVICE_ID}] Change ${changePercent.toFixed(2)}% - below threshold, skipping LLM`);
-      return; // Don't waste LLM tokens on small fluctuations
-    }
-    
-    // Avoid duplicate notifications for same price level
-    if (lastNotifiedPrice && Math.abs(currentPrice - lastNotifiedPrice) < 1) {
-      console.log(`[${SERVICE_ID}] Already notified at similar price, skipping`);
-      return;
-    }
-    
-    // ====== PASSES LOCAL FILTER - CALL LLM ======
-    console.log(`[${SERVICE_ID}] Change ${changePercent.toFixed(2)}% - calling LLM for evaluation`);
-    
-    const summary = `AAPL ${changePercent > 0 ? 'rose' : 'dropped'} ${Math.abs(changePercent).toFixed(2)}%`;
-    const details = `Current: $${currentPrice.toFixed(2)}, Reference: $${referencePrice.toFixed(2)}`;
-    
-    const result = await invoke(summary, details, {
-      symbol: 'AAPL',
-      currentPrice,
-      referencePrice,
-      changePercent
-    });
-    
-    console.log(`[${SERVICE_ID}] LLM decision: ${result.data?.action}`);
-    
-    if (result.data?.action === 'notified') {
-      lastNotifiedPrice = currentPrice;
-    }
-  } catch (error) {
-    console.error(`[${SERVICE_ID}] Error:`, error.message);
-  }
-}
-
-// Run every 60 seconds
-console.log(`[${SERVICE_ID}] Starting stock monitor...`);
-checkAndReport();
-setInterval(checkAndReport, 60000);
-```
-
-### Python with Local Filtering
-
-```python
-#!/usr/bin/env python3
-import os
-import json
-import urllib.request
-import time
-from datetime import datetime
-
-SERVICE_ID = os.environ.get('MEMU_SERVICE_ID', 'unknown')
-API_URL = os.environ.get('MEMU_API_URL', 'http://127.0.0.1:31415')
-
-CONTEXT = {
-    "userRequest": "Monitor server CPU, notify if over 80%",
-    "expectation": "Notify when CPU usage exceeds 80%",
-    "notifyPlatform": "telegram"
-}
-
-# ============ LOCAL FILTERING CONFIG ============
-# Set threshold lower than user's requirement (80% -> 70%)
-LOCAL_THRESHOLD = 70
-last_notified_at = None
-COOLDOWN_SECONDS = 300  # Don't notify more than once per 5 minutes
-
-def invoke(summary, details="", metadata=None):
-    payload = {
-        "context": CONTEXT,
-        "data": {
-            "summary": summary,
-            "details": details,
-            "timestamp": datetime.now().isoformat(),
-            "metadata": metadata or {}
-        },
-        "serviceId": SERVICE_ID
-    }
-    
-    req = urllib.request.Request(
-        f"{API_URL}/api/v1/invoke",
-        data=json.dumps(payload).encode(),
-        headers={'Content-Type': 'application/json'},
-        method='POST'
-    )
-    
-    with urllib.request.urlopen(req) as response:
-        return json.loads(response.read())
-
-def get_cpu_usage():
-    # Implement your CPU monitoring logic
-    # Example: return psutil.cpu_percent()
-    return 75.5  # placeholder
-
-def check_and_report():
-    global last_notified_at
-    
-    cpu = get_cpu_usage()
-    print(f"[{SERVICE_ID}] CPU: {cpu}%")
-    
-    # ====== LOCAL FILTER ======
-    if cpu < LOCAL_THRESHOLD:
-        print(f"[{SERVICE_ID}] Below threshold ({LOCAL_THRESHOLD}%), skipping LLM")
-        return
-    
-    # Cooldown check
-    if last_notified_at:
-        elapsed = time.time() - last_notified_at
-        if elapsed < COOLDOWN_SECONDS:
-            print(f"[{SERVICE_ID}] In cooldown period, skipping")
-            return
-    
-    # ====== PASSES LOCAL FILTER - CALL LLM ======
-    print(f"[{SERVICE_ID}] CPU {cpu}% - calling LLM for evaluation")
-    
-    result = invoke(
-        summary=f"Server CPU at {cpu}%",
-        details=f"CPU usage has reached {cpu}%, which is above the monitoring threshold.",
-        metadata={"cpu_percent": cpu}
-    )
-    
-    print(f"[{SERVICE_ID}] LLM decision: {result.get('data', {}).get('action')}")
-    
-    if result.get('data', {}).get('action') == 'notified':
-        last_notified_at = time.time()
-
-if __name__ == "__main__":
-    print(f"[{SERVICE_ID}] Starting CPU monitor...")
-    while True:
-        check_and_report()
-        time.sleep(30)  # Check every 30 seconds
-```
-
-### Node.js Simple Reminder Service
-
-```javascript
-// Simple reminder service - runs periodically and notifies user
-const http = require('http');
-
-const SERVICE_ID = process.env.MEMU_SERVICE_ID;
-const API_URL = process.env.MEMU_API_URL || 'http://127.0.0.1:31415';
-const INTERVAL_MINUTES = 15; // Reminder interval
-
-const CONTEXT = {
-  userRequest: "Remind me to drink water every 15 minutes",
-  expectation: "Send a reminder notification every 15 minutes",
-  notifyPlatform: "telegram"
-};
-
-async function invoke(summary, details = "", metadata = {}) {
-  const payload = {
-    context: CONTEXT,
-    data: { summary, details, timestamp: new Date().toISOString(), metadata },
-    serviceId: SERVICE_ID
-  };
-
-  return new Promise((resolve, reject) => {
-    const url = new URL('/api/v1/invoke', API_URL);
-    const req = http.request({
-      hostname: url.hostname,
-      port: url.port,
-      path: url.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
-    }, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve(JSON.parse(data)));
-    });
-    req.on('error', reject);
-    req.write(JSON.stringify(payload));
-    req.end();
-  });
-}
-
-async function sendReminder() {
-  try {
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    
-    console.log(`[${SERVICE_ID}] Sending reminder at ${timeStr}`);
-    
-    const result = await invoke(
-      "💧 Time to drink water!",
-      `Current time: ${timeStr}. Stay hydrated!`,
-      { time: timeStr }
-    );
-    
-    console.log(`[${SERVICE_ID}] Result: ${result.data?.action}`);
-  } catch (error) {
-    console.error(`[${SERVICE_ID}] Error:`, error.message);
-  }
-}
-
-// Start the service - MUST keep running!
-console.log(`[${SERVICE_ID}] Reminder service started`);
-console.log(`[${SERVICE_ID}] Will remind every ${INTERVAL_MINUTES} minutes`);
-
-// Send first reminder
-sendReminder();
-
-// Keep running with setInterval - THIS IS REQUIRED!
-setInterval(sendReminder, INTERVAL_MINUTES * 60 * 1000);
-```
-
-## Important Guidelines
-
-1. **Local Filtering First**: Always implement rule-based filtering before calling invoke API
-   - Use thresholds slightly lower than user's requirement (80% → 70%)
-   - This allows LLM to catch edge cases while saving tokens
-
-2. **Avoid Notification Spam**: Implement cooldown periods and deduplication
-   - Track last notified state
-   - Don't notify repeatedly for same condition
-
-3. **Preserve User Intent**: Copy the user's exact words into `userRequest`
-
-4. **Clear Expectations**: Write specific, measurable expectations
-
-5. **Appropriate Intervals**: 
-   - High-frequency data (stocks): Check every 30-60 seconds, but filter aggressively
-   - Medium-frequency (servers): Check every 1-5 minutes
-   - Low-frequency (daily reports): Use scheduled type
-
-6. **Error Handling**: Services should handle errors gracefully and continue running
+When modifying a service, read `reference/modification.md` first — it describes the critical synchronization rules between code, CONTEXT, and service.json.
 
 ## Available Tools
 
 - `service_create` - Create a new service
+- `service_dry_run` - **Run a service in dry-run mode to verify it works (MANDATORY before starting)**
 - `service_list` - List all services and their status
-- `service_start` - Start a service
+- `service_start` - Start a service (only after successful dry run)
 - `service_stop` - Stop a service
 - `service_delete` - Delete a service
 - `service_get_info` - Get detailed service information
-
-## Example Conversation
-
-**User**: "Help me monitor Bitcoin price, notify me if it goes above $50,000"
-
-**You should**:
-1. Use `service_create` with:
-   - name: "Bitcoin Price Monitor"
-   - type: "longRunning" 
-   - runtime: "node"
-   - userRequest: "Help me monitor Bitcoin price, notify me if it goes above $50,000"
-   - expectation: "Notify when Bitcoin price exceeds $50,000 USD"
-
-2. Write code that:
-   - Fetches BTC price from an API
-   - **Local filter**: Only call invoke if price > $48,000 (threshold buffer)
-   - **LLM evaluation**: Let LLM make final decision on edge cases
-   - Tracks last notified price to avoid spam
-
-3. Start the service with `service_start`
-
-4. Confirm to user: "I've created a Bitcoin price monitor. It checks the price every minute and will notify you when it approaches or exceeds $50,000."

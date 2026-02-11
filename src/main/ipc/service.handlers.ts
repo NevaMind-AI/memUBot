@@ -1,6 +1,6 @@
 import { ipcMain, shell } from 'electron'
 import * as fs from 'fs/promises'
-import { serviceManagerService } from '../services/service-manager.service'
+import { serviceManager } from '../services/back-service'
 
 /**
  * Setup IPC handlers for service management
@@ -9,7 +9,7 @@ export function setupServiceHandlers(): void {
   // List all services
   ipcMain.handle('service:list', async () => {
     try {
-      const services = await serviceManagerService.listServices()
+      const services = await serviceManager.listServices()
       console.log('[Service IPC] Listing services:', services.length, 'found')
       return { success: true, data: services }
     } catch (error) {
@@ -21,7 +21,7 @@ export function setupServiceHandlers(): void {
   // Get service info
   ipcMain.handle('service:get', async (_, serviceId: string) => {
     try {
-      const service = await serviceManagerService.getService(serviceId)
+      const service = await serviceManager.getService(serviceId)
       if (service) {
         return { success: true, data: service }
       }
@@ -36,7 +36,7 @@ export function setupServiceHandlers(): void {
   ipcMain.handle('service:start', async (_, serviceId: string) => {
     try {
       // When user manually starts, enable auto-start
-      const result = await serviceManagerService.startService(serviceId, { enableAutoStart: true })
+      const result = await serviceManager.startService(serviceId, { enableAutoStart: true })
       return result
     } catch (error) {
       console.error('[Service IPC] Failed to start service:', error)
@@ -48,7 +48,7 @@ export function setupServiceHandlers(): void {
   ipcMain.handle('service:stop', async (_, serviceId: string) => {
     try {
       // When user manually stops, disable auto-start
-      const result = await serviceManagerService.stopService(serviceId, { disableAutoStart: true })
+      const result = await serviceManager.stopService(serviceId, { disableAutoStart: true })
       return result
     } catch (error) {
       console.error('[Service IPC] Failed to stop service:', error)
@@ -59,7 +59,7 @@ export function setupServiceHandlers(): void {
   // Delete a service
   ipcMain.handle('service:delete', async (_, serviceId: string) => {
     try {
-      const result = await serviceManagerService.deleteService(serviceId)
+      const result = await serviceManager.deleteService(serviceId)
       return result
     } catch (error) {
       console.error('[Service IPC] Failed to delete service:', error)
@@ -70,7 +70,7 @@ export function setupServiceHandlers(): void {
   // Get services directory path
   ipcMain.handle('service:get-dir', async () => {
     try {
-      const dir = serviceManagerService.getServicesDir()
+      const dir = serviceManager.getServicesDir()
       return { success: true, data: dir }
     } catch (error) {
       console.error('[Service IPC] Failed to get services dir:', error)
@@ -81,7 +81,7 @@ export function setupServiceHandlers(): void {
   // Open services directory in file explorer
   ipcMain.handle('service:open-dir', async () => {
     try {
-      const dir = serviceManagerService.getServicesDir()
+      const dir = serviceManager.getServicesDir()
       // Ensure directory exists before opening
       await fs.mkdir(dir, { recursive: true })
       await shell.openPath(dir)

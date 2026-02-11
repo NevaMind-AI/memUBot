@@ -11,8 +11,7 @@ import { mcpService } from './services/mcp.service'
 import { autoConnectService } from './services/autoconnect'
 import { loggerService } from './services/logger.service'
 import { proactiveService } from './services/proactive.service'
-import { localApiService } from './services/local-api.service'
-import { serviceManagerService } from './services/service-manager.service'
+import { localApiService, serviceManager } from './services/back-service'
 import { analyticsService, trackAppStart } from './services/analytics.service'
 import { getAuthService } from './services/auth'
 import { pathToFileURL } from 'url'
@@ -281,6 +280,14 @@ async function initializeServicesAsync(): Promise<void> {
     progress: 85
   })
 
+  // Restore persisted recent reply platform (#8) before starting API & services
+  try {
+    const { agentService } = await import('./services/agent.service')
+    await agentService.loadPersistedRecentPlatform()
+  } catch (error) {
+    console.error('[App] Failed to restore recent platform:', error)
+  }
+
   try {
     const apiStarted = await localApiService.start()
     if (apiStarted) {
@@ -300,8 +307,8 @@ async function initializeServicesAsync(): Promise<void> {
   })
 
   try {
-    await serviceManagerService.startAllServices()
-    console.log(`[App] User services started (${serviceManagerService.getRunningCount()} running)`)
+    await serviceManager.startAllServices()
+    console.log(`[App] User services started (${serviceManager.getRunningCount()} running)`)
   } catch (error) {
     console.error('[App] Failed to start user services:', error)
   }
@@ -330,7 +337,7 @@ app.on('will-quit', async () => {
   proactiveService.stop()
   
   // Stop all user services
-  await serviceManagerService.stopAllServices()
+  await serviceManager.stopAllServices()
   
   // Stop local API server
   await localApiService.stop()

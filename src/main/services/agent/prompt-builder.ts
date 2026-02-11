@@ -3,7 +3,7 @@ import * as fs from 'fs/promises'
 import { loadSettings } from '../../config/settings.config'
 import { isMacOS } from '../../tools/macos/definitions'
 import { skillsService } from '../skills.service'
-import { serviceManagerService } from '../service-manager.service'
+import { serviceManager } from '../back-service'
 import { getDefaultOutputDir } from './utils'
 import {
   getSystemPrompt,
@@ -91,6 +91,17 @@ Timezone: ${timezone} (${tzString})`
 }
 
 /**
+ * Load a skill file and inject the skill directory path,
+ * so the Agent can resolve reference file paths at runtime.
+ */
+async function loadSkillWithBasePath(skillPath: string): Promise<string> {
+  const content = await fs.readFile(skillPath, 'utf-8')
+  const skillDir = path.dirname(skillPath)
+  // Replace the placeholder with the actual skill directory path
+  return content.replace(/\{\{SKILL_DIR\}\}/g, skillDir)
+}
+
+/**
  * Get system prompt for a specific platform
  */
 export async function getSystemPromptForPlatform(platform: MessagePlatform): Promise<string> {
@@ -150,7 +161,7 @@ When creating or saving files (images, documents, code, etc.), use the following
   basePrompt += outputDirInstruction
 
   // Append service workspace info
-  const servicesDir = serviceManagerService.getServicesDir()
+  const servicesDir = serviceManager.getServicesDir()
   basePrompt += `
 
 ## Service Workspace
@@ -166,14 +177,14 @@ Services should call the local API at http://127.0.0.1:31415/api/v1/invoke to re
     try {
       const builtinSkillsDir = path.join(__dirname, '../../builtin-skills')
       const builtinSkillPath = path.join(builtinSkillsDir, skillName, 'SKILL.md')
-      const builtinContent = await fs.readFile(builtinSkillPath, 'utf-8')
+      const builtinContent = await loadSkillWithBasePath(builtinSkillPath)
       basePrompt += '\n\n' + builtinContent
       console.log(`[Agent] Loaded builtin skill: ${skillName}`)
     } catch {
       // Builtin skills may not exist in dev mode, try src path
       try {
         const devSkillPath = path.join(process.cwd(), 'src/main/builtin-skills', skillName, 'SKILL.md')
-        const devContent = await fs.readFile(devSkillPath, 'utf-8')
+        const devContent = await loadSkillWithBasePath(devSkillPath)
         basePrompt += '\n\n' + devContent
         console.log(`[Agent] Loaded builtin skill from dev path: ${skillName}`)
       } catch {
