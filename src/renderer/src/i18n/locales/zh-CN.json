@@ -88,6 +88,7 @@
       "skills": "Skills",
       "services": "后台服务",
       "data": "数据",
+      "power": "电源",
       "experimental": "实验性功能",
       "about": "关于"
     },
@@ -362,6 +363,17 @@
       "schedule": "执行计划",
       "notifyVia": "通知渠道",
       "created": "创建时间"
+    },
+    "power": {
+      "title": "电源设置",
+      "description": "管理电源和休眠设置",
+      "preventSleep": {
+        "title": "阻止系统休眠",
+        "description": "在应用运行时保持系统唤醒状态。这确保后台任务（如消息监控和定时服务）能够持续运行。",
+        "hint": "屏幕仍可关闭，但系统不会进入休眠模式",
+        "enabled": "休眠阻止已启用",
+        "enabledHint": "在应用运行期间，您的电脑将保持唤醒状态"
+      }
     },
     "experimental": {
       "title": "实验性功能",

@@ -147,6 +147,23 @@ export function setupSettingsHandlers(): void {
             // Don't fail the save operation
           }
         }
+
+        // Check if preventSleep setting changed
+        if (updates.preventSleep !== undefined) {
+          try {
+            const { powerService } = await import('../services/power.service')
+            if (updates.preventSleep) {
+              powerService.start('prevent-app-suspension')
+              console.log('[Settings] Power save blocker enabled')
+            } else {
+              powerService.stop()
+              console.log('[Settings] Power save blocker disabled')
+            }
+          } catch (err) {
+            console.error('[Settings] Failed to update power service:', err)
+            // Don't fail the save operation
+          }
+        }
         
         return { success: true }
       } catch (error) {

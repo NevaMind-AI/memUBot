@@ -88,6 +88,7 @@
       "skills": "Skills",
       "services": "Services",
       "data": "Data",
+      "power": "Power",
       "experimental": "Experimental",
       "about": "About"
     },
@@ -364,6 +365,17 @@
       "schedule": "Schedule",
       "notifyVia": "Notify via",
       "created": "Created"
+    },
+    "power": {
+      "title": "Power Settings",
+      "description": "Manage power and sleep settings",
+      "preventSleep": {
+        "title": "Prevent System Sleep",
+        "description": "Keep the system awake while the app is running. This ensures background tasks like message monitoring and scheduled services continue to work.",
+        "hint": "The screen can still turn off, but the system will not enter sleep mode",
+        "enabled": "Sleep prevention is active",
+        "enabledHint": "Your computer will stay awake while this app is running"
+      }
     },
     "experimental": {
       "title": "Experimental Features",

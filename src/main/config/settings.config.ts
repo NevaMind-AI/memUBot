@@ -113,6 +113,9 @@ export interface AppSettings {
 
   // Search settings
   tavilyApiKey: string
+
+  // Power settings
+  preventSleep: boolean
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -180,7 +183,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   showAgentActivity: false,
 
   // Search settings
-  tavilyApiKey: ''
+  tavilyApiKey: '',
+
+  // Power settings
+  preventSleep: true
 }
 
 /**

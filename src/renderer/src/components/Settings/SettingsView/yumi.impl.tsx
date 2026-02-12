@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, Info, Database, Server, Sparkles, Play, FlaskConical, User } from 'lucide-react'
+import { Bot, Info, Database, Server, Sparkles, Play, FlaskConical, User, BatteryCharging } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AccountSettings } from '../AccountSettings'
 import { ModelSettings } from '../ModelSettings'
@@ -8,9 +8,10 @@ import { SkillsSettings } from '../SkillsSettings'
 import { ServicesSettings } from '../ServicesSettings'
 import { DataSettings } from '../DataSettings'
 import { ExperimentalSettings } from '../ExperimentalSettings'
+import { PowerSettings } from '../PowerSettings'
 import { AboutSettings } from '../AboutSettings'
 
-type SettingsTab = 'account' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'experimental' | 'about'
+type SettingsTab = 'account' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'power' | 'experimental' | 'about'
 
 export function YumiSettingsView(): JSX.Element {
   const { t } = useTranslation()
@@ -23,6 +24,7 @@ export function YumiSettingsView(): JSX.Element {
     { id: 'services' as const, icon: Play, labelKey: 'settings.tabs.services' },
     { id: 'mcp' as const, icon: Server, labelKey: 'settings.tabs.mcp' },
     { id: 'data' as const, icon: Database, labelKey: 'settings.tabs.data' },
+    { id: 'power' as const, icon: BatteryCharging, labelKey: 'settings.tabs.power' },
     { id: 'experimental' as const, icon: FlaskConical, labelKey: 'settings.tabs.experimental' },
     { id: 'about' as const, icon: Info, labelKey: 'settings.tabs.about' }
   ]
@@ -66,6 +68,7 @@ export function YumiSettingsView(): JSX.Element {
           {activeTab === 'services' && <ServicesSettings />}
           {activeTab === 'mcp' && <McpSettings />}
           {activeTab === 'data' && <DataSettings />}
+          {activeTab === 'power' && <PowerSettings />}
           {activeTab === 'experimental' && <ExperimentalSettings />}
           {activeTab === 'about' && <AboutSettings />}
         </div>

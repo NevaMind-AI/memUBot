@@ -17,6 +17,7 @@ import { getAuthService } from './services/auth'
 import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
 import { requestAllPermissions } from './utils/permissions'
+import { powerService } from './services/power.service'
 
 // Initialize shell environment early (before any external processes are spawned)
 // This ensures npx, node, etc. are available in packaged apps
@@ -185,6 +186,19 @@ async function initializeServicesAsync(): Promise<void> {
     progress: 10
   })
 
+  // Start power save blocker based on settings
+  try {
+    const { loadSettings } = await import('./config/settings.config')
+    const settings = await loadSettings()
+    if (settings.preventSleep !== false) {
+      powerService.start('prevent-app-suspension')
+    }
+  } catch (error) {
+    // Default to preventing sleep if settings fail to load
+    powerService.start('prevent-app-suspension')
+    console.error('[App] Failed to load power settings, defaulting to prevent sleep:', error)
+  }
+
   // Ensure agent output directory exists
   const agentOutputDir = join(app.getPath('userData'), 'agent-output')
   try {
@@ -333,6 +347,9 @@ app.on('window-all-closed', () => {
 
 // Cleanup on quit
 app.on('will-quit', async () => {
+  // Stop power save blocker
+  powerService.stop()
+
   // Stop proactive service
   proactiveService.stop()
   
