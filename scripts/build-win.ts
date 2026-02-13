@@ -27,9 +27,21 @@ async function run(command: string, args: string[], cwd: string): Promise<void> 
   })
 }
 
+function parseModeArg(): string {
+  // Support: tsx build-win.ts --mode yumi  OR  tsx build-win.ts yumi
+  const args = process.argv.slice(2)
+  const modeIdx = args.indexOf('--mode')
+  if (modeIdx !== -1 && args[modeIdx + 1]) return args[modeIdx + 1]
+  // First non-flag argument
+  const positional = args.find((a) => !a.startsWith('--'))
+  return positional || process.env.APP_MODE || 'memu'
+}
+
 async function main(): Promise<void> {
   const root = getProjectRoot()
-  const mode = process.env.APP_MODE || 'memu'
+  const mode = parseModeArg()
+  // Ensure APP_MODE is set for child processes (prepare-mode reads it)
+  process.env.APP_MODE = mode
 
   console.log(`Building for Windows (mode: ${mode})...`)
 

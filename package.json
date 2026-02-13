@@ -25,9 +25,9 @@
     "build:memu": "APP_MODE=memu electron-vite build --mode memu",
     "build:yumi": "APP_MODE=yumi electron-vite build --mode yumi",
     "build:memu:mac": "APP_MODE=memu tsx scripts/build-mac.ts",
-    "build:memu:win": "APP_MODE=memu tsx scripts/build-win.ts",
+    "build:memu:win": "tsx scripts/build-win.ts --mode memu",
     "build:yumi:mac": "APP_MODE=yumi tsx scripts/build-mac.ts",
-    "build:yumi:win": "APP_MODE=yumi tsx scripts/build-win.ts",
+    "build:yumi:win": "tsx scripts/build-win.ts --mode yumi",
     "prepare-mode": "tsx scripts/prepare-mode.ts"
   },
   "dependencies": {

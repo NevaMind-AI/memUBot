@@ -36,10 +36,12 @@ function requireEnv(name: string): string {
   return v
 }
 
-function parseArgs(argv: string[]): { force: boolean; skipBuild: boolean } {
+function parseArgs(argv: string[]): { force: boolean; skipBuild: boolean; mode: string } {
   const force = argv.includes('--force')
   const skipBuild = argv.includes('--skip-build')
-  return { force, skipBuild }
+  const modeIdx = argv.indexOf('--mode')
+  const mode = modeIdx !== -1 && argv[modeIdx + 1] ? argv[modeIdx + 1] : process.env.APP_MODE || 'memu'
+  return { force, skipBuild, mode }
 }
 
 function loadConfig(): ReleaseConfig {
@@ -172,12 +174,15 @@ async function invalidateCloudFront(cfg: ReleaseConfig, s3Key: string): Promise<
 }
 
 async function main(): Promise<void> {
-  const { force, skipBuild } = parseArgs(process.argv.slice(2))
+  const { force, skipBuild, mode } = parseArgs(process.argv.slice(2))
+  // Ensure APP_MODE is set for child processes
+  process.env.APP_MODE = mode
   const cfg = loadConfig()
   const root = getProjectRoot()
   const distDir = path.join(root, 'dist')
 
   console.log('memU bot release (windows)')
+  console.log(`- Mode: ${mode}`)
   console.log(`- S3 bucket: ${cfg.s3Bucket}`)
   console.log(`- S3 prefix: ${cfg.s3Prefix}`)
   console.log(`- CloudFront distribution: ${cfg.cloudFrontDistributionId}`)

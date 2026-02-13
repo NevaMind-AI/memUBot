@@ -5,9 +5,24 @@ directories:
 files:
   - '!**/.vscode/*'
   - '!src/*'
+  - '!scripts/*'
+  - '!modes/*'
+  - '!docs/*'
   - '!electron.vite.config.*'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # Sensitive & unnecessary files
+  - '!.env'
+  - '!.env.*'
+  - '!*.pem'
+  - '!*.key'
+  - '!.npmrc'
+  - '!.gitignore'
+  - '!electron-builder.yml'
+  - '!electron-builder.mode.json'
+  - '!build-windows.ps1'
+  - '!postcss.config.js'
+  - '!tailwind.config.js'
 asarUnpack:
   - resources/**
   # screenshot-desktop uses a batch file on Windows that must be unpacked from ASAR
