@@ -594,6 +594,7 @@ interface BillingApi {
   getBalance: () => Promise<IpcResponse<WalletBalanceResult>>
   createCheckout: (amountCents: number) => Promise<IpcResponse<CheckoutResult>>
   openCheckout: (url: string) => Promise<IpcResponse>
+  redeemCoupon: (couponCode: string) => Promise<IpcResponse>
 }
 
 declare global {

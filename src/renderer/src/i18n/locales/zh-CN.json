@@ -139,7 +139,15 @@
       "amountToAdd": "充值金额",
       "amountRange": "请输入 ${{min}} 到 ${{max}} 之间的金额",
       "continue": "继续",
-      "topUpError": "创建支付会话失败"
+      "topUpError": "创建支付会话失败",
+      "coupon": "优惠券",
+      "couponHint": "输入优惠券码兑换额度",
+      "couponPlaceholder": "请输入优惠券码",
+      "couponRedeem": "兑换",
+      "couponRedeeming": "兑换中...",
+      "couponSuccess": "优惠券兑换成功！",
+      "couponError": "优惠券兑换失败",
+      "couponEmpty": "请输入优惠券码"
     },
     "general": {
       "title": "通用设置",

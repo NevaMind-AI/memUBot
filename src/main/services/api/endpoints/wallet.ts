@@ -33,7 +33,8 @@ export interface CheckoutSessionResponse {
 
 const buildEndpoints = (organizationId: string) => ({
   BALANCE: `/api/v3/organizations/${organizationId}/wallet/balance`,
-  CHECKOUT: `/api/v3/organizations/${organizationId}/wallet/topup/checkout_sessions`
+  CHECKOUT: `/api/v3/organizations/${organizationId}/wallet/topup/checkout_sessions`,
+  COUPON: `/api/v3/organizations/${organizationId}/wallet/redeem-coupon`
 })
 
 // ============================================
@@ -114,4 +115,33 @@ export async function createCheckoutSession(
   })
 
   return response.data
+}
+
+/**
+ * Redeem a coupon code
+ * @param client The API client instance
+ * @param accessToken Firebase access token
+ * @param couponCode The coupon code to redeem
+ * @param organizationId Organization ID
+ * @returns API response (success means coupon applied)
+ */
+export async function redeemCoupon(
+  client: MemuApiClient,
+  accessToken: string,
+  couponCode: string,
+  organizationId: string
+): Promise<void> {
+  console.log('[MemuAPI:Wallet] Redeeming coupon...', { organizationId })
+
+  const endpoints = buildEndpoints(organizationId)
+  await client.request(endpoints.COUPON, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    },
+    body: { code: couponCode },
+    requiresCsrf: true
+  })
+
+  console.log('[MemuAPI:Wallet] Coupon redeemed successfully')
 }

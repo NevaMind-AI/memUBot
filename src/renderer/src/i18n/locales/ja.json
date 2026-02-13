@@ -139,7 +139,15 @@
       "amountToAdd": "追加金額",
       "amountRange": "${{min}} から ${{max}} の間で金額を入力してください",
       "continue": "続ける",
-      "topUpError": "チェックアウトセッションの作成に失敗しました"
+      "topUpError": "チェックアウトセッションの作成に失敗しました",
+      "coupon": "クーポン",
+      "couponHint": "クーポンコードでクレジットを取得",
+      "couponPlaceholder": "クーポンコードを入力",
+      "couponRedeem": "引き換え",
+      "couponRedeeming": "引き換え中...",
+      "couponSuccess": "クーポンが正常に引き換えられました！",
+      "couponError": "クーポンの引き換えに失敗しました",
+      "couponEmpty": "クーポンコードを入力してください"
     },
     "general": {
       "title": "一般設定",

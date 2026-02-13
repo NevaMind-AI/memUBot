@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw, Wallet, CreditCard, UserPlus } from 'lucide-react'
+import { User, Mail, Lock, LogIn, LogOut, Loader2, Globe, MessageCircle, RefreshCw, Wallet, CreditCard, UserPlus, Tag, Check } from 'lucide-react'
 import { MessageDisplay } from './shared'
 import { ChargeDialog } from './ChargeDialog'
 import { changeLanguage, languages } from '../../i18n'
@@ -597,11 +597,107 @@ function BalanceCard(): JSX.Element {
         </button>
       </div>
 
+      {/* Coupon Section */}
+      <CouponCard onSuccess={() => fetchBalance(true)} />
+
       <ChargeDialog
         open={chargeDialogOpen}
         onClose={() => setChargeDialogOpen(false)}
         onContinue={handleTopUp}
       />
     </>
+  )
+}
+
+/**
+ * Coupon Card - Input and redeem coupon codes
+ */
+function CouponCard({ onSuccess }: { onSuccess: () => void }): JSX.Element {
+  const { t } = useTranslation()
+  const [couponCode, setCouponCode] = useState('')
+  const [redeeming, setRedeeming] = useState(false)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleRedeem = async (): Promise<void> => {
+    const trimmedCode = couponCode.trim()
+    if (!trimmedCode) {
+      setMessage({ type: 'error', text: t('settings.account.couponEmpty') })
+      return
+    }
+
+    setRedeeming(true)
+    setMessage(null)
+
+    try {
+      const result = await window.billing.redeemCoupon(trimmedCode)
+      if (result.success) {
+        setMessage({ type: 'success', text: t('settings.account.couponSuccess') })
+        setCouponCode('')
+        onSuccess()
+        setTimeout(() => setMessage(null), 3000)
+      } else {
+        setMessage({ type: 'error', text: result.error || t('settings.account.couponError') })
+      }
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: error instanceof Error ? error.message : t('settings.account.couponError')
+      })
+    } finally {
+      setRedeeming(false)
+    }
+  }
+
+  return (
+    <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+      <div className="flex items-center gap-3 mb-3">
+        <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+          <Tag className="w-5 h-5 text-amber-500" />
+        </div>
+        <div>
+          <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+            {t('settings.account.coupon')}
+          </h4>
+          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+            {t('settings.account.couponHint')}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          type="text"
+          placeholder={t('settings.account.couponPlaceholder')}
+          value={couponCode}
+          onChange={(e) => setCouponCode(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !redeeming && handleRedeem()}
+          disabled={redeeming}
+          className="flex-1 px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all disabled:opacity-50"
+        />
+        <button
+          onClick={handleRedeem}
+          disabled={redeeming || !couponCode.trim()}
+          className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white text-[13px] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+          style={{ background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' }}
+        >
+          {redeeming ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Check className="w-4 h-4" />
+          )}
+          <span>{redeeming ? t('settings.account.couponRedeeming') : t('settings.account.couponRedeem')}</span>
+        </button>
+      </div>
+
+      {message && (
+        <p
+          className={`text-[11px] mt-2 ${
+            message.type === 'success' ? 'text-emerald-500' : 'text-rose-500'
+          }`}
+        >
+          {message.text}
+        </p>
+      )}
+    </div>
   )
 }

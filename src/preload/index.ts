@@ -341,7 +341,8 @@ const billingApi = {
   getBalance: () => ipcRenderer.invoke('billing:getBalance'),
   createCheckout: (amountCents: number) =>
     ipcRenderer.invoke('billing:createCheckout', amountCents),
-  openCheckout: (url: string) => ipcRenderer.invoke('billing:openCheckout', url)
+  openCheckout: (url: string) => ipcRenderer.invoke('billing:openCheckout', url),
+  redeemCoupon: (couponCode: string) => ipcRenderer.invoke('billing:redeemCoupon', couponCode)
 }
 
 // Expose APIs to renderer

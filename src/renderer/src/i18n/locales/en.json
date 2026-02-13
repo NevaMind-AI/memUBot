@@ -139,7 +139,15 @@
       "amountToAdd": "Amount to add",
       "amountRange": "Enter an amount between ${{min}} and ${{max}}",
       "continue": "Continue",
-      "topUpError": "Failed to create checkout session"
+      "topUpError": "Failed to create checkout session",
+      "coupon": "Coupon",
+      "couponHint": "Redeem a coupon code for credits",
+      "couponPlaceholder": "Enter coupon code",
+      "couponRedeem": "Redeem",
+      "couponRedeeming": "Redeeming...",
+      "couponSuccess": "Coupon redeemed successfully!",
+      "couponError": "Failed to redeem coupon",
+      "couponEmpty": "Please enter a coupon code"
     },
     "general": {
       "title": "General Settings",

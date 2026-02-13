@@ -6,7 +6,7 @@
 
 import { ipcMain, shell } from 'electron'
 import { getMemuApiClient } from '../services/api'
-import { getWalletBalance, createCheckoutSession } from '../services/api/endpoints/wallet'
+import { getWalletBalance, createCheckoutSession, redeemCoupon } from '../services/api/endpoints/wallet'
 import { getAuthService } from '../services/auth'
 import type { IpcResponse } from '../types'
 
@@ -110,6 +110,34 @@ export function registerBillingHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to create checkout'
+        }
+      }
+    }
+  )
+
+  // Redeem coupon code
+  ipcMain.handle(
+    'billing:redeemCoupon',
+    async (_event, couponCode: string): Promise<IpcResponse> => {
+      try {
+        const accessToken = await authService.getAccessToken()
+        if (!accessToken) {
+          return { success: false, error: 'Not authenticated' }
+        }
+
+        const { organizationId } = authService.getAuthState()
+        if (!organizationId) {
+          return { success: false, error: 'Organization ID not available' }
+        }
+
+        await redeemCoupon(apiClient, accessToken, couponCode, organizationId)
+
+        return { success: true }
+      } catch (error) {
+        console.error('[BillingIPC] Failed to redeem coupon:', error)
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to redeem coupon'
         }
       }
     }

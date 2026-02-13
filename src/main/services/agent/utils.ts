@@ -43,29 +43,17 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
 
   // Yumi mode: use hardcoded configuration
   if (appMode === 'yumi') {
-    // const client = new Anthropic({
-    //   authToken: memuApiKey,
-    //   baseURL: YUMI_LLM_CONFIG.baseURL
-    // })
-
-    // const maskedKey = memuApiKey ? `${memuApiKey.slice(0, 8)}****${memuApiKey.slice(-4)}` : 'undefined'
-    // console.log(`[Agent] Yumi mode - using fixed LLM config: model: ${memuModelTier}, baseURL: ${YUMI_LLM_CONFIG.baseURL}, apiKey: ${maskedKey}`)
-
-    // return {
-    //   client,
-    //   model: memuModelTier,
-    //   maxTokens: settings.maxTokens,
-    //   provider: 'yumi'
-    // }
-
     const client = new Anthropic({
-      apiKey: 'sk-ai-v1-0e42523cdbf0e1c4b6d65d516c3ef9c7c031697078d6a70bcca851dcd1545452',
-      baseURL: 'https://zenmux.ai/api/anthropic'
+      authToken: memuApiKey,
+      baseURL: YUMI_LLM_CONFIG.baseURL
     })
+
+    const maskedKey = memuApiKey ? `${memuApiKey.slice(0, 8)}****${memuApiKey.slice(-4)}` : 'undefined'
+    console.log(`[Agent] Yumi mode - using fixed LLM config: model: ${memuModelTier}, baseURL: ${YUMI_LLM_CONFIG.baseURL}, apiKey: ${maskedKey}`)
 
     return {
       client,
-      model: 'anthropic/claude-opus-4.6',
+      model: memuModelTier,
       maxTokens: settings.maxTokens,
       provider: 'yumi'
     }
