@@ -143,7 +143,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxTokens: 8192,
   temperature: 0.7,
   systemPrompt: '',
-  modelTier: 'smart',
+  modelTier: 'deep',
 
   memuBaseUrl: 'https://api.memu.so',
   memuApiKey: '',
