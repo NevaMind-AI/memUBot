@@ -17,8 +17,18 @@ export function AboutSettings(): JSX.Element {
   const [showLogs, setShowLogs] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [showAgentActivity, setShowAgentActivity] = useState(false)
+  const [appVersion, setAppVersion] = useState('')
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const logsContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // Load app version from main process
+  useEffect(() => {
+    window.updater.getVersion().then((result) => {
+      if (result.success && result.data) {
+        setAppVersion(result.data)
+      }
+    })
+  }, [])
 
   // Load showAgentActivity setting
   useEffect(() => {
@@ -181,7 +191,7 @@ export function AboutSettings(): JSX.Element {
           className="text-[12px] text-[var(--text-muted)] mt-0.5 cursor-pointer select-none"
           onClick={handleVersionClick}
         >
-          {t('settings.about.version')} 1.0.0
+          {t('settings.about.version')} {appVersion}
         </p>
         <div className="mt-4 pt-4 border-t border-[var(--border-color)] text-left space-y-2">
           <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
@@ -213,7 +223,7 @@ export function AboutSettings(): JSX.Element {
           <div className="flex items-center justify-between">
             <span className="text-[12px] text-[var(--text-muted)]">Electron</span>
             <span className="text-[12px] text-[var(--text-primary)] font-medium tabular-nums">
-              28.0.0
+              {window.electron?.process?.versions?.electron ?? '-'}
             </span>
           </div>
         </div>
@@ -221,7 +231,7 @@ export function AboutSettings(): JSX.Element {
           <div className="flex items-center justify-between">
             <span className="text-[12px] text-[var(--text-muted)]">Node.js</span>
             <span className="text-[12px] text-[var(--text-primary)] font-medium tabular-nums">
-              20.x
+              {window.electron?.process?.versions?.node ?? '-'}
             </span>
           </div>
         </div>
@@ -229,7 +239,7 @@ export function AboutSettings(): JSX.Element {
           <div className="flex items-center justify-between">
             <span className="text-[12px] text-[var(--text-muted)]">Chrome</span>
             <span className="text-[12px] text-[var(--text-primary)] font-medium tabular-nums">
-              120.x
+              {window.electron?.process?.versions?.chrome ?? '-'}
             </span>
           </div>
         </div>

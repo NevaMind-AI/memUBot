@@ -73,6 +73,8 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+# Auto-update: electron-updater checks this URL for latest-mac.yml / latest.yml.
+# Each mode overrides this via prepare-mode.ts -> electron-builder.mode.json.
 publish:
   provider: generic
-  url: https://example.com/auto-updates
+  url: http://localhost:8080

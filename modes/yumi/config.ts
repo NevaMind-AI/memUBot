@@ -11,7 +11,14 @@ const config: ModeConfig = {
   // macOS: icon.png will be converted to .icns by electron-builder
   // Windows: icon-win.png will be converted to .ico by electron-builder
   icon: 'icon.png',
-  iconWin: 'icon-win.png'
+  iconWin: 'icon-win.png',
+
+  // Auto-update URL: public CloudFront endpoint hosting latest-mac.yml / latest.yml
+  // Path includes mode name so yumi and memu don't share the same yaml
+  updateUrl: 'https://d192tm8h0ep0ud.cloudfront.net/yumi',
+
+  // Release notes: update before each release
+  releaseNotes: '- Bug fixes and performance improvements'
 }
 
 export default config

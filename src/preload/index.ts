@@ -336,6 +336,19 @@ const authApi = {
   }
 }
 
+// Updater API (auto-update)
+const updaterApi = {
+  checkForUpdates: () => ipcRenderer.invoke('updater:check-for-updates'),
+  getVersion: () => ipcRenderer.invoke('updater:get-version'),
+  // Event listener for download progress
+  onDownloadProgress: (
+    callback: (progress: { percent: number; bytesPerSecond: number; transferred: number; total: number }) => void
+  ) => {
+    ipcRenderer.on('updater:download-progress', (_event, progress) => callback(progress))
+    return () => ipcRenderer.removeAllListeners('updater:download-progress')
+  }
+}
+
 // Billing API (Yumi only - wallet and top-up)
 const billingApi = {
   getBalance: () => ipcRenderer.invoke('billing:getBalance'),
@@ -367,6 +380,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('yumi', yumiApi)
     contextBridge.exposeInMainWorld('auth', authApi)
     contextBridge.exposeInMainWorld('billing', billingApi)
+    contextBridge.exposeInMainWorld('updater', updaterApi)
   } catch (error) {
     console.error(error)
   }
@@ -409,4 +423,6 @@ if (process.contextIsolated) {
   window.auth = authApi
   // @ts-ignore (define in dts)
   window.billing = billingApi
+  // @ts-ignore (define in dts)
+  window.updater = updaterApi
 }

@@ -49,27 +49,44 @@ class LoggerService {
   }
 
   /**
+   * Safely forward to the original console method.
+   * In production, stdout/stderr may have no valid pipe (launched from Finder),
+   * so we swallow EPIPE errors instead of letting them crash the app.
+   */
+  private safeForward(
+    method: (...args: unknown[]) => void,
+    args: unknown[]
+  ): void {
+    try {
+      method(...args)
+    } catch (err: unknown) {
+      if (err instanceof Error && (err as NodeJS.ErrnoException).code === 'EPIPE') return
+      throw err
+    }
+  }
+
+  /**
    * Intercept console methods
    */
   private interceptConsole(): void {
     console.log = (...args: unknown[]) => {
       this.addLog('log', args)
-      this.originalConsole.log(...args)
+      this.safeForward(this.originalConsole.log, args)
     }
 
     console.info = (...args: unknown[]) => {
       this.addLog('info', args)
-      this.originalConsole.info(...args)
+      this.safeForward(this.originalConsole.info, args)
     }
 
     console.warn = (...args: unknown[]) => {
       this.addLog('warn', args)
-      this.originalConsole.warn(...args)
+      this.safeForward(this.originalConsole.warn, args)
     }
 
     console.error = (...args: unknown[]) => {
       this.addLog('error', args)
-      this.originalConsole.error(...args)
+      this.safeForward(this.originalConsole.error, args)
     }
   }
 

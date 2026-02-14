@@ -18,6 +18,7 @@ import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
 import { requestAllPermissions } from './utils/permissions'
 import { powerService } from './services/power.service'
+import { autoUpdateService } from './services/auto-update.service'
 
 // Initialize shell environment early (before any external processes are spawned)
 // This ensures npx, node, etc. are available in packaged apps
@@ -336,6 +337,14 @@ async function initializeServicesAsync(): Promise<void> {
 
   startupComplete = true
   console.log('[App] Startup complete')
+
+  // Check for updates after startup is complete (non-blocking)
+  try {
+    autoUpdateService.initialize()
+    await autoUpdateService.checkForUpdates()
+  } catch (error) {
+    console.error('[App] Auto-update check failed:', error)
+  }
 }
 
 // Quit when all windows are closed (except on macOS)

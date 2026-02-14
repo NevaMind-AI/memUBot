@@ -1,204 +1,110 @@
+/**
+ * Release script for macOS.
+ *
+ * Flow aligned with electron-updater auto-update:
+ *   1. Build the app (produces .zip, .dmg, latest-mac.yml in dist/)
+ *   2. Upload auto-update artifacts (all files referenced in latest-mac.yml)
+ *   3. Upload latest-mac.yml (uploaded LAST so clients never see a yaml
+ *      pointing to files that haven't been uploaded yet)
+ *   4. Invalidate CloudFront cache for latest-mac.yml only
+ *      (versioned artifact file names are unique per release — no stale cache)
+ */
+
 import 'dotenv/config'
 
-import { createReadStream } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { spawn } from 'node:child_process'
 
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3'
-import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront'
+import {
+  type ReleaseConfig,
+  env,
+  modeEnv,
+  requireModeEnv,
+  parseMode,
+  getProjectRoot,
+  run,
+  parseYmlFileUrls,
+  uploadFileToS3,
+  invalidateCloudFront
+} from './release-utils'
 
-type ReleaseConfig = {
-  dmgName: string
-  s3Bucket: string
-  s3Prefix: string
-  cloudFrontDistributionId: string
-  invalidationPath?: string
-  region: string
-  s3Acl?: string
-}
+// ─── Mac-specific config ────────────────────────────────────────────────────
 
-function getProjectRoot(): string {
-  const __filename = fileURLToPath(import.meta.url)
-  const __dirname = path.dirname(__filename)
-  return path.resolve(__dirname, '..')
-}
-
-function env(name: string): string | undefined {
-  const v = process.env[name]
-  return v && v.trim().length > 0 ? v.trim() : undefined
-}
-
-function requireEnv(name: string): string {
-  const v = env(name)
-  if (!v) throw new Error(`Missing required env: ${name}`)
-  return v
-}
-
-function parseArgs(argv: string[]): { force: boolean; skipBuild: boolean } {
-  const force = argv.includes('--force')
-  const skipBuild = argv.includes('--skip-build')
-  return { force, skipBuild }
-}
-
-function loadConfig(): ReleaseConfig {
-  const dmgName = env('MEMU_RELEASE_DMG_NAME') ?? 'memUbot.dmg'
-  const s3Bucket = requireEnv('MEMU_S3_BUCKET')
-  const s3Prefix = env('MEMU_S3_PREFIX') ?? 'downloads'
-  const cloudFrontDistributionId = requireEnv('MEMU_CLOUDFRONT_DISTRIBUTION_ID')
-  const invalidationPath = env('MEMU_CLOUDFRONT_INVALIDATION_PATH')
+function loadConfig(mode: string): ReleaseConfig {
+  const s3Bucket = requireModeEnv(mode, 'S3_BUCKET')
+  const s3UpdatePrefix = modeEnv(mode, 'S3_UPDATE_PREFIX') ?? mode
+  const cloudFrontDistributionId = requireModeEnv(mode, 'CLOUDFRONT_DISTRIBUTION_ID')
   const region = env('AWS_REGION') ?? env('AWS_DEFAULT_REGION') ?? 'us-east-1'
-  const s3Acl = env('MEMU_S3_ACL')
+  const s3Acl = modeEnv(mode, 'S3_ACL')
 
-  return {
-    dmgName,
-    s3Bucket,
-    s3Prefix,
-    cloudFrontDistributionId,
-    invalidationPath,
-    region,
-    s3Acl
-  }
+  return { s3Bucket, s3UpdatePrefix, cloudFrontDistributionId, region, s3Acl }
 }
 
-async function run(command: string, args: string[], cwd: string): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    // Explicitly pass process.env to ensure dotenv-loaded variables are inherited
-    const child = spawn(command, args, {
-      cwd,
-      stdio: 'inherit',
-      shell: false,
-      env: process.env
-    })
-    child.on('error', reject)
-    child.on('exit', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`Command failed: ${command} ${args.join(' ')} (exit ${code})`))
-    })
-  })
-}
-
-async function walk(dir: string): Promise<string[]> {
-  const out: string[] = []
-  const entries = await fs.readdir(dir, { withFileTypes: true })
-  for (const entry of entries) {
-    const p = path.join(dir, entry.name)
-    if (entry.isDirectory()) out.push(...(await walk(p)))
-    else out.push(p)
-  }
-  return out
-}
-
-async function findLatestDmg(distDir: string): Promise<string> {
-  const files = await walk(distDir)
-  const dmgFiles = files.filter((f) => f.toLowerCase().endsWith('.dmg'))
-  if (dmgFiles.length === 0) throw new Error(`No DMG found under ${distDir}`)
-
-  let best = dmgFiles[0]
-  let bestMtime = (await fs.stat(best)).mtimeMs
-  for (const f of dmgFiles.slice(1)) {
-    const m = (await fs.stat(f)).mtimeMs
-    if (m > bestMtime) {
-      best = f
-      bestMtime = m
-    }
-  }
-  return best
-}
-
-async function renameDmg(distDir: string, dmgName: string, force: boolean): Promise<string> {
-  const source = await findLatestDmg(distDir)
-  const target = path.join(distDir, dmgName)
-
-  if (path.resolve(source) === path.resolve(target)) {
-    return target
-  }
-
-  // Prevent accidental overwrite unless --force
-  try {
-    await fs.stat(target)
-    if (!force) {
-      throw new Error(`Target already exists: ${target} (use --force to overwrite)`)
-    }
-    await fs.rm(target, { force: true })
-  } catch {
-    // Target does not exist
-  }
-
-  await fs.rename(source, target)
-  return target
-}
-
-async function uploadToS3(filePath: string, cfg: ReleaseConfig): Promise<{ bucket: string; key: string }> {
-  const client = new S3Client({ region: cfg.region })
-  const prefix = cfg.s3Prefix.replace(/^\/+/, '').replace(/\/+$/, '')
-  const key = `${prefix}/${cfg.dmgName}`
-
-  const put = new PutObjectCommand({
-    Bucket: cfg.s3Bucket,
-    Key: key,
-    Body: createReadStream(filePath),
-    ContentType: 'application/x-apple-diskimage',
-    ACL: cfg.s3Acl as any
-  })
-
-  await client.send(put)
-  return { bucket: cfg.s3Bucket, key }
-}
-
-async function invalidateCloudFront(cfg: ReleaseConfig, s3Key: string): Promise<string> {
-  const client = new CloudFrontClient({ region: cfg.region })
-  const pathFromKey = `/${s3Key}`
-  const invalidationPath = cfg.invalidationPath ?? pathFromKey
-
-  const cmd = new CreateInvalidationCommand({
-    DistributionId: cfg.cloudFrontDistributionId,
-    InvalidationBatch: {
-      CallerReference: `${Date.now()}`,
-      Paths: {
-        Quantity: 1,
-        Items: [invalidationPath]
-      }
-    }
-  })
-
-  const res = await client.send(cmd)
-  return res.Invalidation?.Id ?? 'unknown'
-}
+// ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  const { force, skipBuild } = parseArgs(process.argv.slice(2))
-  const cfg = loadConfig()
+  const mode = parseMode(process.argv.slice(2))
+  process.env.APP_MODE = mode
+
+  const cfg = loadConfig(mode)
   const root = getProjectRoot()
   const distDir = path.join(root, 'dist')
+  const updatePrefix = cfg.s3UpdatePrefix.replace(/^\/+/, '').replace(/\/+$/, '')
 
-  console.log('memU bot release (mac)')
-  console.log(`- S3 bucket: ${cfg.s3Bucket}`)
-  console.log(`- S3 prefix: ${cfg.s3Prefix}`)
-  console.log(`- CloudFront distribution: ${cfg.cloudFrontDistributionId}`)
-  console.log(`- DMG name: ${cfg.dmgName}`)
-  console.log(`- Region: ${cfg.region}`)
+  console.log(`Release (mac) — mode: ${mode}`)
+  console.log(`  S3 bucket:     ${cfg.s3Bucket}`)
+  console.log(`  Update prefix: ${updatePrefix}`)
+  console.log(`  CloudFront:    ${cfg.cloudFrontDistributionId}`)
+  console.log(`  Region:        ${cfg.region}`)
 
-  if (!skipBuild) {
-    console.log('\n[1/4] Building mac dmg...')
-    await run('npm', ['run', 'build:mac'], root)
-  } else {
-    console.log('\n[1/4] Skipping build (--skip-build)')
+  // ── Step 1: Build ─────────────────────────────────────────────────────────
+  console.log('\n[1/4] Building mac installer...')
+  await run('npm', ['run', `build:${mode}:mac`], root)
+
+  // ── Step 2: Upload auto-update artifacts ──────────────────────────────────
+  const ymlPath = path.join(distDir, 'latest-mac.yml')
+  try {
+    await fs.stat(ymlPath)
+  } catch {
+    throw new Error('latest-mac.yml not found in dist/ — build may have failed')
   }
 
-  console.log('\n[2/4] Renaming dmg...')
-  await fs.mkdir(distDir, { recursive: true })
-  const finalDmgPath = await renameDmg(distDir, cfg.dmgName, force)
-  console.log(`- DMG: ${finalDmgPath}`)
+  const fileUrls = await parseYmlFileUrls(ymlPath)
+  console.log(`\n[2/4] Uploading ${fileUrls.length} auto-update artifact(s)...`)
 
-  console.log('\n[3/4] Uploading to S3...')
-  const { key } = await uploadToS3(finalDmgPath, cfg)
-  console.log(`- s3://${cfg.s3Bucket}/${key}`)
+  for (const fileName of fileUrls) {
+    const filePath = path.join(distDir, fileName)
+    try {
+      await fs.stat(filePath)
+    } catch {
+      console.warn(`  [!] ${fileName} not found in dist/, skipping`)
+      continue
+    }
+    await uploadFileToS3(
+      filePath,
+      cfg.s3Bucket,
+      `${updatePrefix}/${fileName}`,
+      cfg.region,
+      cfg.s3Acl
+    )
+  }
 
-  console.log('\n[4/4] Invalidating CloudFront...')
-  const invalidationId = await invalidateCloudFront(cfg, key)
-  console.log(`- Invalidation: ${invalidationId}`)
+  // ── Step 3: Upload latest-mac.yml ─────────────────────────────────────────
+  // Uploaded AFTER artifacts so clients never see a yaml pointing to missing files.
+  console.log('\n[3/4] Uploading latest-mac.yml...')
+  const ymlKey = `${updatePrefix}/latest-mac.yml`
+  await uploadFileToS3(ymlPath, cfg.s3Bucket, ymlKey, cfg.region, cfg.s3Acl)
+
+  // ── Step 4: Invalidate CloudFront for latest-mac.yml ──────────────────────
+  // Invalidation uses the CloudFront URL path (without S3 origin path).
+  // The client fetches /{mode}/latest-mac.yml, so that's what we invalidate.
+  console.log('\n[4/4] Invalidating CloudFront cache for latest-mac.yml...')
+  const invalidationId = await invalidateCloudFront(
+    cfg.cloudFrontDistributionId,
+    [`/${mode}/latest-mac.yml`],
+    cfg.region
+  )
+  console.log(`  Invalidation ID: ${invalidationId}`)
 
   console.log('\nDone.')
 }
@@ -208,4 +114,3 @@ main().catch((err) => {
   console.error(err instanceof Error ? err.message : err)
   process.exit(1)
 })
-

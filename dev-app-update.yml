@@ -1,0 +1,8 @@
+# dev-app-update.yml
+# Used by electron-updater in development mode to test auto-updates.
+# In production, the publish config from electron-builder.yml is used instead.
+#
+# To test: change the url below to your actual CloudFront endpoint,
+# then remove the `is.dev` guard in auto-update.service.ts.
+provider: generic
+url: https://cdn.example.com/memu.bot/updates
