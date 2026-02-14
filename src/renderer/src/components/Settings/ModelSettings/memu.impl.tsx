@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Slider } from '../../Slider'
 import { 
   AppSettings, 
-  FloatingSaveButton, 
+  UnsavedChangesBar, 
   MessageDisplay, 
   LoadingSpinner 
 } from '../shared'
@@ -39,6 +39,10 @@ export function MemuModelSettings(): JSX.Element {
     settings.temperature !== originalSettings.temperature ||
     settings.systemPrompt !== originalSettings.systemPrompt
 
+  const handleDiscard = () => {
+    setSettings({ ...originalSettings })
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
@@ -67,6 +71,7 @@ export function MemuModelSettings(): JSX.Element {
 
   return (
     <div className="space-y-5">
+      <UnsavedChangesBar show={hasChanges} saving={saving} onSave={handleSave} onDiscard={handleDiscard} />
       <div>
         <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.model.title')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">
@@ -135,9 +140,6 @@ export function MemuModelSettings(): JSX.Element {
 
       {/* Message */}
       <MessageDisplay message={message} />
-
-      {/* Floating Save Button */}
-      <FloatingSaveButton show={hasChanges} saving={saving} onSave={handleSave} />
     </div>
   )
 }

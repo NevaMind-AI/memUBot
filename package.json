@@ -1,6 +1,6 @@
 {
   "name": "memu-bot",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "memU bot - AI Assistant for messaging platforms",
   "main": "./out/main/index.js",
   "engines": {

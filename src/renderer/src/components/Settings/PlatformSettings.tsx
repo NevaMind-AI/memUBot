@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
 import { 
   AppSettings, 
-  FloatingSaveButton, 
+  UnsavedChangesBar, 
   MessageDisplay, 
   LoadingSpinner 
 } from './shared'
@@ -46,6 +46,10 @@ export function PlatformSettings(): JSX.Element {
     settings.feishuAppSecret !== originalSettings.feishuAppSecret ||
     settings.feishuAutoConnect !== originalSettings.feishuAutoConnect
 
+  const handleDiscard = () => {
+    setSettings({ ...originalSettings })
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
@@ -81,6 +85,7 @@ export function PlatformSettings(): JSX.Element {
 
   return (
     <div className="space-y-5">
+      <UnsavedChangesBar show={hasChanges} saving={saving} onSave={handleSave} onDiscard={handleDiscard} />
       <div>
         <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.tabs.platforms')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{t('settings.platforms.description')}</p>
@@ -279,9 +284,6 @@ export function PlatformSettings(): JSX.Element {
 
       {/* Message */}
       <MessageDisplay message={message} />
-
-      {/* Floating Save Button */}
-      <FloatingSaveButton show={hasChanges} saving={saving} onSave={handleSave} />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Bot, Info, Key, Database, Shield, Server, Sparkles, Play, FlaskConical, MessageSquare, BatteryCharging } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { SETTINGS_BAR_PORTAL_ID } from '../shared'
 import { GeneralSettings } from '../GeneralSettings'
 import { PlatformSettings } from '../PlatformSettings'
 import { SecuritySettings } from '../SecuritySettings'
@@ -64,19 +65,24 @@ export function MemuSettingsView(): JSX.Element {
       </div>
 
       {/* Settings Content */}
-      <div className="flex-1 overflow-y-auto relative">
-        <div className="max-w-lg mx-auto py-6 px-5 pb-24">
-          {activeTab === 'general' && <GeneralSettings />}
-          {activeTab === 'platforms' && <PlatformSettings />}
-          {activeTab === 'security' && <SecuritySettings />}
-          {activeTab === 'model' && <ModelSettings />}
-          {activeTab === 'skills' && <SkillsSettings />}
-          {activeTab === 'services' && <ServicesSettings />}
-          {activeTab === 'mcp' && <McpSettings />}
-          {activeTab === 'data' && <DataSettings />}
-          {activeTab === 'power' && <PowerSettings />}
-          {activeTab === 'experimental' && <ExperimentalSettings />}
-          {activeTab === 'about' && <AboutSettings />}
+      <div className="flex-1 flex flex-col">
+        {/* Portal target for UnsavedChangesBar — sits above the scroll area */}
+        <div id={SETTINGS_BAR_PORTAL_ID} />
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-lg mx-auto py-6 px-5 pb-24">
+            {activeTab === 'general' && <GeneralSettings />}
+            {activeTab === 'platforms' && <PlatformSettings />}
+            {activeTab === 'security' && <SecuritySettings />}
+            {activeTab === 'model' && <ModelSettings />}
+            {activeTab === 'skills' && <SkillsSettings />}
+            {activeTab === 'services' && <ServicesSettings />}
+            {activeTab === 'mcp' && <McpSettings />}
+            {activeTab === 'data' && <DataSettings />}
+            {activeTab === 'power' && <PowerSettings />}
+            {activeTab === 'experimental' && <ExperimentalSettings />}
+            {activeTab === 'about' && <AboutSettings />}
+          </div>
         </div>
       </div>
     </div>

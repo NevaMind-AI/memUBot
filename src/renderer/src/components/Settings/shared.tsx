@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom'
 import { Loader2, Check, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -54,44 +55,64 @@ export interface AppSettings {
   tavilyApiKey: string
 }
 
-// Floating Save Button Component
-interface FloatingSaveButtonProps {
+// Portal target ID — used by SettingsView containers
+export const SETTINGS_BAR_PORTAL_ID = 'settings-unsaved-bar'
+
+// Unsaved Changes Bar Component — rendered via portal outside the scroll container
+interface UnsavedChangesBarProps {
   show: boolean
   saving: boolean
   onSave: () => void
+  onDiscard: () => void
 }
 
-export function FloatingSaveButton({ show, saving, onSave }: FloatingSaveButtonProps): JSX.Element | null {
+export function UnsavedChangesBar({ show, saving, onSave, onDiscard }: UnsavedChangesBarProps): JSX.Element | null {
   const { t } = useTranslation()
-  
-  return (
+  const portalTarget = document.getElementById(SETTINGS_BAR_PORTAL_ID)
+
+  if (!portalTarget) return null
+
+  return createPortal(
     <div
-      className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 ease-out ${
-        show 
-          ? 'opacity-100 translate-y-0' 
-          : 'opacity-0 translate-y-16 pointer-events-none'
+      className={`transition-all duration-300 ease-out overflow-hidden ${
+        show
+          ? 'max-h-40 opacity-100'
+          : 'max-h-0 opacity-0 pointer-events-none'
       }`}
-      style={{ marginLeft: '104px' }} // Offset for sidebar (208px / 2)
     >
-      <button
-        onClick={onSave}
-        disabled={saving}
-        className="flex items-center justify-center gap-2 px-8 py-3 rounded-full text-white text-[13px] font-medium shadow-xl hover:shadow-2xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-        style={{ background: 'var(--primary-gradient)', boxShadow: 'var(--shadow-primary)' }}
-      >
-        {saving ? (
-          <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span>{t('common.saving')}</span>
-          </>
-        ) : (
-          <>
-            <Check className="w-4 h-4" />
-            <span>{t('common.saveChanges')}</span>
-          </>
-        )}
-      </button>
-    </div>
+      <div className="max-w-lg mx-auto px-5 py-4">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--glass-border)] shadow-sm">
+          <span className="text-[12px] text-[var(--text-muted)] min-w-0">
+            {t('common.unsavedChanges')}
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={onDiscard}
+              disabled={saving}
+              className="px-3.5 py-1.5 rounded-lg text-[12px] font-medium border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--text-primary)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {t('common.discard')}
+            </button>
+            <button
+              onClick={onSave}
+              disabled={saving}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[12px] font-medium text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ background: 'var(--primary-gradient)', boxShadow: 'var(--shadow-primary)' }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{t('common.saving')}</span>
+                </>
+              ) : (
+                <span>{t('common.saveChanges')}</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    portalTarget
   )
 }
 

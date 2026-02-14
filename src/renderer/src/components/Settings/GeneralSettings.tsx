@@ -7,7 +7,7 @@ import {
   AppSettings, 
   LLMProvider, 
   PROVIDER_OPTIONS, 
-  FloatingSaveButton, 
+  UnsavedChangesBar, 
   MessageDisplay, 
   LoadingSpinner 
 } from './shared'
@@ -61,6 +61,10 @@ export function GeneralSettings(): JSX.Element {
     settings.language !== originalSettings.language ||
     settings.tavilyApiKey !== originalSettings.tavilyApiKey
 
+  const handleDiscard = () => {
+    setSettings({ ...originalSettings })
+  }
+
   const handleSave = async () => {
     setSaving(true)
     setMessage(null)
@@ -105,6 +109,7 @@ export function GeneralSettings(): JSX.Element {
 
   return (
     <div className="space-y-5">
+      <UnsavedChangesBar show={hasChanges} saving={saving} onSave={handleSave} onDiscard={handleDiscard} />
       <div>
         <h3 className="text-base font-semibold text-[var(--text-primary)]">{t('settings.tabs.general')}</h3>
         <p className="text-[12px] text-[var(--text-muted)] mt-0.5">{t('settings.general.title')}</p>
@@ -343,9 +348,6 @@ export function GeneralSettings(): JSX.Element {
 
       {/* Message */}
       <MessageDisplay message={message} />
-
-      {/* Floating Save Button */}
-      <FloatingSaveButton show={hasChanges} saving={saving} onSave={handleSave} />
     </div>
   )
 }

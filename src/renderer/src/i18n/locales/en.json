@@ -27,9 +27,11 @@
   "common": {
     "save": "Save",
     "saveChanges": "Save Changes",
+    "unsavedChanges": "You have unsaved changes. Save or discard them.",
     "recommended": "Recommended",
     "saving": "Saving...",
     "cancel": "Cancel",
+    "discard": "Discard",
     "delete": "Delete",
     "confirm": "Confirm",
     "loading": "Loading...",
