@@ -2,6 +2,7 @@
   "app": {
     "name": "memU bot",
     "tagline": "永不下线，主动出击",
+    "yumiTagline": "你的温馨 AI 伙伴",
     "startup": {
       "initializing": "正在启动...",
       "permissions": "正在请求权限...",

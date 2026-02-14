@@ -15,6 +15,7 @@ import { setupServiceHandlers } from './service.handlers'
 import { setupYumiHandlers } from './yumi.handlers'
 import { registerAuthHandlers } from './auth.handlers'
 import { registerBillingHandlers } from './billing.handlers'
+import { setupUpdaterHandlers } from './updater.handlers'
 import type { IpcResponse, FileInfo } from '../types'
 
 /**
@@ -37,6 +38,7 @@ export async function setupIpcHandlers(): Promise<void> {
   await setupYumiHandlers()
   registerAuthHandlers()
   registerBillingHandlers()
+  setupUpdaterHandlers()
 }
 
 /**

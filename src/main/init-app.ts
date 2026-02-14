@@ -14,8 +14,33 @@
  * - So packaged apps get the correct app.name automatically
  * - But this file is still needed for development mode
  */
-import { app } from 'electron'
+
+// Guard against EPIPE errors on stdout/stderr.
+// When launched from macOS Finder (not terminal), stdout has no valid pipe
+// and any console.log call would crash the app with "Error: write EPIPE".
+// This MUST run before any console.log / import that might write to stdout.
+import { installPipeGuard } from './utils/pipe-guard'
+installPipeGuard()
+
+import { app, dialog } from 'electron'
 import { join } from 'path'
+
+// Global safety net: catch any uncaught exception that slips through.
+// EPIPE is silently ignored; other fatal errors are shown in a dialog
+// so the user sees *something* instead of a silent crash.
+process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') return
+
+  // Attempt to show an error dialog (may fail if app isn't ready yet)
+  try {
+    dialog.showErrorBox(
+      'Unexpected Error',
+      `${err.message}\n\n${err.stack ?? ''}`
+    )
+  } catch {
+    // ignore — app may not be ready
+  }
+})
 
 const appMode = import.meta.env.MAIN_VITE_APP_MODE || 'memu'
 const appName = appMode === 'yumi' ? 'yumi' : 'memu-bot'

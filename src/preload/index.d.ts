@@ -589,6 +589,21 @@ interface CheckoutResult {
   sessionId: string
 }
 
+// Auto-update download progress
+interface UpdateDownloadProgress {
+  percent: number
+  bytesPerSecond: number
+  transferred: number
+  total: number
+}
+
+// Updater API interface (auto-update)
+interface UpdaterApi {
+  checkForUpdates: () => Promise<IpcResponse>
+  getVersion: () => Promise<IpcResponse<string>>
+  onDownloadProgress: (callback: (progress: UpdateDownloadProgress) => void) => () => void
+}
+
 // Billing API interface (Yumi only - wallet and top-up)
 interface BillingApi {
   getBalance: () => Promise<IpcResponse<WalletBalanceResult>>
@@ -617,5 +632,6 @@ declare global {
     yumi: YumiApi
     auth: AuthApi
     billing: BillingApi
+    updater: UpdaterApi
   }
 }

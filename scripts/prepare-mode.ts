@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   // Generate electron-builder config override using 'extends'
   // This will inherit all settings from the base config and override specific values
   // extraMetadata.name overrides package.json's name, which affects app.name and userData path
-  const builderConfig = {
+  const builderConfig: Record<string, unknown> = {
     extends: './electron-builder.yml',
     appId: config.appId,
     productName: config.productName,
@@ -76,6 +76,14 @@ async function main(): Promise<void> {
     },
     win: {
       executableName: config.executableName
+    }
+  }
+
+  // Override auto-update publish URL if the mode defines one
+  if (config.updateUrl) {
+    builderConfig.publish = {
+      provider: 'generic',
+      url: config.updateUrl
     }
   }
   

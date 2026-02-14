@@ -11,7 +11,10 @@ const config: ModeConfig = {
   // macOS: icon.png will be converted to .icns by electron-builder
   // Windows: icon-win.png will be converted to .ico by electron-builder
   icon: 'icon.png',
-  iconWin: 'icon-win.png'
+  iconWin: 'icon-win.png',
+
+  // Auto-update URL: public CloudFront endpoint hosting latest-mac.yml / latest.yml
+  updateUrl: 'http://localhost:8080'
 }
 
 export default config

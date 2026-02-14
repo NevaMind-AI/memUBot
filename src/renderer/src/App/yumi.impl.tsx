@@ -106,7 +106,7 @@ export function YumiApp(): JSX.Element {
           Yumi
         </h1>
         <p className="text-sm text-[var(--text-muted)] mb-8">
-          Your Cozy AI Companion
+          {t('app.yumiTagline')}
         </p>
 
         {/* Progress Bar - Warm coral gradient for Yumi */}

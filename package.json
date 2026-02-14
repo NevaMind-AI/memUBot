@@ -1,6 +1,6 @@
 {
   "name": "memu-bot",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "memU bot - AI Assistant for messaging platforms",
   "main": "./out/main/index.js",
   "engines": {
@@ -43,6 +43,7 @@
     "@slack/bolt": "^4.6.0",
     "discord.js": "^14.25.1",
     "easemob-websdk": "^4.19.0",
+    "electron-updater": "^6.7.3",
     "firebase": "^12.9.0",
     "global-agent": "^3.0.0",
     "https-proxy-agent": "^7.0.6",

@@ -2,6 +2,7 @@
   "app": {
     "name": "memU bot",
     "tagline": "Always on. Always proactive.",
+    "yumiTagline": "Your Cozy AI Companion",
     "startup": {
       "initializing": "Starting up...",
       "permissions": "Requesting permissions...",
