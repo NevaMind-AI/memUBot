@@ -559,7 +559,7 @@ export class SlackBotService {
         infraService.publish('message:outgoing', {
           platform: 'slack',
           timestamp: botReply.date,
-          content: response.message,
+          message: { role: 'assistant', content: response.message },
           metadata: {
             messageId: botReply.messageId
           }

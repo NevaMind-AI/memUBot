@@ -20,7 +20,9 @@
     "release:memu:mac": "tsx scripts/release-mac.ts --mode memu",
     "release:memu:win": "tsx scripts/release-win.ts --mode memu",
     "release:yumi:mac": "tsx scripts/release-mac.ts --mode yumi",
-    "release:yumi:win": "tsx scripts/release-win.ts --mode yumi"
+    "release:yumi:win": "tsx scripts/release-win.ts --mode yumi",
+    "dev:memu:proactive": "APP_MODE=memu WITH_PROACTIVE=1 electron-vite dev --mode memu",
+    "dev:yumi:proactive": "APP_MODE=yumi WITH_PROACTIVE=1 electron-vite dev --mode yumi"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",

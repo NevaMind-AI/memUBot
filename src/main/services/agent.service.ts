@@ -497,6 +497,20 @@ export class AgentService {
   }
 
   /**
+   * Invalidate cached context for a specific platform, forcing a reload on next processMessage.
+   * Called when external sources (e.g. proactive agent) store messages directly to platform storage,
+   * bypassing the normal agent flow.
+   */
+  invalidateContextForPlatform(platform: MessagePlatform): void {
+    if (this.contextLoadedForPlatform === platform) {
+      console.log(`[Agent] Context invalidated for ${platform} (external message stored)`)
+      this.conversationHistory = []
+      this.contextLoadedForPlatform = null
+      this.contextLoadedForChatId = null
+    }
+  }
+
+  /**
    * Load historical context from storage for a specific platform
    */
   private async loadContextFromStorage(platform: MessagePlatform, chatId?: string): Promise<void> {

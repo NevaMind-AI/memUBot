@@ -2,31 +2,28 @@ import Anthropic from '@anthropic-ai/sdk'
 import { loadSettings } from '../config/settings.config'
 import { agentService, type MessagePlatform, type UnmemorizedMessage } from './agent.service'
 import { proactiveStorage, type ChatPlatform, type ChatPlatformTimestamps } from './proactive.storage'
-import { infraService, type IncomingMessageEvent, type OutgoingMessageEvent } from './infra.service'
+import { infraService, type IncomingMessageEvent } from './infra.service'
 import { computerUseTools } from '../tools/computer.definitions'
 import { executeComputerTool, executeBashTool, executeTextEditorTool, executeDownloadFileTool, executeWebSearchTool } from '../tools/computer.executor'
 import { getMacOSTools, isMacOS } from '../tools/macos/definitions'
 import { executeMacOSLaunchAppTool, executeMacOSMailTool, executeMacOSCalendarTool, executeMacOSContactsTool } from '../tools/macos/executor'
 import { mcpService } from './mcp.service'
-import { getAuthService } from './auth'
 import { telegramBotService } from '../apps/telegram/bot.service'
 import { discordBotService } from '../apps/discord/bot.service'
 import { slackBotService } from '../apps/slack/bot.service'
 import { whatsappBotService } from '../apps/whatsapp/bot.service'
 import { lineBotService } from '../apps/line/bot.service'
-import { yumiBotService } from '../apps/yumi/bot.service'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
 import { slackStorage } from '../apps/slack/storage'
 import { whatsappStorage } from '../apps/whatsapp/storage'
 import { lineStorage } from '../apps/line/storage'
 import type { AgentResponse } from '../types'
-import { DEFAULT_BASE_URL } from './api/client'
 
 /**
  * Default polling interval in milliseconds
  */
-const DEFAULT_INTERVAL_MS = 30000
+const DEFAULT_INTERVAL_MS = 10000
 
 /**
  * Polling interval for checking memorization status
@@ -62,11 +59,6 @@ const CHAT_MEMORIZE_TIME_THRESHOLD_MS = 60 * 60 * 1000
  * Memorization task status
  */
 type MemorizeStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILURE'
-
-/**
- * Size of the context message window
- */
-const contextMessageWindowSize = 20
 
 /**
  * Response from memorization status endpoint
@@ -120,62 +112,26 @@ const memuTools: Anthropic.Tool[] = [
   }
 ]
 
-const yumiTools: Anthropic.Tool[] = [
-  {
-    name: 'memu_memory',
-    description: 'Retrieve memory based on a query. Use this to recall past conversations, facts, or context about the user.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        query: {
-          type: 'string',
-          description: 'The query to search memory for'
-        }
-      },
-      required: ['query']
-    }
-  },
-  {
-    name: 'wait_user_confirm',
-    description: 'Wait for user input/confirmation before proceeding. Use this when you need user feedback, approval, or additional information before continuing with a task. The tool will block until the user responds.',
-    input_schema: {
-      type: 'object' as const,
-      properties: {
-        prompt: {
-          type: 'string',
-          description: 'The message/question to show the user while waiting for their input'
-        }
-      },
-      required: ['prompt']
-    }
-  }
-]
-
 /**
  * System prompt for proactive agent handling todos
  */
-const PROACTIVE_SYSTEM_PROMPT = `You are a helpful AI assistant working in an autonomous mode.
-
-You now have two main jobs:
-1. If the context messages suggest that the user and their assistant are working on some local files, you may give some suggestions to the user for file consolidation, such as:
-  - Collect related files into folders.
-  - Delete duplicate files.
-  - Delete temporary files that are no longer needed.
-2. If the context messages suggest there is a incoming email, you should give some suggestions for how to handle it, such as:
-  - Reply to the email.
-  - Mark the email as read.
-  - Mark the email as important.
+const PROACTIVE_SYSTEM_PROMPT = `You are a helpful AI assistant working in an autonomous mode. You help the user accomplish tasks and manage their todos.
 
 You have access to:
 1. **Bash/Terminal** - Execute shell commands for file operations, git, npm, system info, etc.
 2. **Text editor** - View and edit files with precision
-3. **Memory retrieval** - Retrieve basic information about the user.
+3. **Memory retrieval** - Access past conversations and context
+4. **Todo management** - View and manage your task list
 5. **User confirmation** - Wait for user input when you need feedback or approval
 
 Guidelines:
-- When you decide to perform or have finished some operations, you should mention it as a text message to the user.
-- We generally want to make the user be less disturbed, so if you find there's no job to do for now (which is very common), you should respond with exactly "[NO_MESSAGE]" (no extra text), and there's no need to explain the reason.
-- Critical: If an operation is destructive or irreversible (e.g. deleting files, sending emails, etc.), you must use the wait_user_confirm tool to wait for user confirmation before proceeding.`
+- When given todos, help the user make progress on them
+- Use memory retrieval to provide personalized, context-aware responses
+- Be proactive in suggesting next steps
+- Keep responses concise and actionable
+- If you complete a todo item, mention it explicitly
+- Use wait_user_confirm when you need user approval before destructive operations or important decisions
+- If you have retried a todo multiple times but still do not make progress, mention it as unable to accomplish, and move to other todos`
 
 const MEMORIZE_OVERRIDE_CONFIG = {
   memory_types: ["record"],
@@ -250,27 +206,14 @@ interface ChatMemorizationTask {
   messageCount: number
 }
 
-/**
- * App mode: memu (npm run dev:memu) vs yumi (npm run dev:yumi)
- */
-function getAppMode(): 'memu' | 'yumi' {
-  return (import.meta.env.MAIN_VITE_APP_MODE as 'memu' | 'yumi') || 'memu'
-}
-
 class ProactiveService {
   private isRunning = false
   private tickIntervalMs = DEFAULT_INTERVAL_MS
   private conversationHistory: Anthropic.MessageParam[] = []
   private unmemorizedMessages: Anthropic.MessageParam[] = []
-  private contextMessages: Anthropic.MessageParam[] = []
-  private hasNewContextMessages = false
-  private agentLoopMessages: Anthropic.MessageParam[] = []
   private isWaitingUserInput = false // Flag to indicate if waiting for user input
   private waitingUserInputFromPlatform: MessagePlatform | null = null
   private userInput: string | null = null
-
-  // Email monitoring state
-  private lastEmailContent: string | null = null // Content of the last read email (null = first run)
   
   // Chat memorization state
   private isMemorizingChat = false // Flag to track if chat memorization is running
@@ -279,7 +222,7 @@ class ProactiveService {
   private chatMemorizationTasks: Map<string, ChatMemorizationTask> = new Map() // Map of task_id -> task info
 
   // InfraService subscription
-  private unsubscribeFromInfra: (() => void)[] = []
+  private unsubscribeFromInfra: (() => void) | null = null
 
   /**
    * Get memu configuration from settings
@@ -292,15 +235,14 @@ class ProactiveService {
     proactiveUserId: string
     proactiveAgentId: string
   }> {
-    const appMode = getAppMode()
     const settings = await loadSettings()
     return {
       baseUrl: settings.memuBaseUrl,
-      apiKey: appMode === 'memu' ? settings.memuApiKey : getAuthService().getAuthState().memuApiKey!,
-      userId: appMode === 'memu' ? settings.memuUserId : settings.memuYumiUserId,
-      agentId: appMode === 'memu' ? settings.memuAgentId : settings.memuYumiAgentId,
+      apiKey: settings.memuApiKey,
+      userId: settings.memuUserId,
+      agentId: settings.memuAgentId,
       proactiveUserId: settings.memuProactiveUserId,
-      proactiveAgentId: settings.memuProactiveAgentId,
+      proactiveAgentId: settings.memuProactiveAgentId
     }
   }
 
@@ -336,13 +278,7 @@ class ProactiveService {
     const platformTools = getMacOSTools() // Returns empty array on non-macOS
     const mcpTools = mcpService.getTools()
     
-    const appMode = getAppMode()
-    if (appMode === 'yumi') {
-      return [...baseTools, ...platformTools, ...mcpTools, ...yumiTools]
-    }
-    else {
-      return [...baseTools, ...platformTools, ...mcpTools, ...memuTools]
-    }
+    return [...baseTools, ...platformTools, ...mcpTools, ...memuTools]
   }
 
   /**
@@ -469,9 +405,7 @@ class ProactiveService {
 
     // Check if memuApiKey is configured
     const settings = await loadSettings()
-    const appMode = getAppMode()
-    const memuApiKey = appMode === 'memu' ? settings.memuApiKey : getAuthService().getAuthState().memuApiKey
-    if (!memuApiKey || memuApiKey.trim() === '') {
+    if (!settings.memuApiKey || settings.memuApiKey.trim() === '') {
       console.log('[Proactive] memuApiKey not configured, service will not start')
       console.log('[Proactive] Please configure memuApiKey in settings and call start() again')
       return false
@@ -485,16 +419,9 @@ class ProactiveService {
     this.tickIntervalMs = intervalMs
 
     // Subscribe to infraService for real-time message notifications
-    this.unsubscribeFromInfra.push(
-      infraService.subscribe('message:incoming', (event) => {
-        this.handleIncomingMessage(event)
-      })
-    )
-    this.unsubscribeFromInfra.push(
-      infraService.subscribe('message:outgoing', (event) => {
-        this.handleOutgoingMessage(event)
-      })
-    )
+    this.unsubscribeFromInfra = infraService.subscribe('message:incoming', (event) => {
+      this.handleIncomingMessage(event)
+    })
     console.log('[Proactive] Subscribed to infraService for incoming messages')
 
     // Start the tick loop using setTimeout self-scheduling
@@ -543,9 +470,9 @@ class ProactiveService {
     this.isRunning = false
     
     // Unsubscribe from infraService
-    if (this.unsubscribeFromInfra.length > 0) {
-      this.unsubscribeFromInfra.forEach(unsub => unsub())
-      this.unsubscribeFromInfra = []
+    if (this.unsubscribeFromInfra) {
+      this.unsubscribeFromInfra()
+      this.unsubscribeFromInfra = null
       console.log('[Proactive] Unsubscribed from infraService')
     }
     
@@ -567,94 +494,27 @@ class ProactiveService {
     console.log(`[Proactive] Received message via infraService from ${event.platform}`)
 
     // Push to unmemorizedMessages for proactive memorization
-    // this.unmemorizedMessages.push(event.message)
-    this.contextMessages.push(event.message)
-    if (this.contextMessages.length > contextMessageWindowSize) {
-      this.contextMessages.shift()
-    }
-    this.hasNewContextMessages = true
+    this.unmemorizedMessages.push(event.message)
 
     // Also push to chatUnmemorizedMessages for chat memorization (if not 'none' platform)
-    // if (event.platform !== 'none') {
-    //   const content = typeof event.message.content === 'string'
-    //     ? event.message.content
-    //     : JSON.stringify(event.message.content)
+    if (event.platform !== 'none') {
+      const content = typeof event.message.content === 'string'
+        ? event.message.content
+        : JSON.stringify(event.message.content)
 
-    //   this.chatUnmemorizedMessages.push({
-    //     platform: event.platform as ChatPlatform,
-    //     role: event.message.role,
-    //     content,
-    //     date: event.timestamp
-    //   })
+      this.chatUnmemorizedMessages.push({
+        platform: event.platform as ChatPlatform,
+        role: event.message.role,
+        content,
+        date: event.timestamp
+      })
 
-    //   // Update timestamps - only set if not already set for this platform
-    //   if (!this.chatUnmemorizedTimestamps[event.platform as ChatPlatform]) {
-    //     this.chatUnmemorizedTimestamps[event.platform as ChatPlatform] = event.timestamp
-    //   }
-
-    //   console.log(`[Proactive] Added message from ${event.platform} to chat memorization queue (total: ${this.chatUnmemorizedMessages.length})`)
-    // }
-  }
-
-  private handleOutgoingMessage(event: OutgoingMessageEvent): void {
-    console.log(`[Proactive] Received outgoing message via infraService from ${event.platform}`)
-    this.contextMessages.push(event.message)
-    if (this.contextMessages.length > contextMessageWindowSize) {
-      this.contextMessages.shift()
-    }
-    this.hasNewContextMessages = true
-  }
-
-  /**
-   * Check for new emails via Apple Mail (macOS only)
-   * Reads the latest email (index=1) from INBOX of account 1.
-   * On first run, records the email content without appending.
-   * On subsequent runs, if the email differs from the last record, appends it as a fake user message.
-   */
-  private async checkNewEmails(): Promise<void> {
-    if (!isMacOS()) {
-      return
-    }
-
-    try {
-      const result = await executeMacOSMailTool({ action: 'read_email', index: 1 })
-
-      if (!result.success || !result.data) {
-        console.log('[Proactive] Failed to read latest email:', result.error)
-        return
+      // Update timestamps - only set if not already set for this platform
+      if (!this.chatUnmemorizedTimestamps[event.platform as ChatPlatform]) {
+        this.chatUnmemorizedTimestamps[event.platform as ChatPlatform] = event.timestamp
       }
 
-      const emailContent = (result.data as { content: string }).content
-
-      // First run: just record and skip
-      if (this.lastEmailContent === null) {
-        console.log('[Proactive] First email check - recording latest email')
-        this.lastEmailContent = emailContent
-        return
-      }
-
-      // Compare with last recorded email
-      if (emailContent === this.lastEmailContent) {
-        console.log('[Proactive] No new email detected')
-        return
-      }
-
-      // New email detected - update record and append as user message
-      console.log('[Proactive] New email detected, appending to context messages')
-      this.lastEmailContent = emailContent
-
-      const fakeUserMessage: Anthropic.MessageParam = {
-        role: 'user',
-        content: `Here's a new email.\n\n${emailContent}`
-      }
-
-      this.contextMessages.push(fakeUserMessage)
-      if (this.contextMessages.length > contextMessageWindowSize) {
-        this.contextMessages.shift()
-      }
-      this.hasNewContextMessages = true
-    } catch (error) {
-      console.error('[Proactive] Error checking new emails:', error)
+      console.log(`[Proactive] Added message from ${event.platform} to chat memorization queue (total: ${this.chatUnmemorizedMessages.length})`)
     }
   }
 
@@ -665,86 +525,77 @@ class ProactiveService {
    */
   private async tick(): Promise<void> {
     try {
-      // Step 0: Check for new emails
-      await this.checkNewEmails()
-
       // Step 1: Check if AgentService is idle
       const agentStatus = agentService.getStatus()
-      if (agentStatus.status !== 'idle' && agentStatus.status !== 'complete') {
+      if (agentStatus.status !== 'idle') {
         console.log(`[Proactive] Agent is ${agentStatus.status}, skipping this tick`)
         return
       }
 
-      if (this.hasNewContextMessages) {
-        console.log(`[Proactive] Found ${this.contextMessages.length} new context messages, triggering agent loop`)
-        this.hasNewContextMessages = false
-        await this.runAgentLoop()
+      // Step 2: Check if we should trigger chat memorization
+      if (this.chatUnmemorizedMessages.length > 0 && !this.isMemorizingChat) {
+        const lastMessage = this.chatUnmemorizedMessages[this.chatUnmemorizedMessages.length - 1]
+        const timeSinceLastMessage = Date.now() - (lastMessage.date * 1000)
+        
+        const shouldMemorize = 
+          this.chatUnmemorizedMessages.length >= CHAT_MEMORIZE_MESSAGE_THRESHOLD ||
+          timeSinceLastMessage >= CHAT_MEMORIZE_TIME_THRESHOLD_MS
+        
+        if (shouldMemorize) {
+          console.log(`[Proactive] Triggering chat memorization: ${this.chatUnmemorizedMessages.length} messages, ${Math.floor(timeSinceLastMessage / 1000)}s since last message`)
+          this.triggerChatMemorizationInBackground(
+            { ...this.chatUnmemorizedTimestamps },
+            this.chatUnmemorizedMessages.length
+          )
+          // Reset timestamps for next batch
+          // this.chatUnmemorizedTimestamps = {}
+        }
+      }
+      
+      if (this.unmemorizedMessages.length > 0) {
+        console.log(`[Proactive] Found ${this.unmemorizedMessages.length} unmemorized messages, triggering memorize`)
+        
+        const taskId = await this.triggerMemorize(this.unmemorizedMessages)
+        
+        if (taskId) {
+          console.log(`[Proactive] Memorize triggered with task_id: ${taskId}`)
+          const success = await this.waitMemorizeComplete(taskId)
+          
+          if (success) {
+            // Clear own unmemorizedMessages on success
+            this.unmemorizedMessages = []
+            console.log('[Proactive] Cleared own unmemorizedMessages after successful memorization')
+          }
+        } else {
+          console.log('[Proactive] Memorize failed, continuing to next iteration')
+        }
+        
+        // Go to next iteration after memorization attempt
+        return
       }
 
-      // Step 2: Check if we should trigger chat memorization
-      // if (this.chatUnmemorizedMessages.length > 0 && !this.isMemorizingChat) {
-      //   const lastMessage = this.chatUnmemorizedMessages[this.chatUnmemorizedMessages.length - 1]
-      //   const timeSinceLastMessage = Date.now() - (lastMessage.date * 1000)
-        
-      //   const shouldMemorize = 
-      //     this.chatUnmemorizedMessages.length >= CHAT_MEMORIZE_MESSAGE_THRESHOLD ||
-      //     timeSinceLastMessage >= CHAT_MEMORIZE_TIME_THRESHOLD_MS
-        
-      //   if (shouldMemorize) {
-      //     console.log(`[Proactive] Triggering chat memorization: ${this.chatUnmemorizedMessages.length} messages, ${Math.floor(timeSinceLastMessage / 1000)}s since last message`)
-      //     this.triggerChatMemorizationInBackground(
-      //       { ...this.chatUnmemorizedTimestamps },
-      //       this.chatUnmemorizedMessages.length
-      //     )
-      //     // Reset timestamps for next batch
-      //     // this.chatUnmemorizedTimestamps = {}
-      //   }
-      // }
-      
-      // if (this.unmemorizedMessages.length > 0) {
-      //   console.log(`[Proactive] Found ${this.unmemorizedMessages.length} unmemorized messages, triggering memorize`)
-        
-      //   const taskId = await this.triggerMemorize(this.unmemorizedMessages)
-        
-      //   if (taskId) {
-      //     console.log(`[Proactive] Memorize triggered with task_id: ${taskId}`)
-      //     const success = await this.waitMemorizeComplete(taskId)
-          
-      //     if (success) {
-      //       // Clear own unmemorizedMessages on success
-      //       this.unmemorizedMessages = []
-      //       console.log('[Proactive] Cleared own unmemorizedMessages after successful memorization')
-      //     }
-      //   } else {
-      //     console.log('[Proactive] Memorize failed, continuing to next iteration')
-      //   }
-        
-      //   // Go to next iteration after memorization attempt
-      //   return
-      // }
-
       // Step 3: No unmemorized messages, check for todos
-      // console.log('[Proactive] No unmemorized messages, checking todos')
-      // const todos = await this.getTodos()
+      console.log('[Proactive] No unmemorized messages, checking todos')
+      const todos = await this.getTodos()
       
-      // if (!todos || !todos.toLowerCase().includes('[todo]')) {
-      //   console.log('[Proactive] No todos found, nothing to do')
-      //   return
-      // }
+      if (!todos || !todos.toLowerCase().includes('[todo]')) {
+        console.log('[Proactive] No todos found, nothing to do')
+        return
+      }
 
-      // console.log('[Proactive] Found todos, running agent loop')
-      // console.log('[Proactive] Todos:', todos.substring(0, 100) + (todos.length > 100 ? '...' : ''))
+      console.log('[Proactive] Found todos, running agent loop')
+      console.log('[Proactive] Todos:', todos.substring(0, 100) + (todos.length > 100 ? '...' : ''))
       
-      // // Add todos as user message and run agent loop
-      // const userMessage: Anthropic.MessageParam = {
-      //   role: 'user',
-      //   content: `Please continue with the user's todos:\n\n${todos}`
-      // }
-      // this.conversationHistory.push(userMessage)
-      // this.unmemorizedMessages.push(userMessage)
-      // await proactiveStorage.storeMessage(userMessage)
+      // Add todos as user message and run agent loop
+      const userMessage: Anthropic.MessageParam = {
+        role: 'user',
+        content: `Please continue with the user's todos:\n\n${todos}`
+      }
+      this.conversationHistory.push(userMessage)
+      this.unmemorizedMessages.push(userMessage)
+      await proactiveStorage.storeMessage(userMessage)
       
-      // await this.runAgentLoop()
+      await this.runAgentLoop()
       
     } catch (error) {
       // Log error but don't stop the loop
@@ -875,67 +726,56 @@ class ProactiveService {
    * Supports multiple providers: Claude, MiniMax, or custom Anthropic-compatible API
    */
   private async createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number }> {
-    const memuApiKey = getAuthService().getAuthState().memuApiKey
+    const settings = await loadSettings()
+    const provider = settings.llmProvider || 'claude'
+
+    // Get API key and base URL based on provider
+    let apiKey: string
+    let baseURL: string | undefined
+    let model: string
+
+    switch (provider) {
+      case 'claude':
+        apiKey = settings.claudeApiKey
+        baseURL = undefined
+        model = settings.claudeModel || 'claude-opus-4-5'
+        break
+      case 'minimax':
+        apiKey = settings.minimaxApiKey
+        baseURL = 'https://api.minimaxi.com/anthropic'
+        model = settings.minimaxModel || 'MiniMax-M2.1'
+        break
+      case 'zenmux':
+        apiKey = settings.zenmuxApiKey
+        baseURL = 'https://zenmux.ai/api/anthropic'
+        model = settings.zenmuxModel
+        break
+      case 'custom':
+        apiKey = settings.customApiKey
+        baseURL = settings.customBaseUrl || undefined
+        model = settings.customModel
+        break
+      default:
+        apiKey = settings.claudeApiKey
+        model = settings.claudeModel
+    }
+
+    if (!apiKey) {
+      throw new Error(`API key not configured for ${provider}. Please set it in Settings.`)
+    }
+
     const client = new Anthropic({
-      authToken: memuApiKey,
-      baseURL: `${DEFAULT_BASE_URL}/api/v3/yumi/anthropic/nonmemorize`
+      apiKey,
+      ...(baseURL && { baseURL })
     })
+
+    console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
 
     return {
       client,
-      model: 'smart',
-      maxTokens: 8192
+      model,
+      maxTokens: settings.maxTokens || 4096
     }
-    // const settings = await loadSettings()
-    // const provider = settings.llmProvider || 'claude'
-
-    // // Get API key and base URL based on provider
-    // let apiKey: string
-    // let baseURL: string | undefined
-    // let model: string
-
-    // switch (provider) {
-    //   case 'claude':
-    //     apiKey = settings.claudeApiKey
-    //     baseURL = undefined
-    //     model = settings.claudeModel || 'claude-opus-4-5'
-    //     break
-    //   case 'minimax':
-    //     apiKey = settings.minimaxApiKey
-    //     baseURL = 'https://api.minimaxi.com/anthropic'
-    //     model = settings.minimaxModel || 'MiniMax-M2.1'
-    //     break
-    //   case 'zenmux':
-    //     apiKey = settings.zenmuxApiKey
-    //     baseURL = 'https://zenmux.ai/api/anthropic'
-    //     model = settings.zenmuxModel
-    //     break
-    //   case 'custom':
-    //     apiKey = settings.customApiKey
-    //     baseURL = settings.customBaseUrl || undefined
-    //     model = settings.customModel
-    //     break
-    //   default:
-    //     apiKey = settings.claudeApiKey
-    //     model = settings.claudeModel
-    // }
-
-    // if (!apiKey) {
-    //   throw new Error(`API key not configured for ${provider}. Please set it in Settings.`)
-    // }
-
-    // const client = new Anthropic({
-    //   apiKey,
-    //   ...(baseURL && { baseURL })
-    // })
-
-    // console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
-
-    // return {
-    //   client,
-    //   model,
-    //   maxTokens: settings.maxTokens || 4096
-    // }
   }
 
   /**
@@ -952,24 +792,6 @@ class ProactiveService {
     let iterations = 0
     const maxIterations = 50 // Prevent infinite loops
 
-    // Snapshot contextMessages as the starting point (no window size limit from here on)
-    this.agentLoopMessages = [...this.contextMessages]
-    console.log(`[Proactive] Initialized agentLoopMessages with ${this.agentLoopMessages.length} context messages`)
-
-    // Ensure first message is from user (sliding window may have dropped the leading user message)
-    while (this.agentLoopMessages.length > 0 && this.agentLoopMessages[0].role === 'assistant') {
-      this.agentLoopMessages.shift()
-    }
-
-    // Ensure last message is from user before calling API
-    const lastMsg = this.agentLoopMessages[this.agentLoopMessages.length - 1]
-    if (lastMsg?.role === 'assistant') {
-      this.agentLoopMessages.push({
-        role: 'user',
-        content: 'Please continue adhering to the system prompt.'
-      })
-    }
-
     while (iterations < maxIterations) {
       iterations++
       console.log(`[Proactive] Loop iteration ${iterations}, model: ${model}`)
@@ -980,7 +802,7 @@ class ProactiveService {
         max_tokens: maxTokens,
         system: PROACTIVE_SYSTEM_PROMPT,
         tools,
-        messages: this.agentLoopMessages
+        messages: this.conversationHistory
       })
 
       console.log('[Proactive] Response received, stop_reason:', response.stop_reason)
@@ -990,18 +812,17 @@ class ProactiveService {
         // Process tool calls
         await this.processToolUse(response)
       } else {
-        // Extract final text response, converting sentinel token to empty string
+        // Extract final text response
         const textContent = response.content.find((block) => block.type === 'text')
-        const rawMessage = textContent && textContent.type === 'text' ? textContent.text : ''
-        const message = rawMessage.trim() === '[NO_MESSAGE]' ? '' : rawMessage
+        const message = textContent && textContent.type === 'text' ? textContent.text : ''
 
-        // Add assistant response to agentLoopMessages
+        // Add assistant response to history and track for memorization
         const assistantMessage: Anthropic.MessageParam = {
           role: 'assistant',
           content: response.content
         }
-        this.agentLoopMessages.push(assistantMessage)
-        // this.unmemorizedMessages.push(assistantMessage)
+        this.conversationHistory.push(assistantMessage)
+        this.unmemorizedMessages.push(assistantMessage)
 
         console.log('[Proactive] Final response:', message.substring(0, 100) + '...')
 
@@ -1017,9 +838,6 @@ class ProactiveService {
         // Store with platform info if it was sent successfully
         if (sentPlatform) {
           await proactiveStorage.storeMessage(assistantMessage, sentPlatform)
-          // Invalidate main agent's cached context so it reloads from storage
-          // on the next user message and sees this proactive message
-          agentService.invalidateContextForPlatform(sentPlatform)
         }
 
         return {
@@ -1037,15 +855,16 @@ class ProactiveService {
 
   /**
    * Process tool use blocks and execute tools
-   * Appends assistant response and tool results to agentLoopMessages
+   * Tracks messages in unmemorizedMessages for later memorization
    */
   private async processToolUse(response: Anthropic.Message): Promise<void> {
-    // Add assistant's response (with tool use) to agentLoopMessages
+    // Add assistant's response (with tool use) to history and track for memorization
     const assistantMessage: Anthropic.MessageParam = {
       role: 'assistant',
       content: response.content
     }
-    this.agentLoopMessages.push(assistantMessage)
+    this.conversationHistory.push(assistantMessage)
+    this.unmemorizedMessages.push(assistantMessage)
     await proactiveStorage.storeMessage(assistantMessage)
 
     // Find all tool use blocks
@@ -1070,12 +889,13 @@ class ProactiveService {
       })
     }
 
-    // Add tool results to agentLoopMessages
+    // Add tool results to history and track for memorization
     const toolResultsMessage: Anthropic.MessageParam = {
       role: 'user',
       content: toolResults
     }
-    this.agentLoopMessages.push(toolResultsMessage)
+    this.conversationHistory.push(toolResultsMessage)
+    this.unmemorizedMessages.push(toolResultsMessage)
     await proactiveStorage.storeMessage(toolResultsMessage)
   }
 
@@ -1237,21 +1057,6 @@ class ProactiveService {
             return platform
           }
           console.error('[Proactive] Failed to send to Line:', result.error)
-          return null
-        }
-
-        case 'yumi': {
-          const targetUserId = yumiBotService.getCurrentTargetUserId()
-          if (!targetUserId) {
-            console.log('[Proactive] No current Yumi target user ID')
-            return null
-          }
-          const result = await yumiBotService.sendText(targetUserId, message)
-          if (result.success) {
-            console.log('[Proactive] Message sent to Yumi successfully')
-            return platform
-          }
-          console.error('[Proactive] Failed to send to Yumi:', result.error)
           return null
         }
 
@@ -1616,7 +1421,6 @@ class ProactiveService {
   clearHistory(): void {
     this.conversationHistory = []
     this.unmemorizedMessages = []
-    this.agentLoopMessages = []
   }
 }
 

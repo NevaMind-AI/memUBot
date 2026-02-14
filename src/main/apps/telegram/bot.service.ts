@@ -799,7 +799,7 @@ export class TelegramBotService {
         infraService.publish('message:outgoing', {
           platform: 'telegram',
           timestamp: botReply.date,
-          content: response.message,
+          message: { role: 'assistant', content: response.message },
           metadata: {
             messageId: sentMsg.message_id.toString()
           }

@@ -204,7 +204,7 @@ export class WhatsAppBotService {
         infraService.publish('message:outgoing', {
           platform: 'whatsapp',
           timestamp: botReply.date,
-          content: response.message,
+          message: { role: 'assistant', content: response.message },
           metadata: {
             messageId: botReply.messageId
           }
