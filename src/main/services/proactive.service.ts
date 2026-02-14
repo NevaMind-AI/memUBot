@@ -1017,6 +1017,9 @@ class ProactiveService {
         // Store with platform info if it was sent successfully
         if (sentPlatform) {
           await proactiveStorage.storeMessage(assistantMessage, sentPlatform)
+          // Invalidate main agent's cached context so it reloads from storage
+          // on the next user message and sees this proactive message
+          agentService.invalidateContextForPlatform(sentPlatform)
         }
 
         return {
