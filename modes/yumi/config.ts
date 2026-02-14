@@ -18,7 +18,10 @@ const config: ModeConfig = {
   updateUrl: 'https://d192tm8h0ep0ud.cloudfront.net/yumi',
 
   // Release notes: update before each release
-  releaseNotes: '- Bug fixes and performance improvements'
+  releaseNotes: [
+    '- Improve save button UI/UX',
+    '- Bug fixes and performance improvements',
+  ].join('\n')
 }
 
 export default config
