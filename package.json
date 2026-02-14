@@ -1,6 +1,6 @@
 {
   "name": "memu-bot",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "memU bot - AI Assistant for messaging platforms",
   "main": "./out/main/index.js",
   "engines": {
@@ -20,6 +20,10 @@
     "build:linux": "npm run build && electron-builder --linux",
     "release:mac": "tsx scripts/release-mac.ts",
     "release:win": "tsx scripts/release-win.ts",
+    "release:memu:mac": "tsx scripts/release-mac.ts --mode memu",
+    "release:memu:win": "tsx scripts/release-win.ts --mode memu",
+    "release:yumi:mac": "tsx scripts/release-mac.ts --mode yumi",
+    "release:yumi:win": "tsx scripts/release-win.ts --mode yumi",
     "dev:memu": "APP_MODE=memu electron-vite dev --mode memu",
     "dev:yumi": "APP_MODE=yumi electron-vite dev --mode yumi",
     "build:memu": "APP_MODE=memu electron-vite build --mode memu",

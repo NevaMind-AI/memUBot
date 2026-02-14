@@ -14,7 +14,11 @@ const config: ModeConfig = {
   iconWin: 'icon-win.png',
 
   // Auto-update URL: public CloudFront endpoint hosting latest-mac.yml / latest.yml
-  updateUrl: 'http://localhost:8080'
+  // Path includes mode name so yumi and memu don't share the same yaml
+  updateUrl: 'https://d192tm8h0ep0ud.cloudfront.net/memu',
+
+  // Release notes: update before each release
+  releaseNotes: '- Bug fixes and performance improvements'
 }
 
 export default config

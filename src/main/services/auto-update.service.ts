@@ -87,16 +87,44 @@ class AutoUpdateService {
   }
 
   /**
+   * Extract plain-text release notes from UpdateInfo.
+   * releaseNotes can be a string, an array of ReleaseNoteInfo, or null.
+   */
+  private formatReleaseNotes(info: UpdateInfo): string {
+    const { releaseNotes } = info
+    if (!releaseNotes) return ''
+
+    if (typeof releaseNotes === 'string') {
+      return releaseNotes.trim()
+    }
+
+    // Array of { version, note } objects
+    if (Array.isArray(releaseNotes)) {
+      return releaseNotes
+        .map((entry) => (typeof entry === 'string' ? entry : entry.note ?? ''))
+        .filter(Boolean)
+        .join('\n')
+        .trim()
+    }
+
+    return ''
+  }
+
+  /**
    * Show dialog asking user whether to download the new version
    */
   private async promptForDownload(info: UpdateInfo): Promise<void> {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const notes = this.formatReleaseNotes(info)
+    const detail = notes
+      ? `What's new:\n${notes}\n\nWould you like to download and install it now?`
+      : 'Would you like to download and install it now?'
 
     const result = await dialog.showMessageBox(win ?? ({} as BrowserWindow), {
       type: 'info',
       title: 'Update Available',
       message: `A new version (v${info.version}) is available.`,
-      detail: 'Would you like to download and install it now?',
+      detail,
       buttons: ['Update Now', 'Later'],
       defaultId: 0,
       cancelId: 1
@@ -116,12 +144,16 @@ class AutoUpdateService {
    */
   private async promptForInstall(info: UpdateInfo): Promise<void> {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+    const notes = this.formatReleaseNotes(info)
+    const detail = notes
+      ? `What's new:\n${notes}\n\nRestart the application to apply the update.`
+      : 'Restart the application to apply the update.'
 
     const result = await dialog.showMessageBox(win ?? ({} as BrowserWindow), {
       type: 'info',
       title: 'Update Ready',
       message: `Version v${info.version} has been downloaded.`,
-      detail: 'Restart the application to apply the update.',
+      detail,
       buttons: ['Restart Now', 'Later'],
       defaultId: 0,
       cancelId: 1

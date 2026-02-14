@@ -20,6 +20,8 @@ interface ModeConfig {
   icon: string
   iconMac?: string
   iconWin?: string
+  updateUrl?: string
+  releaseNotes?: string
 }
 
 async function loadModeConfig(mode: string): Promise<ModeConfig> {
@@ -84,6 +86,13 @@ async function main(): Promise<void> {
     builderConfig.publish = {
       provider: 'generic',
       url: config.updateUrl
+    }
+  }
+
+  // Include release notes in the generated latest-mac.yml / latest.yml
+  if (config.releaseNotes) {
+    builderConfig.releaseInfo = {
+      releaseNotes: config.releaseNotes
     }
   }
   
