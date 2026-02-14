@@ -28,7 +28,10 @@
     "build:memu:win": "APP_MODE=memu tsx scripts/build-win.ts",
     "build:yumi:mac": "APP_MODE=yumi tsx scripts/build-mac.ts",
     "build:yumi:win": "APP_MODE=yumi tsx scripts/build-win.ts",
-    "prepare-mode": "tsx scripts/prepare-mode.ts"
+    "prepare-mode": "tsx scripts/prepare-mode.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -79,6 +82,7 @@
     "typescript": "^5.5.2",
     "utf-8-validate": "^6.0.6",
     "vite": "^5.3.1",
+    "vitest": "^4.0.18",
     "zlib-sync": "^0.1.10"
   }
 }
