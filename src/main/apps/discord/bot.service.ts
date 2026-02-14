@@ -504,7 +504,7 @@ export class DiscordBotService {
         infraService.publish('message:outgoing', {
           platform: 'discord',
           timestamp: botReply.date,
-          content: response.message,
+          message: { role: 'assistant', content: response.message },
           metadata: {
             messageId: sentMsg.id,
             replyToId: originalMessage.id

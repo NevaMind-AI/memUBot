@@ -40,7 +40,7 @@ export interface IncomingMessageEvent {
 export interface OutgoingMessageEvent {
   platform: MessagePlatform
   timestamp: number  // Unix timestamp in seconds
-  content: string
+  message: Anthropic.MessageParam
   metadata?: {
     messageId?: string
     replyToId?: string

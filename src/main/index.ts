@@ -24,9 +24,9 @@ import { autoUpdateService } from './services/auto-update.service'
 // This ensures npx, node, etc. are available in packaged apps
 initializeShellEnv()
 
-// Parse command line arguments
-// Usage: npm run dev -- --with-proactive
-const withProactive = process.argv.includes('--with-proactive')
+// Parse proactive mode from environment variable
+// Usage: WITH_PROACTIVE=1 npm run dev:yumi  (or use dev:yumi:proactive script)
+const withProactive = process.env.WITH_PROACTIVE === '1' || process.argv.includes('--with-proactive')
 
 let mainWindow: BrowserWindow | null = null
 
@@ -275,7 +275,7 @@ async function initializeServicesAsync(): Promise<void> {
 
   if (withProactive) {
     try {
-      const started = await proactiveService.start(5000) // 5 second interval
+      const started = await proactiveService.start() // default interval
       if (started) {
         console.log('[App] Proactive service started')
       } else {

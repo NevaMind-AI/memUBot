@@ -734,7 +734,7 @@ export class FeishuBotService {
           infraService.publish('message:outgoing', {
             platform: 'feishu',
             timestamp: botReply.date,
-            content: response.message,
+            message: { role: 'assistant', content: response.message },
             metadata: {
               messageId: result.messageId
             }

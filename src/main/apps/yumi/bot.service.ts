@@ -523,7 +523,7 @@ export class YumiBotService {
         infraService.publish('message:outgoing', {
           platform: 'yumi',
           timestamp: storedMsg.timestamp,
-          content: text,
+          message: { role: 'assistant', content: text },
           metadata: { messageId: result.messageId }
         })
       }
@@ -637,7 +637,7 @@ export class YumiBotService {
         infraService.publish('message:outgoing', {
           platform: 'yumi',
           timestamp: storedMsg.timestamp,
-          content: `[Image: ${filename}]`,
+          message: { role: 'assistant', content: `[Image: ${filename}]` },
           metadata: { messageId: result.messageId, type: 'image' }
         })
       }
@@ -746,7 +746,7 @@ export class YumiBotService {
         infraService.publish('message:outgoing', {
           platform: 'yumi',
           timestamp: storedMsg.timestamp,
-          content: `[File: ${filename}]`,
+          message: { role: 'assistant', content: `[File: ${filename}]` },
           metadata: { messageId: result.messageId, type: 'file', filename }
         })
       }

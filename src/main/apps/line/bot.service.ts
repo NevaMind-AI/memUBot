@@ -216,7 +216,7 @@ export class LineBotService {
         infraService.publish('message:outgoing', {
           platform: 'line',
           timestamp: botReply.date,
-          content: response.message,
+          message: { role: 'assistant', content: response.message },
           metadata: {
             messageId: botReply.messageId
           }
