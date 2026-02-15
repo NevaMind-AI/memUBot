@@ -19,7 +19,8 @@ const config: ModeConfig = {
 
   // Release notes: update before each release
   releaseNotes: [
-    '- Improve save button UI/UX',
+    '- Add intermediate step feedback during Agent processing',
+    '- Reply with busy status when receiving messages while processing',
     '- Bug fixes and performance improvements',
   ].join('\n')
 }
