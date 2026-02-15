@@ -589,5 +589,9 @@
       "input": "Input",
       "output": "Output"
     }
+  },
+  "agent": {
+    "busySamePlatform": "⏳ Still processing your previous message. Please wait a moment.",
+    "busyCrossPlatform": "⏳ Currently processing a message from {{platform}}. Please wait a moment."
   }
 }

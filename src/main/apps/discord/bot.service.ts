@@ -459,18 +459,12 @@ export class DiscordBotService {
       // Get response from Agent with Discord-specific tools
       const response = await agentService.processMessage(fullMessage, 'discord', imageUrls)
 
-      // Check if rejected due to cross-platform lock
+      // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
-        const platformNames: Record<string, string> = {
-          telegram: 'Telegram',
-          discord: 'Discord',
-          slack: 'Slack',
-          whatsapp: 'WhatsApp',
-          line: 'Line'
-        }
-        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
         console.log(`[Discord] Agent is busy with ${response.busyWith}`)
-        await originalMessage.reply(`⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment and try again.`)
+        if (response.message) {
+          await originalMessage.reply(response.message)
+        }
         return
       }
 

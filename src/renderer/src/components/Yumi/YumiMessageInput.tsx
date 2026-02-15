@@ -220,7 +220,7 @@ export function YumiMessageInput(): JSX.Element {
             disabled={sending}
             placeholder={t('messages.typeMessage', 'Type a message...')}
             rows={1}
-            className="w-full min-h-10 resize-none rounded-xl px-3.5 py-2 text-[13px]
+            className="w-full min-h-10 resize-none rounded-xl px-3.5 py-2.5 text-[13px]
               bg-[var(--bg-input)] border border-[var(--glass-border)]
               text-[var(--text-primary)] placeholder-[var(--text-muted)]
               focus:outline-none focus:border-[#E8A090]/50 focus:ring-1 focus:ring-[#E8A090]/25

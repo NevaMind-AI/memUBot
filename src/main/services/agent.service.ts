@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import path from 'path'
 import { nativeImage } from 'electron'
 import { loadSettings } from '../config/settings.config'
+import { t } from '../i18n'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
 import { discordStorage } from '../apps/discord/storage'
@@ -243,6 +244,88 @@ export class AgentService {
       this.abortController.abort()
     }
     this.setStatus('idle')
+  }
+
+  /**
+   * Platform display names (not localized — proper nouns)
+   */
+  private static readonly PLATFORM_NAMES: Record<string, string> = {
+    telegram: 'Telegram',
+    discord: 'Discord',
+    slack: 'Slack',
+    whatsapp: 'WhatsApp',
+    line: 'Line',
+    feishu: 'Feishu',
+    yumi: 'Yumi'
+  }
+
+  /**
+   * Build a localized rejection message when the agent is busy.
+   * Uses the shared i18n locale files (same as renderer).
+   */
+  private async buildBusyRejectionMessage(
+    requestingPlatform: MessagePlatform,
+    busyWithPlatform: MessagePlatform
+  ): Promise<string> {
+    const isSamePlatform = requestingPlatform === busyWithPlatform
+    const busyName = AgentService.PLATFORM_NAMES[busyWithPlatform] || busyWithPlatform
+
+    if (isSamePlatform) {
+      return t('agent.busySamePlatform')
+    }
+    return t('agent.busyCrossPlatform', { platform: busyName })
+  }
+
+  /**
+   * Map platform to its send_text tool name.
+   * Returns null if the platform has no send_text tool (e.g. 'none').
+   */
+  private getSendTextToolName(): string | null {
+    const map: Partial<Record<MessagePlatform, string>> = {
+      telegram: 'telegram_send_text',
+      discord: 'discord_send_text',
+      whatsapp: 'whatsapp_send_text',
+      slack: 'slack_send_text',
+      line: 'line_send_text',
+      feishu: 'feishu_send_text',
+      yumi: 'yumi_send_text'
+    }
+    return map[this.currentPlatform] ?? null
+  }
+
+  /**
+   * Send the assistant's intent summary (text blocks from a tool_use response)
+   * to the user via the platform's send_text tool.
+   * This is a programmatic call (no extra LLM round), used to show
+   * what the agent is about to do before executing tools.
+   */
+  private async sendIntentSummaryToUser(content: Anthropic.ContentBlock[]): Promise<void> {
+    const toolName = this.getSendTextToolName()
+    if (!toolName) return
+
+    // Extract text blocks (the "what I'm about to do" summary)
+    const summaryText = content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('\n')
+
+    if (!summaryText.trim()) return
+
+    try {
+      // Truncate very long summaries to avoid flooding the chat
+      const maxLen = 2000
+      const truncated =
+        summaryText.length > maxLen
+          ? summaryText.substring(0, maxLen) + '\n...(truncated)'
+          : summaryText
+
+      const message = `💭 ${truncated}`
+      await this.executeToolInternal(toolName, { text: message, _storeInHistory: false })
+      console.log(`[Agent] Sent intent summary to user via ${toolName} (${summaryText.length} chars)`)
+    } catch (err) {
+      // Non-critical — don't break the agent loop if sending fails
+      console.warn('[Agent] Failed to send intent summary to user:', err)
+    }
   }
 
   /**
@@ -489,10 +572,7 @@ export class AgentService {
     if (this.processingLock === null) {
       return { canProcess: true }
     }
-    if (this.processingLock === platform) {
-      // Same platform trying to process again (shouldn't happen, but allow it)
-      return { canProcess: true }
-    }
+    // Reject regardless of whether it's the same or a different platform
     return { canProcess: false, busyWith: this.processingLock }
   }
 
@@ -788,12 +868,14 @@ export class AgentService {
     imageUrls: string[] = [],
     chatId?: string
   ): Promise<AgentResponse> {
-    // Check if another platform is currently processing
+    // Check if agent is currently processing (same or different platform)
     const lockCheck = this.canProcess(platform)
     if (!lockCheck.canProcess) {
       console.log(`[Agent] Rejected: ${platform} cannot process, busy with ${lockCheck.busyWith}`)
+      const rejectionMessage = await this.buildBusyRejectionMessage(platform, lockCheck.busyWith!)
       return {
         success: false,
+        message: rejectionMessage,
         error: `busy:${lockCheck.busyWith}`,
         busyWith: lockCheck.busyWith
       }
@@ -1138,6 +1220,10 @@ export class AgentService {
 
       // Check if we need to use tools
       if (standardResponse.stop_reason === 'tool_use') {
+        // Before executing tools, send the assistant's text summary
+        // (the "what I'm about to do" message) to the user via the platform
+        await this.sendIntentSummaryToUser(standardResponse.content)
+
         // Process tool calls
         await this.processToolUse(standardResponse)
       } else {

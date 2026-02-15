@@ -185,10 +185,11 @@ export class LineBotService {
 
       const response = await agentService.processMessage(userMessage, 'line')
 
-      // Check if rejected due to cross-platform lock
+      // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
         console.log(`[Line] Agent is busy with ${response.busyWith}`)
         // TODO: Send busy message to Line when client is implemented
+        // response.message contains the localized rejection text
         return
       }
 

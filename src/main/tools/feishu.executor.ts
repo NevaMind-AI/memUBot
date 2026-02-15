@@ -96,6 +96,8 @@ function getFileSize(filePath: string): number {
 
 interface SendTextInput {
   text: string
+  /** @internal Used by sendIntentSummaryToUser to skip storage */
+  _storeInHistory?: boolean
 }
 
 export async function executeFeishuSendText(input: SendTextInput): Promise<ToolResult> {
@@ -104,10 +106,13 @@ export async function executeFeishuSendText(input: SendTextInput): Promise<ToolR
     return { success: false, error: 'No active Feishu chat. User must send a message first.' }
   }
 
-  const result = await feishuBotService.sendText(chatId, input.text)
+  const shouldStore = input._storeInHistory !== false
+  const result = await feishuBotService.sendText(chatId, input.text, { storeInHistory: shouldStore })
 
   if (result.success && result.messageId) {
-    await storeSentMessage(result.messageId, chatId, input.text)
+    if (shouldStore) {
+      await storeSentMessage(result.messageId, chatId, input.text)
+    }
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }

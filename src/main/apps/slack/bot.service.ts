@@ -516,19 +516,12 @@ export class SlackBotService {
 
       const response = await agentService.processMessage(fullMessage, 'slack', imageUrls)
 
-      // Check if rejected due to cross-platform lock
+      // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
-        const platformNames: Record<string, string> = {
-          telegram: 'Telegram',
-          discord: 'Discord',
-          slack: 'Slack',
-          whatsapp: 'WhatsApp',
-          line: 'Line'
-        }
-        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
         console.log(`[Slack] Agent is busy with ${response.busyWith}`)
-        const busyMsg = `⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment and try again.`
-        await say(threadTs ? { text: busyMsg, thread_ts: threadTs } : busyMsg)
+        if (response.message) {
+          await say(threadTs ? { text: response.message, thread_ts: threadTs } : response.message)
+        }
         return
       }
 
@@ -664,11 +657,13 @@ export class SlackBotService {
 
   /**
    * Send a text message
+   * @param storeInHistory - Whether to store message in history (default: true)
    */
   async sendText(
     channelId: string,
     text: string,
-    threadTs?: string
+    threadTs?: string,
+    options?: { storeInHistory?: boolean }
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.status.isConnected || !this.app) {
       return { success: false, error: 'Bot not connected' }
@@ -682,19 +677,21 @@ export class SlackBotService {
       })
 
       if (result.ok && result.ts) {
-        // Store bot's message
-        const botMsg: StoredSlackMessage = {
-          messageId: result.ts,
-          channelId,
-          threadTs,
-          fromId: 'bot',
-          fromUsername: 'Bot',
-          text,
-          date: Math.floor(Date.now() / 1000),
-          isFromBot: true
+        // Store bot's message (default: true)
+        if (options?.storeInHistory !== false) {
+          const botMsg: StoredSlackMessage = {
+            messageId: result.ts,
+            channelId,
+            threadTs,
+            fromId: 'bot',
+            fromUsername: 'Bot',
+            text,
+            date: Math.floor(Date.now() / 1000),
+            isFromBot: true
+          }
+          await slackStorage.storeMessage(botMsg)
+          appEvents.emitSlackNewMessage(this.convertToAppMessage(botMsg))
         }
-        await slackStorage.storeMessage(botMsg)
-        appEvents.emitSlackNewMessage(this.convertToAppMessage(botMsg))
 
         return { success: true, messageId: result.ts }
       }

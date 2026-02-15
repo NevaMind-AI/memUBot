@@ -173,10 +173,11 @@ export class WhatsAppBotService {
 
       const response = await agentService.processMessage(userMessage, 'whatsapp')
 
-      // Check if rejected due to cross-platform lock
+      // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
         console.log(`[WhatsApp] Agent is busy with ${response.busyWith}`)
         // TODO: Send busy message to WhatsApp when client is implemented
+        // response.message contains the localized rejection text
         return
       }
 

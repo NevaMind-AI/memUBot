@@ -586,5 +586,9 @@
       "input": "输入",
       "output": "输出"
     }
+  },
+  "agent": {
+    "busySamePlatform": "⏳ 正在处理上一条消息，请稍后再试。",
+    "busyCrossPlatform": "⏳ 正在处理来自 {{platform}} 的消息，请稍后再试。"
   }
 }

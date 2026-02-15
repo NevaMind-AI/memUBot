@@ -171,6 +171,15 @@ When creating background services, use this directory:
 
 Services should call the local API at http://127.0.0.1:31415/api/v1/invoke to report events.`
 
+  // Instruct the model to always explain its intent before calling tools
+  basePrompt += `
+
+## Tool Use Communication
+
+**IMPORTANT:** Before calling any tool, you MUST include a brief text message explaining what you are about to do and why. This text is shown to the user as a status update while tools are executing. Keep it concise (1-2 sentences).
+
+Example: Instead of directly calling \`bash\` with a command, first say "Let me check the current directory structure." then call the tool.`
+
   // Load builtin skills (bundled with app)
   const builtinSkillNames = ['service-creator', 'keynote-creator']
   for (const skillName of builtinSkillNames) {

@@ -207,6 +207,8 @@ function resolveFile(filePath: string): ResolvedFile {
 
 interface SendTextInput {
   text: string
+  /** @internal Used by sendIntentSummaryToUser to skip storage */
+  _storeInHistory?: boolean
 }
 
 export async function executeTelegramSendText(input: SendTextInput): Promise<ToolResult> {
@@ -215,11 +217,15 @@ export async function executeTelegramSendText(input: SendTextInput): Promise<Too
     return { success: false, error: 'No active Telegram chat. User must send a message first.' }
   }
 
+  const shouldStore = input._storeInHistory !== false
+
   // Use default HTML conversion for proper Markdown rendering
-  const result = await telegramBotService.sendText(chatId, input.text)
+  const result = await telegramBotService.sendText(chatId, input.text, { storeInHistory: shouldStore })
 
   if (result.success && result.message) {
-    await storeSentMessage(result.message, input.text)
+    if (shouldStore) {
+      await storeSentMessage(result.message, input.text)
+    }
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }

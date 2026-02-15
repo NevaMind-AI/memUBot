@@ -16,6 +16,8 @@ function getCurrentSourceId(): string | null {
 
 interface SendTextInput {
   text: string
+  /** @internal Used by sendIntentSummaryToUser to skip storage */
+  _storeInHistory?: boolean
 }
 
 export async function executeLineSendText(input: SendTextInput): Promise<ToolResult> {

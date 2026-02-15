@@ -87,6 +87,8 @@ function resolveFilePath(filePath: string): string {
 
 interface SendTextInput {
   text: string
+  /** @internal Used by sendIntentSummaryToUser to skip storage */
+  _storeInHistory?: boolean
 }
 
 export async function executeDiscordSendText(input: SendTextInput): Promise<ToolResult> {
@@ -95,10 +97,13 @@ export async function executeDiscordSendText(input: SendTextInput): Promise<Tool
     return { success: false, error: 'No active Discord channel. User must send a message first.' }
   }
 
-  const result = await discordBotService.sendText(channelId, input.text)
+  const shouldStore = input._storeInHistory !== false
+  const result = await discordBotService.sendText(channelId, input.text, { storeInHistory: shouldStore })
 
   if (result.success && result.messageId) {
-    await storeSentMessage(result.messageId, channelId, input.text)
+    if (shouldStore) {
+      await storeSentMessage(result.messageId, channelId, input.text)
+    }
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }

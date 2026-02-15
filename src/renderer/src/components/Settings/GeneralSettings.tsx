@@ -359,9 +359,20 @@ function LanguageSelector(): JSX.Element {
   const { t, i18n } = useTranslation()
   const currentLang = i18n.language
 
+  // Sync renderer language to main process settings on mount (one-time migration)
+  useEffect(() => {
+    window.settings.get().then(result => {
+      if (result.success && result.data && result.data.language !== currentLang) {
+        window.settings.save({ language: currentLang })
+      }
+    })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newLang = e.target.value
     changeLanguage(newLang)
+    // Sync to main process settings so main-side i18n stays in sync
+    window.settings.save({ language: newLang })
   }
 
   return (

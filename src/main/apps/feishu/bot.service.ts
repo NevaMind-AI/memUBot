@@ -690,21 +690,12 @@ export class FeishuBotService {
 
       const response = await agentService.processMessage(userMessage, 'feishu', imageUrls, chatId)
 
+      // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
-        const platformNames: Record<string, string> = {
-          telegram: 'Telegram',
-          discord: 'Discord',
-          slack: 'Slack',
-          whatsapp: 'WhatsApp',
-          line: 'Line',
-          feishu: 'Feishu'
+        console.log(`[Feishu] Agent is busy with ${response.busyWith}`)
+        if (response.message) {
+          await this.sendText(chatId, response.message, { storeInHistory: false })
         }
-        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
-        await this.sendText(
-          chatId,
-          `⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment and try again.`,
-          { storeInHistory: false }
-        )
         return
       }
 

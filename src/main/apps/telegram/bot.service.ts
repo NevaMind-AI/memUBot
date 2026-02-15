@@ -750,21 +750,12 @@ export class TelegramBotService {
       // Get response from Agent with Telegram-specific tools and images
       const response = await agentService.processMessage(userMessage, 'telegram', imageUrls)
 
-      // Check if rejected due to cross-platform lock
+      // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
-        const platformNames: Record<string, string> = {
-          telegram: 'Telegram',
-          discord: 'Discord',
-          slack: 'Slack',
-          whatsapp: 'WhatsApp',
-          line: 'Line'
-        }
-        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
         console.log(`[Telegram] Agent is busy with ${response.busyWith}`)
-        await this.bot?.sendMessage(
-          chatId,
-          `⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment and try again.`
-        )
+        if (response.message) {
+          await this.sendText(chatId, response.message, { storeInHistory: false })
+        }
         return
       }
 

@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto'
 import * as fs from 'fs/promises'
 import * as path from 'path'
 import { settingsManager } from '../config/settings.config'
+import { t } from '../i18n'
 
 const USER_ID_FILE = 'user_id.txt'
 
@@ -71,6 +72,7 @@ class AnalyticsService {
         ...this.commonParams,
         user_id: this.commonParams.user_id.slice(0, 8) + '...'
       })
+      console.log('[Analytics] test t:', await t('agent.busySamePlatform'))
     } catch (error) {
       console.error('[Analytics] Failed to initialize:', error)
     }

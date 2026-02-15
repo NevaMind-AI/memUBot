@@ -67,6 +67,8 @@ async function storeSentMessage(
 interface SendTextInput {
   text: string
   thread_ts?: string
+  /** @internal Used by sendIntentSummaryToUser to skip storage */
+  _storeInHistory?: boolean
 }
 
 export async function executeSlackSendText(input: SendTextInput): Promise<ToolResult> {
@@ -75,10 +77,13 @@ export async function executeSlackSendText(input: SendTextInput): Promise<ToolRe
     return { success: false, error: 'No active Slack channel. User must send a message first.' }
   }
 
-  const result = await slackBotService.sendText(channelId, input.text, input.thread_ts)
+  const shouldStore = input._storeInHistory !== false
+  const result = await slackBotService.sendText(channelId, input.text, input.thread_ts, { storeInHistory: shouldStore })
 
   if (result.success && result.messageId) {
-    await storeSentMessage(result.messageId, channelId, input.text, input.thread_ts)
+    if (shouldStore) {
+      await storeSentMessage(result.messageId, channelId, input.text, input.thread_ts)
+    }
     return { success: true, data: { messageId: result.messageId } }
   }
   return { success: false, error: result.error }

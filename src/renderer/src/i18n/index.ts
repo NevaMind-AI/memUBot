@@ -31,6 +31,14 @@ i18n
       caches: ['localStorage']
     }
   })
+  .then(() => {
+    // Sync renderer language to main process settings after init completes
+    // This ensures main-side i18n (agent rejection messages, etc.) uses the correct language
+    const lang = i18n.language
+    if (lang && window.settings?.save) {
+      window.settings.save({ language: lang })
+    }
+  })
 
 export default i18n
 
@@ -38,6 +46,10 @@ export default i18n
 export const changeLanguage = (lng: string): void => {
   i18n.changeLanguage(lng)
   localStorage.setItem('memu-language', lng)
+  // Sync to main process settings
+  if (window.settings?.save) {
+    window.settings.save({ language: lng })
+  }
 }
 
 // Available languages

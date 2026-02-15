@@ -111,6 +111,8 @@ function resolveFile(filePath: string): ResolvedFile {
 
 interface SendTextInput {
   text: string
+  /** @internal Used by sendIntentSummaryToUser to skip storage */
+  _storeInHistory?: boolean
 }
 
 export async function executeYumiSendText(input: SendTextInput): Promise<ToolResult> {
@@ -119,7 +121,8 @@ export async function executeYumiSendText(input: SendTextInput): Promise<ToolRes
     return { success: false, error: 'No active Yumi chat. User must send a message first.' }
   }
 
-  const result = await yumiBotService.sendText(targetUserId, input.text)
+  const shouldStore = input._storeInHistory !== false
+  const result = await yumiBotService.sendText(targetUserId, input.text, { storeInHistory: shouldStore })
 
   if (result.success) {
     return { success: true, data: { sent: true, messageId: result.messageId } }

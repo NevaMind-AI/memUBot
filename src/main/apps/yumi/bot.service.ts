@@ -75,9 +75,8 @@ export class YumiBotService {
   private processedMessageIds: Set<string> = new Set()
   private readonly MAX_PROCESSED_IDS = 1000
 
-  // Processing queue: serialize message handling to prevent concurrent Agent calls
+  // Flag to track if message processing is in progress (for logging purposes)
   private isProcessingMessage = false
-  private messageQueue: Array<{ message: StoredYumiMessage; attachmentData?: Parameters<YumiBotService['processIncomingMessage']>[1] }> = []
 
   /**
    * Initialize the service (called on app startup)
@@ -187,23 +186,16 @@ export class YumiBotService {
       return
     }
 
-    // Queue message for sequential Agent processing
-    this.messageQueue.push({ message, attachmentData })
-    await this.processNextInQueue()
+    // Process message directly (Agent handles concurrency rejection)
+    await this.processMessage(message)
   }
 
   /**
-   * Process the next message in queue (sequential processing)
-   * Prevents concurrent Agent calls from the same platform
+   * Process a single incoming message.
+   * Agent-level concurrency is handled by agentService (reject if busy).
    */
-  private async processNextInQueue(): Promise<void> {
-    if (this.isProcessingMessage || this.messageQueue.length === 0) {
-      return
-    }
-
+  private async processMessage(message: StoredYumiMessage): Promise<void> {
     this.isProcessingMessage = true
-    const item = this.messageQueue.shift()!
-    const { message } = item
 
     try {
       // Track the sender as target for replies
@@ -253,13 +245,9 @@ export class YumiBotService {
         await this.processWithAgentAndReply(message.senderId, textContent, imageUrls)
       }
     } catch (error) {
-      console.error('[Yumi] Error processing queued message:', error)
+      console.error('[Yumi] Error processing message:', error)
     } finally {
       this.isProcessingMessage = false
-      // Process next message in queue if any
-      if (this.messageQueue.length > 0) {
-        await this.processNextInQueue()
-      }
     }
   }
 
@@ -441,19 +429,12 @@ export class YumiBotService {
       // Get response from Agent - pass image URLs for multimodal processing
       const response = await agentService.processMessage(userMessage, 'yumi', imageUrls)
 
-      // Check if rejected due to cross-platform lock
+      // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
-        const platformNames: Record<string, string> = {
-          telegram: 'Telegram',
-          discord: 'Discord',
-          slack: 'Slack',
-          whatsapp: 'WhatsApp',
-          line: 'Line',
-          yumi: 'Yumi'
-        }
-        const busyPlatformName = platformNames[response.busyWith] || response.busyWith
         console.log(`[Yumi] Agent is busy with ${response.busyWith}`)
-        await this.sendText(targetUserId, `⏳ I'm currently processing a message from ${busyPlatformName}. Please wait a moment.`)
+        if (response.message) {
+          await this.sendText(targetUserId, response.message, { storeInHistory: false })
+        }
         return
       }
 

@@ -567,5 +567,9 @@
       "input": "入力",
       "output": "出力"
     }
+  },
+  "agent": {
+    "busySamePlatform": "⏳ 前のメッセージを処理中です。しばらくお待ちください。",
+    "busyCrossPlatform": "⏳ {{platform}} からのメッセージを処理中です。しばらくお待ちください。"
   }
 }
