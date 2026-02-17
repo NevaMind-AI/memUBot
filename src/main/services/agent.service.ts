@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import path from 'path'
 import { nativeImage } from 'electron'
-import { loadSettings } from '../config/settings.config'
+import { loadSettings, type AppSettings } from '../config/settings.config'
 import { t } from '../i18n'
 import { appEvents } from '../events'
 import { telegramStorage } from '../apps/telegram/storage'
@@ -80,6 +80,11 @@ import {
   createClient
 } from './agent/utils'
 import { compactToolResults, cleanupOffloadedFiles } from './agent/context'
+import {
+  createLayeredContextManager,
+  buildLayeredSessionKey,
+  getLayeredContextConfig
+} from './agent/context/layered'
 import { getToolsForPlatform } from './agent/tools'
 import { executeTool } from './agent/tool-executor'
 import { getSystemPromptForPlatform } from './agent/prompt-builder'
@@ -123,6 +128,7 @@ export class AgentService {
   private processingLock: MessagePlatform | null = null // Global lock for processMessage - only one platform at a time
   private activityLog: AgentActivityItem[] = [] // Track agent activity for UI display
   private activityIdCounter = 0 // Counter for generating unique activity IDs
+  private layeredContextManager = createLayeredContextManager()
 
   /**
    * Get current LLM status
@@ -549,6 +555,94 @@ export class AgentService {
     })
   }
 
+  private getMessageTextForRetrieval(message: Anthropic.MessageParam): string {
+    if (typeof message.content === 'string') {
+      return message.content
+    }
+
+    const parts: string[] = []
+    for (const block of message.content) {
+      if (block.type === 'text') {
+        parts.push(block.text)
+      } else if (block.type === 'tool_use') {
+        parts.push(`[Tool use] ${block.name}`)
+      } else if (block.type === 'tool_result') {
+        if (typeof block.content === 'string') {
+          parts.push(block.content)
+        } else if (Array.isArray(block.content)) {
+          for (const item of block.content) {
+            if (item.type === 'text') {
+              parts.push(item.text)
+            }
+          }
+        }
+      }
+    }
+
+    return parts.join('\n').trim()
+  }
+
+  private getLatestUserQueryFromHistory(): string {
+    for (let i = this.conversationHistory.length - 1; i >= 0; i--) {
+      const msg = this.conversationHistory[i]
+      if (msg.role !== 'user') continue
+      const text = this.getMessageTextForRetrieval(msg)
+      if (text) return text
+    }
+    return ''
+  }
+
+  private getStorageLoadLimit(settings: AppSettings): number {
+    const config = getLayeredContextConfig(settings)
+    const layeredWindow = config.maxRecentMessages + config.maxArchives * config.archiveChunkSize
+    return Math.max(MAX_CONTEXT_MESSAGES, layeredWindow)
+  }
+
+  private async applyLayeredContextIfEnabled(settings: AppSettings): Promise<void> {
+    const layeredConfig = getLayeredContextConfig(settings)
+    if (!layeredConfig.enableSessionCompression) {
+      return
+    }
+
+    const query = this.getLatestUserQueryFromHistory()
+    if (!query) {
+      return
+    }
+
+    const sessionKey = buildLayeredSessionKey(this.currentPlatform, this.contextLoadedForChatId)
+    const layeredResult = await this.layeredContextManager.apply({
+      sessionKey,
+      platform: this.currentPlatform,
+      chatId: this.contextLoadedForChatId,
+      query,
+      messages: this.conversationHistory,
+      config: layeredConfig
+    })
+
+    if (!layeredResult.applied || !layeredResult.retrieval) {
+      return
+    }
+
+    this.conversationHistory = layeredResult.updatedMessages
+    const usage = layeredResult.retrieval.tokenUsage
+    const decision = layeredResult.retrieval.decision
+    console.log(
+      `[LayeredContext] Escalation ${decision.reachedLayer} (${decision.reason}), ` +
+        `tokens L0=${usage.l0}, L1=${usage.l1}, L2=${usage.l2}, total=${usage.total}, ` +
+        `baseline=${usage.baselineL2}, savings=${usage.savings} (${(usage.savingsRatio * 100).toFixed(1)}%)`
+    )
+
+    const metrics = this.layeredContextManager.getMetricsSnapshot()
+    console.log(
+      `[LayeredContext] Average savings: ${metrics.avgSavingsTokens.toFixed(1)} tokens ` +
+        `(${(metrics.avgSavingsRatio * 100).toFixed(1)}%) over ${metrics.totalRuns} runs`
+    )
+
+    if (layeredResult.fallbackEvents.length > 0) {
+      console.warn(`[LayeredContext] Summary fallback events: ${layeredResult.fallbackEvents.join(', ')}`)
+    }
+  }
+
   /**
    * Check if processing is currently active
    */
@@ -617,28 +711,30 @@ export class AgentService {
     console.log(`[Agent] Loading historical context for ${platform}...`)
 
     try {
+      const settings = await loadSettings()
+      const storageLoadLimit = this.getStorageLoadLimit(settings)
       let messages: Array<{ text?: string; isFromBot: boolean }> = []
 
       if (platform === 'telegram') {
-        const storedMessages = await telegramStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        const storedMessages = await telegramStorage.getMessages(storageLoadLimit)
         messages = storedMessages.map(m => ({
           text: m.text,
           isFromBot: m.isFromBot
         }))
       } else if (platform === 'discord') {
-        const storedMessages = await discordStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        const storedMessages = await discordStorage.getMessages(storageLoadLimit)
         messages = storedMessages.map(m => ({
           text: m.text,
           isFromBot: m.isFromBot
         }))
       } else if (platform === 'slack') {
-        const storedMessages = await slackStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        const storedMessages = await slackStorage.getMessages(storageLoadLimit)
         messages = storedMessages.map(m => ({
           text: m.text,
           isFromBot: m.isFromBot
         }))
       } else if (platform === 'feishu') {
-        const storedMessages = await feishuStorage.getMessages(MAX_CONTEXT_MESSAGES, chatId)
+        const storedMessages = await feishuStorage.getMessages(storageLoadLimit, chatId)
         // For Feishu, also include image attachments in context
         for (const m of storedMessages) {
           const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
@@ -711,7 +807,7 @@ export class AgentService {
           })
         }
       } else if (platform === 'yumi') {
-        const storedMessages = await yumiStorage.getMessages(MAX_CONTEXT_MESSAGES)
+        const storedMessages = await yumiStorage.getMessages(storageLoadLimit)
         // For Yumi, include image attachments in context (same approach as Feishu)
         for (const m of storedMessages) {
           const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
@@ -1052,6 +1148,10 @@ export class AgentService {
     // Enforce message count limit once before the loop starts
     // This trims old historical context while preserving current task's tool calls
     this.enforceMessageCountLimit()
+
+    // Apply layered context strategy before the first model call:
+    // use archived L0/L1 by default and escalate to L2 only when needed.
+    await this.applyLayeredContextIfEnabled(settings)
 
     console.log(`[Agent] Using tools for platform: ${this.currentPlatform}`)
     console.log(`[Agent] Visual mode: ${settings.experimentalVisualMode ? 'enabled' : 'disabled'}`)

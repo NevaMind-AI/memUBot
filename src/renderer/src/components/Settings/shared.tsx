@@ -34,6 +34,19 @@ export interface AppSettings {
   maxTokens: number
   temperature: number
   systemPrompt: string
+  l0TargetTokens: number
+  l1TargetTokens: number
+  maxPromptTokens: number
+  retrievalEscalationThresholds: {
+    scoreThresholdHigh: number
+    top1Top2Margin: number
+    maxItemsForL1: number
+    maxItemsForL2: number
+  }
+  enableSessionCompression: boolean
+  maxArchives: number
+  maxRecentMessages: number
+  archiveChunkSize: number
   memuBaseUrl: string
   memuApiKey: string
   memuUserId: string

@@ -65,6 +65,19 @@ export interface AppSettings {
   temperature: number
   systemPrompt: string
   modelTier: 'agile' | 'smart' | 'deep'
+  l0TargetTokens: number
+  l1TargetTokens: number
+  maxPromptTokens: number
+  retrievalEscalationThresholds: {
+    scoreThresholdHigh: number
+    top1Top2Margin: number
+    maxItemsForL1: number
+    maxItemsForL2: number
+  }
+  enableSessionCompression: boolean
+  maxArchives: number
+  maxRecentMessages: number
+  archiveChunkSize: number
 
   memuBaseUrl: string
   memuApiKey: string
@@ -144,6 +157,19 @@ const DEFAULT_SETTINGS: AppSettings = {
   temperature: 0.7,
   systemPrompt: '',
   modelTier: 'deep',
+  l0TargetTokens: 120,
+  l1TargetTokens: 1200,
+  maxPromptTokens: 32000,
+  retrievalEscalationThresholds: {
+    scoreThresholdHigh: 0.72,
+    top1Top2Margin: 0.12,
+    maxItemsForL1: 4,
+    maxItemsForL2: 2
+  },
+  enableSessionCompression: true,
+  maxArchives: 12,
+  maxRecentMessages: 24,
+  archiveChunkSize: 8,
 
   memuBaseUrl: 'https://api.memu.so',
   memuApiKey: '',

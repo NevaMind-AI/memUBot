@@ -10,3 +10,5 @@
 export { MAX_CONTEXT_MESSAGES, MAX_CONTEXT_TOKENS } from './constants'
 export { estimateTokens, estimateTextTokens } from './token-estimator'
 export { compactToolResults, cleanupOffloadedFiles } from './compactor'
+export { createLayeredContextManager, buildLayeredSessionKey, getLayeredContextConfig } from './layered'
+export type { LayeredContextConfig, RetrievalEscalationThresholds } from './layered'
