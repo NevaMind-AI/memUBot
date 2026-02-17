@@ -58,6 +58,7 @@ test('layered strategy reduces token usage against baseline L2 replay', async ()
     assert.ok(result.retrieval)
     assert.ok(result.retrieval!.tokenUsage.total < result.retrieval!.tokenUsage.baselineL2)
     assert.ok(result.retrieval!.tokenUsage.savings > 0)
+    console.log('[LayeredSavings]', result.retrieval!.tokenUsage)
 
     const hasQualitySignal = result.updatedMessages.some((message) => {
       if (typeof message.content !== 'string') return false

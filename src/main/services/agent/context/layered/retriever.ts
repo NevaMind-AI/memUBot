@@ -8,7 +8,9 @@ import type {
 } from './types'
 import {
   blendDenseSparseScores,
+  buildBm25Model,
   estimateSimilarity,
+  scoreBm25Batch,
   tokenize
 } from './text-utils'
 import type { LayeredContextStorage } from './storage'
@@ -35,15 +37,11 @@ function calculateRecencyPrior(recencyRank: number, totalNodes: number): number 
 }
 
 function scoreLayerContent(
-  query: string,
-  content: string,
-  keywords: string[],
+  sparseScore: number,
   denseScore: number | undefined,
   recencyRank: number,
   totalNodes: number
 ): number {
-  const combinedContent = `${content}\n${keywords.join(' ')}`
-  const sparseScore = estimateSimilarity(query, combinedContent)
   const denseFromSource = denseScore ?? sparseScore
   const blendedScore = blendDenseSparseScores(denseFromSource, sparseScore, SEARCH_WITH_SPARSE_LOGIT_ALPHA)
   const recencyPrior = calculateRecencyPrior(recencyRank, totalNodes)
@@ -185,14 +183,28 @@ export class LayeredContextRetriever {
     const denseScores = this.denseScoreProvider
       ? await this.denseScoreProvider.getDenseScores({ query, candidates: denseCandidates })
       : new Map<string, number>()
+    const l0SparseScores = scoreBm25Batch(
+      buildBm25Model([
+        {
+          id: 'root',
+          content: `${index.root.abstract}\n${index.root.keywords.join(' ')}`
+        },
+        ...index.nodes.map((node) => ({
+          id: node.id,
+          content: `${node.abstract}\n${node.keywords.join(' ')}`
+        }))
+      ]),
+      query
+    )
 
     const scored: ScoredNode[] = index.nodes
       .map((node) => ({
         nodeId: node.id,
+        // Sparse score is now BM25-based across all L0 candidates.
+        // Fallback to pairwise estimateSimilarity to guard edge cases.
+        // This keeps retrieval stable even if model construction returns empty.
         l0Score: scoreLayerContent(
-          query,
-          node.abstract,
-          node.keywords,
+          l0SparseScores.get(node.id) ?? estimateSimilarity(query, `${node.abstract}\n${node.keywords.join(' ')}`),
           denseScores.get(node.id),
           node.metadata.recencyRank,
           totalNodes
@@ -210,15 +222,25 @@ export class LayeredContextRetriever {
     let reason = 'High confidence on L0 retrieval after hybrid scoring.'
 
     if (!highConfidence || queryMode !== 'broad') {
-      const l1Candidates = scored.slice(0, thresholds.maxItemsForL1).map((candidate) => {
+      const l1Ranked = scored.slice(0, thresholds.maxItemsForL1)
+      const l1SparseScores = scoreBm25Batch(
+        buildBm25Model(
+          l1Ranked.flatMap((candidate) => {
+            const node = nodeById.get(candidate.nodeId)
+            if (!node) return []
+            return [{ id: node.id, content: `${node.overview}\n${node.keywords.join(' ')}` }]
+          })
+        ),
+        query
+      )
+
+      const l1Candidates = l1Ranked.map((candidate) => {
         const node = nodeById.get(candidate.nodeId)
         if (!node) return candidate
         return {
           ...candidate,
           l1Score: scoreLayerContent(
-            query,
-            node.overview,
-            node.keywords,
+            l1SparseScores.get(node.id) ?? l0SparseScores.get(node.id) ?? 0,
             denseScores.get(node.id),
             node.metadata.recencyRank,
             totalNodes
@@ -277,9 +299,7 @@ export class LayeredContextRetriever {
 
     if (index.root.abstract) {
       const rootScore = scoreLayerContent(
-        query,
-        index.root.abstract,
-        index.root.keywords,
+        l0SparseScores.get('root') ?? estimateSimilarity(query, `${index.root.abstract}\n${index.root.keywords.join(' ')}`),
         denseScores.get('root'),
         1,
         Math.max(totalNodes, 1)
@@ -313,21 +333,28 @@ export class LayeredContextRetriever {
       }
 
       const l2Candidates = scored.slice(0, thresholds.maxItemsForL2)
+      const l2Transcripts: Array<{ nodeId: string; transcript: string }> = []
       for (const candidate of l2Candidates) {
         const node = nodeById.get(candidate.nodeId)
         if (!node) continue
         const archive = await this.storage.readArchive(node.fullContentPath)
         if (!archive) continue
+        l2Transcripts.push({
+          nodeId: node.id,
+          transcript: archive.transcript
+        })
+      }
+      const l2SparseScores = scoreBm25Batch(
+        buildBm25Model(l2Transcripts.map((item) => ({ id: item.nodeId, content: item.transcript }))),
+        query
+      )
 
-        const l2SparseScore = estimateSimilarity(query, archive.transcript)
-        const l2DenseScore = denseScores.get(node.id) ?? l2SparseScore
-        const l2Score = clampNumber(
-          blendDenseSparseScores(l2DenseScore, l2SparseScore, SEARCH_WITH_SPARSE_LOGIT_ALPHA) +
-            calculateRecencyPrior(node.metadata.recencyRank, totalNodes),
-          0,
-          1
-        )
-        const ok = pushSelection(node.id, 'L2', archive.transcript, l2Score, 'L2 exact evidence retrieval.')
+      for (const item of l2Transcripts) {
+        const node = nodeById.get(item.nodeId)
+        if (!node) continue
+        const l2SparseScore = l2SparseScores.get(node.id) ?? estimateSimilarity(query, item.transcript)
+        const l2Score = scoreLayerContent(l2SparseScore, denseScores.get(node.id), node.metadata.recencyRank, totalNodes)
+        const ok = pushSelection(node.id, 'L2', item.transcript, l2Score, 'L2 exact evidence retrieval.')
         if (!ok) break
       }
     }

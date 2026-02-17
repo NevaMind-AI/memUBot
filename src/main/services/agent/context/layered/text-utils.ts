@@ -9,8 +9,31 @@ const STOPWORDS = new Set([
 
 const ASCII_TOKEN_REGEX = /[a-z0-9_/.-]{2,}/g
 const CJK_SEGMENT_REGEX = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+/gu
+const BM25_K1 = 1.2
+const BM25_B = 0.75
+const PHRASE_BONUS = 0.15
 
 export type DenseDistanceMetric = 'ip' | 'cosine' | 'l2'
+
+export interface Bm25Document {
+  id: string
+  content: string
+}
+
+interface Bm25DocStats {
+  length: number
+  termFreq: Map<string, number>
+  normalizedContent: string
+}
+
+export interface Bm25Model {
+  documentCount: number
+  avgDocumentLength: number
+  docFreq: Map<string, number>
+  docs: Map<string, Bm25DocStats>
+  k1: number
+  b: number
+}
 
 function clamp01(value: number): number {
   if (!Number.isFinite(value)) return 0
@@ -23,6 +46,106 @@ function buildTermFrequency(tokens: string[]): Map<string, number> {
     freq.set(token, (freq.get(token) ?? 0) + 1)
   }
   return freq
+}
+
+function normalizeBm25Score(rawScore: number): number {
+  if (!Number.isFinite(rawScore) || rawScore <= 0) return 0
+  return clamp01(1 - Math.exp(-rawScore))
+}
+
+function calcBm25Idf(documentCount: number, docFrequency: number): number {
+  return Math.log(1 + (documentCount - docFrequency + 0.5) / (docFrequency + 0.5))
+}
+
+function calcPhraseBonus(query: string, normalizedContent: string): number {
+  const normalizedQuery = normalizeWhitespace(query).toLowerCase()
+  if (!normalizedQuery) return 0
+  return normalizedContent.includes(normalizedQuery) ? PHRASE_BONUS : 0
+}
+
+function scoreDocumentWithBm25(
+  model: Bm25Model,
+  query: string,
+  queryTokens: string[],
+  queryFreq: Map<string, number>,
+  docStats: Bm25DocStats
+): number {
+  if (queryTokens.length === 0 || docStats.length === 0) return 0
+
+  let rawScore = 0
+  const lengthNorm = 1 - model.b + model.b * (docStats.length / Math.max(1, model.avgDocumentLength))
+  for (const [token, qCount] of queryFreq) {
+    const tf = docStats.termFreq.get(token) ?? 0
+    if (tf <= 0) continue
+    const df = model.docFreq.get(token) ?? 0
+    if (df <= 0) continue
+    const idf = calcBm25Idf(model.documentCount, df)
+    const tfNorm = (tf * (model.k1 + 1)) / (tf + model.k1 * lengthNorm)
+    const queryWeight = 1 + Math.log1p(qCount)
+    rawScore += idf * tfNorm * queryWeight
+  }
+
+  const bm25Score = normalizeBm25Score(rawScore)
+  const phraseBonus = calcPhraseBonus(query, docStats.normalizedContent)
+  return clamp01(bm25Score + phraseBonus)
+}
+
+export function buildBm25Model(
+  documents: Bm25Document[],
+  options?: {
+    k1?: number
+    b?: number
+  }
+): Bm25Model {
+  const k1 = options?.k1 ?? BM25_K1
+  const b = options?.b ?? BM25_B
+  const docs = new Map<string, Bm25DocStats>()
+  const docFreq = new Map<string, number>()
+  let totalLength = 0
+
+  for (const document of documents) {
+    const tokens = tokenize(document.content)
+    const termFreq = buildTermFrequency(tokens)
+    const length = tokens.length
+    totalLength += length
+    docs.set(document.id, {
+      length,
+      termFreq,
+      normalizedContent: normalizeWhitespace(document.content).toLowerCase()
+    })
+
+    const uniqueTokens = new Set(termFreq.keys())
+    for (const token of uniqueTokens) {
+      docFreq.set(token, (docFreq.get(token) ?? 0) + 1)
+    }
+  }
+
+  return {
+    documentCount: documents.length,
+    avgDocumentLength: documents.length > 0 ? totalLength / documents.length : 0,
+    docFreq,
+    docs,
+    k1,
+    b
+  }
+}
+
+export function scoreBm25Batch(model: Bm25Model, query: string): Map<string, number> {
+  const queryTokens = tokenize(query)
+  const queryFreq = buildTermFrequency(queryTokens)
+  const scores = new Map<string, number>()
+  for (const [docId, docStats] of model.docs) {
+    scores.set(docId, scoreDocumentWithBm25(model, query, queryTokens, queryFreq, docStats))
+  }
+  return scores
+}
+
+export function scoreBm25ById(model: Bm25Model, query: string, docId: string): number {
+  const docStats = model.docs.get(docId)
+  if (!docStats) return 0
+  const queryTokens = tokenize(query)
+  const queryFreq = buildTermFrequency(queryTokens)
+  return scoreDocumentWithBm25(model, query, queryTokens, queryFreq, docStats)
 }
 
 export function normalizeWhitespace(input: string): string {
@@ -97,27 +220,8 @@ export function trimToTokenTarget(input: string, targetTokens: number): string {
 }
 
 export function estimateSimilarity(query: string, content: string): number {
-  const queryTokens = tokenize(query)
-  if (queryTokens.length === 0) return 0
-
-  const queryFreq = buildTermFrequency(queryTokens)
-  const contentFreq = buildTermFrequency(tokenize(content))
-  if (contentFreq.size === 0) return 0
-
-  let weightedMatched = 0
-  let totalWeight = 0
-  for (const [token, qCount] of queryFreq) {
-    const weight = 1 + Math.log1p(qCount)
-    totalWeight += weight
-    const contentCount = contentFreq.get(token) ?? 0
-    if (contentCount === 0) continue
-    weightedMatched += weight * Math.min(1, contentCount / qCount)
-  }
-
-  if (totalWeight === 0) return 0
-  const overlapScore = weightedMatched / totalWeight
-  const phraseScore = content.toLowerCase().includes(query.toLowerCase().trim()) ? 0.15 : 0
-  return clamp01(overlapScore * 0.85 + phraseScore)
+  const model = buildBm25Model([{ id: 'doc', content }])
+  return scoreBm25ById(model, query, 'doc')
 }
 
 export function normalizeDenseScore(rawScore: number, metric: DenseDistanceMetric): number {
