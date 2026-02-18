@@ -3,13 +3,14 @@ import { Loader2, Check, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 // LLM Provider type
-export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'custom'
+export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'openrouter' | 'custom'
 
 // Provider options for select
 export const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
   { value: 'claude', label: 'Claude (Anthropic)' },
   { value: 'zenmux', label: 'Zenmux' },
   { value: 'minimax', label: 'MiniMax' },
+  { value: 'openrouter', label: 'OpenRouter' },
   { value: 'custom', label: 'Custom Provider' }
 ]
 
@@ -26,6 +27,9 @@ export interface AppSettings {
   // Zenmux settings
   zenmuxApiKey: string
   zenmuxModel: string
+  // OpenRouter settings
+  openrouterApiKey: string
+  openrouterModel: string
   // Custom provider settings
   customApiKey: string
   customBaseUrl: string

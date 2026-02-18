@@ -172,7 +172,8 @@
       "model": "Model Name",
       "baseUrl": "API Base URL",
       "minimaxInfo": "Using MiniMax M2.1 via Anthropic-compatible API.",
-      "zenmuxInfo": "Multi-model proxy service."
+      "zenmuxInfo": "Multi-model proxy service.",
+      "openrouterInfo": "Unified API for 300+ models. Anthropic-compatible."
     },
     "platforms": {
       "description": "Configure messaging platform connections",

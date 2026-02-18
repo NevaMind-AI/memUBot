@@ -4,7 +4,7 @@
   "description": "memU bot - AI Assistant for messaging platforms",
   "main": "./out/main/index.js",
   "engines": {
-    "node": "24.13.0"
+    "node": ">=23.0.0"
   },
   "author": "",
   "license": "MIT",

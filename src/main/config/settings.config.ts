@@ -8,7 +8,7 @@ const SETTINGS_FILE = 'settings.json'
 /**
  * LLM Provider type
  */
-export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'custom'
+export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'openrouter' | 'custom'
 
 /**
  * Provider configurations
@@ -28,6 +28,11 @@ export const PROVIDER_CONFIGS: Record<LLMProvider, { name: string; baseUrl: stri
     name: 'Zenmux',
     baseUrl: 'https://zenmux.ai/api/anthropic',
     defaultModel: ''
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api',
+    defaultModel: 'anthropic/claude-sonnet-4'
   },
   custom: {
     name: 'Custom Provider',
@@ -54,6 +59,10 @@ export interface AppSettings {
   // Zenmux settings
   zenmuxApiKey: string
   zenmuxModel: string
+  
+  // OpenRouter settings
+  openrouterApiKey: string
+  openrouterModel: string
   
   // Custom provider settings
   customApiKey: string
@@ -146,6 +155,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   // Zenmux settings
   zenmuxApiKey: '',
   zenmuxModel: '',
+  
+  // OpenRouter settings
+  openrouterApiKey: '',
+  openrouterModel: 'anthropic/claude-sonnet-4',
   
   // Custom provider settings
   customApiKey: '',
@@ -337,6 +350,13 @@ class SettingsManager {
           apiKey: this.settings.zenmuxApiKey,
           baseUrl: 'https://zenmux.ai/api/anthropic',
           model: this.settings.zenmuxModel,
+          provider
+        }
+      case 'openrouter':
+        return {
+          apiKey: this.settings.openrouterApiKey,
+          baseUrl: 'https://openrouter.ai/api',
+          model: this.settings.openrouterModel || 'anthropic/claude-sonnet-4',
           provider
         }
       case 'custom':

@@ -172,7 +172,8 @@
       "model": "モデル名",
       "baseUrl": "API ベース URL",
       "minimaxInfo": "MiniMax M2.1（Anthropic 互換 API）を使用",
-      "zenmuxInfo": "マルチモデルプロキシサービス"
+      "zenmuxInfo": "マルチモデルプロキシサービス",
+      "openrouterInfo": "300以上のモデルに対応する統合API（Anthropic互換）"
     },
     "platforms": {
       "description": "メッセージングプラットフォームの接続設定",

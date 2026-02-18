@@ -66,6 +66,7 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
   let apiKey: string
   let baseURL: string | undefined
   let model: string
+  let useAuthToken = false  // OpenRouter requires Authorization: Bearer header
 
   switch (provider) {
     case 'claude':
@@ -83,6 +84,12 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
       baseURL = 'https://zenmux.ai/api/anthropic'
       model = settings.zenmuxModel
       break
+    case 'openrouter':
+      apiKey = settings.openrouterApiKey
+      baseURL = 'https://openrouter.ai/api'
+      model = settings.openrouterModel || 'anthropic/claude-sonnet-4'
+      useAuthToken = true  // OpenRouter uses Authorization: Bearer, not x-api-key
+      break
     case 'custom':
       apiKey = settings.customApiKey
       baseURL = settings.customBaseUrl || undefined
@@ -97,8 +104,9 @@ export async function createClient(): Promise<{ client: Anthropic; model: string
     throw new Error(`API key not configured for ${provider}. Please set it in Settings.`)
   }
 
+  // OpenRouter uses authToken (Authorization: Bearer) instead of apiKey (x-api-key)
   const client = new Anthropic({
-    apiKey,
+    ...(useAuthToken ? { authToken: apiKey } : { apiKey }),
     ...(baseURL && { baseURL })
   })
 

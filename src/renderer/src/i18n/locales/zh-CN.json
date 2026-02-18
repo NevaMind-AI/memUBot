@@ -172,7 +172,8 @@
       "model": "模型名称",
       "baseUrl": "API 地址",
       "minimaxInfo": "使用 MiniMax M2.1（Anthropic 兼容 API）",
-      "zenmuxInfo": "多模型代理服务"
+      "zenmuxInfo": "多模型代理服务",
+      "openrouterInfo": "统一 API，支持 300+ 模型（Anthropic 兼容）"
     },
     "platforms": {
       "description": "配置消息平台连接",

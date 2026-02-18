@@ -59,7 +59,7 @@ interface BotStatus {
 }
 
 // LLM Provider type
-type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'custom'
+type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'openrouter' | 'custom'
 
 // App settings type
 interface AppSettings {
@@ -74,6 +74,9 @@ interface AppSettings {
   // Zenmux settings
   zenmuxApiKey: string
   zenmuxModel: string
+  // OpenRouter settings
+  openrouterApiKey: string
+  openrouterModel: string
   // Custom provider settings
   customApiKey: string
   customBaseUrl: string

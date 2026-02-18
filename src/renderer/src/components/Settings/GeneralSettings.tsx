@@ -50,6 +50,9 @@ export function GeneralSettings(): JSX.Element {
     // Zenmux settings
     settings.zenmuxApiKey !== originalSettings.zenmuxApiKey ||
     settings.zenmuxModel !== originalSettings.zenmuxModel ||
+    // OpenRouter settings
+    settings.openrouterApiKey !== originalSettings.openrouterApiKey ||
+    settings.openrouterModel !== originalSettings.openrouterModel ||
     // Custom provider settings
     settings.customApiKey !== originalSettings.customApiKey ||
     settings.customBaseUrl !== originalSettings.customBaseUrl ||
@@ -81,6 +84,9 @@ export function GeneralSettings(): JSX.Element {
         // Zenmux settings
         zenmuxApiKey: settings.zenmuxApiKey,
         zenmuxModel: settings.zenmuxModel,
+        // OpenRouter settings
+        openrouterApiKey: settings.openrouterApiKey,
+        openrouterModel: settings.openrouterModel,
         // Custom provider settings
         customApiKey: settings.customApiKey,
         customBaseUrl: settings.customBaseUrl,
@@ -236,6 +242,45 @@ export function GeneralSettings(): JSX.Element {
                     className="underline hover:text-blue-300"
                   >
                     platform.minimaxi.com →
+                  </a>
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* OpenRouter Settings */}
+          {settings.llmProvider === 'openrouter' && (
+            <div className="space-y-3 p-3 rounded-xl bg-orange-500/5 border border-orange-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.general.apiKey')}</label>
+                <input
+                  type="password"
+                  placeholder="sk-or-v1-..."
+                  value={settings.openrouterApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, openrouterApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.model')}</label>
+                <input
+                  type="text"
+                  placeholder="anthropic/claude-sonnet-4"
+                  value={settings.openrouterModel || ''}
+                  onChange={(e) => setSettings({ ...settings, openrouterModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-orange-500/50 focus:ring-2 focus:ring-orange-500/10 transition-all"
+                />
+              </div>
+              <div className="p-2 rounded-lg bg-orange-500/10">
+                <p className="text-[11px] text-orange-400">
+                  {t('settings.llm.openrouterInfo')}{' '}
+                  <a
+                    href="https://openrouter.ai"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-orange-300"
+                  >
+                    openrouter.ai →
                   </a>
                 </p>
               </div>
