@@ -13,6 +13,7 @@
     "prepare-mode": "tsx scripts/prepare-mode.ts",
     "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "test:layered-context": "tsx --test \"tests/layered-context/**/*.test.ts\"",
+    "test:layered-context:live": "cross-env LAYERED_CONTEXT_LIVE_EMBEDDING=1 tsx --test \"tests/layered-context/**/*.test.ts\"",
     "dev:memu": "cross-env APP_MODE=memu electron-vite dev --mode memu",
     "dev:yumi": "cross-env APP_MODE=yumi electron-vite dev --mode yumi",
     "build:memu:mac": "tsx scripts/build-mac.ts --mode memu",

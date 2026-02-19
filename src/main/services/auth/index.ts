@@ -11,12 +11,17 @@ import { YumiAuthService } from './yumi.impl'
 
 export * from './types'
 
-const appMode = import.meta.env.MAIN_VITE_APP_MODE || 'memu'
+function getAppMode(): 'memu' | 'yumi' {
+  const modeFromVite = import.meta.env?.MAIN_VITE_APP_MODE
+  const modeFromProcess = process.env.APP_MODE
+  return (modeFromVite || modeFromProcess || 'memu') as 'memu' | 'yumi'
+}
 
 let authServiceInstance: IAuthService | null = null
 
 export function getAuthService(): IAuthService {
   if (!authServiceInstance) {
+    const appMode = getAppMode()
     if (appMode === 'yumi') {
       console.log('[Auth] Creating Yumi auth service')
       authServiceInstance = new YumiAuthService()

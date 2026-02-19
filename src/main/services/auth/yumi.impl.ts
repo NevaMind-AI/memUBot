@@ -26,6 +26,7 @@ import {
   User
 } from 'firebase/auth'
 import { join } from 'path'
+import { homedir } from 'os'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import {
   IAuthService,
@@ -40,14 +41,40 @@ import { getMemuApiClient, authApi } from '../api'
 
 // Firebase configuration - using import.meta.env with MAIN_VITE_ prefix
 // electron-vite exposes MAIN_VITE_* variables to main process via import.meta.env
+function getEnvValue(key: string): string {
+  const viteEnv = (import.meta.env ?? {}) as Record<string, string | undefined>
+  return viteEnv[key] || process.env[key] || ''
+}
+
+function resolveAppNameForUserData(): string {
+  const mode = getEnvValue('MAIN_VITE_APP_MODE') || process.env.APP_MODE || 'memu'
+  return mode === 'yumi' ? 'yumi' : 'memu-bot'
+}
+
+function getFallbackUserDataPath(): string {
+  const appName = resolveAppNameForUserData()
+
+  if (process.platform === 'darwin') {
+    return join(homedir(), 'Library', 'Application Support', appName)
+  }
+
+  if (process.platform === 'win32') {
+    const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming')
+    return join(appData, appName)
+  }
+
+  const configHome = process.env.XDG_CONFIG_HOME || join(homedir(), '.config')
+  return join(configHome, appName)
+}
+
 function getFirebaseConfig() {
   const config = {
-    apiKey: import.meta.env.MAIN_VITE_FIREBASE_API_KEY || '',
-    authDomain: import.meta.env.MAIN_VITE_FIREBASE_AUTH_DOMAIN || '',
-    projectId: import.meta.env.MAIN_VITE_FIREBASE_PROJECT_ID || '',
-    storageBucket: import.meta.env.MAIN_VITE_FIREBASE_STORAGE_BUCKET || '',
-    messagingSenderId: import.meta.env.MAIN_VITE_FIREBASE_MESSAGING_SENDER_ID || '',
-    appId: import.meta.env.MAIN_VITE_FIREBASE_APP_ID || ''
+    apiKey: getEnvValue('MAIN_VITE_FIREBASE_API_KEY'),
+    authDomain: getEnvValue('MAIN_VITE_FIREBASE_AUTH_DOMAIN'),
+    projectId: getEnvValue('MAIN_VITE_FIREBASE_PROJECT_ID'),
+    storageBucket: getEnvValue('MAIN_VITE_FIREBASE_STORAGE_BUCKET'),
+    messagingSenderId: getEnvValue('MAIN_VITE_FIREBASE_MESSAGING_SENDER_ID'),
+    appId: getEnvValue('MAIN_VITE_FIREBASE_APP_ID')
   }
   console.log('[YumiAuth] Firebase config loaded:', {
     apiKey: config.apiKey ? `${config.apiKey.substring(0, 10)}...` : '(empty)',
@@ -105,7 +132,16 @@ export class YumiAuthService implements IAuthService {
   private sessionRestored: boolean = false
 
   constructor() {
-    const userDataPath = app.getPath('userData')
+    let userDataPath = getFallbackUserDataPath()
+    try {
+      const electronUserDataPath = app?.getPath?.('userData')
+      if (electronUserDataPath) {
+        userDataPath = electronUserDataPath
+      }
+    } catch {
+      // Keep fallback path for non-Electron runtime (e.g. tsx tests).
+    }
+
     const authDir = join(userDataPath, 'auth')
     if (!existsSync(authDir)) {
       mkdirSync(authDir, { recursive: true })
@@ -115,15 +151,20 @@ export class YumiAuthService implements IAuthService {
 
   async initialize(): Promise<void> {
     console.log('[YumiAuth] Initializing Firebase auth service')
+    // Load local session first so memuApiKey can be read even when Firebase runtime is unavailable.
+    this.loadStoredSession()
 
     // Initialize Firebase
     try {
       const firebaseConfig = getFirebaseConfig()
+      if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId) {
+        console.warn('[YumiAuth] Firebase config is incomplete, skip Firebase init and use stored session only')
+        this.notifyListeners()
+        return
+      }
+
       this.firebaseApp = initializeApp(firebaseConfig)
       this.auth = getAuth(this.firebaseApp)
-
-      // Load stored session first
-      this.loadStoredSession()
 
       // Try to restore session if we have a stored refresh token
       if (this.firebaseRefreshToken && !this.sessionRestored) {
@@ -153,6 +194,7 @@ export class YumiAuthService implements IAuthService {
       console.log('[YumiAuth] Firebase initialized successfully')
     } catch (error) {
       console.error('[YumiAuth] Failed to initialize Firebase:', error)
+      this.notifyListeners()
     }
   }
 

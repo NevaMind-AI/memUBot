@@ -6,7 +6,7 @@ import { LayeredContextManager } from '../../src/main/services/agent/context/lay
 import { LayeredContextRetriever } from '../../src/main/services/agent/context/layered/retriever'
 import { LayeredSummaryGenerator } from '../../src/main/services/agent/context/layered/summarizer'
 import { DEFAULT_LAYERED_CONTEXT_CONFIG } from '../../src/main/services/agent/context/layered/config'
-import { createTempStorage } from './helpers'
+import { createLayeredTestDenseScoreProvider, createTempStorage } from './helpers'
 
 function buildConversationHistory(): Anthropic.MessageParam[] {
   const messages: Anthropic.MessageParam[] = []
@@ -33,7 +33,7 @@ test('layered strategy reduces token usage against baseline L2 replay', async ()
   try {
     const summaryGenerator = new LayeredSummaryGenerator()
     const indexer = new LayeredContextIndexer(storage, summaryGenerator)
-    const retriever = new LayeredContextRetriever(storage)
+    const retriever = new LayeredContextRetriever(storage, createLayeredTestDenseScoreProvider())
     const manager = new LayeredContextManager(storage, indexer, retriever)
 
     const config = {

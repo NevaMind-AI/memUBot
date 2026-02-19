@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { LayeredContextRetriever } from '../../src/main/services/agent/context/layered/retriever'
 import { DEFAULT_LAYERED_CONTEXT_CONFIG } from '../../src/main/services/agent/context/layered/config'
-import { createTempStorage, seedIndex } from './helpers'
+import { createLayeredTestDenseScoreProvider, createTempStorage, seedIndex } from './helpers'
 
 test('retrieval chooses correct node across L0/L1/L2 paths', async () => {
   const { storage, cleanup } = await createTempStorage()
@@ -26,7 +26,7 @@ test('retrieval chooses correct node across L0/L1/L2 paths', async () => {
       }
     ])
 
-    const retriever = new LayeredContextRetriever(storage)
+    const retriever = new LayeredContextRetriever(storage, createLayeredTestDenseScoreProvider())
 
     const broad = await retriever.retrieve(index, 'billing migration overview', {
       ...DEFAULT_LAYERED_CONTEXT_CONFIG,
@@ -73,7 +73,7 @@ test('retrieval enforces max prompt token budget', async () => {
       }
     ])
 
-    const retriever = new LayeredContextRetriever(storage)
+    const retriever = new LayeredContextRetriever(storage, createLayeredTestDenseScoreProvider())
     const budget = 420
     const result = await retriever.retrieve(index, 'exact error line in deploy.ts', {
       ...DEFAULT_LAYERED_CONTEXT_CONFIG,

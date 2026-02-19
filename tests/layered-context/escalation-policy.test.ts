@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { LayeredContextRetriever } from '../../src/main/services/agent/context/layered/retriever'
 import { DEFAULT_LAYERED_CONTEXT_CONFIG } from '../../src/main/services/agent/context/layered/config'
-import { createTempStorage, seedIndex } from './helpers'
+import { createLayeredTestDenseScoreProvider, createTempStorage, seedIndex } from './helpers'
 
 test('retrieval stays at L0 when confidence is high for broad query', async () => {
   const { storage, cleanup } = await createTempStorage()
@@ -27,7 +27,7 @@ test('retrieval stays at L0 when confidence is high for broad query', async () =
       }
     ])
 
-    const retriever = new LayeredContextRetriever(storage)
+    const retriever = new LayeredContextRetriever(storage, createLayeredTestDenseScoreProvider())
     const result = await retriever.retrieve(index, 'deployment release checklist status', {
       ...DEFAULT_LAYERED_CONTEXT_CONFIG,
       maxPromptTokens: 5000
@@ -63,7 +63,7 @@ test('retrieval escalates to L2 when query is precise', async () => {
       }
     ])
 
-    const retriever = new LayeredContextRetriever(storage)
+    const retriever = new LayeredContextRetriever(storage, createLayeredTestDenseScoreProvider())
     const result = await retriever.retrieve(index, 'what is the exact error line in deploy.ts', {
       ...DEFAULT_LAYERED_CONTEXT_CONFIG,
       maxPromptTokens: 8000
