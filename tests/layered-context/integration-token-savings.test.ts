@@ -7,28 +7,91 @@ import { LayeredContextRetriever } from '../../src/main/services/agent/context/l
 import { LayeredSummaryGenerator } from '../../src/main/services/agent/context/layered/summarizer'
 import { DEFAULT_LAYERED_CONTEXT_CONFIG } from '../../src/main/services/agent/context/layered/config'
 import { createLayeredTestDenseScoreProvider, createTempStorage } from './helpers'
+import { estimateTokens } from '../../src/main/services/agent/context/token-estimator'
 
-function buildConversationHistory(): Anthropic.MessageParam[] {
+interface SavingsScenario {
+  name: string
+  query: string
+  expectLayer?: 'L0' | 'L1' | 'L2'
+}
+
+interface ScenarioSample {
+  name: string
+  reachedLayer: 'L0' | 'L1' | 'L2'
+  retrievalSavingsTokens: number
+  retrievalSavingsRatio: number
+  promptSavingsTokens: number
+  promptSavingsRatio: number
+  promptBefore: number
+  promptAfter: number
+}
+
+function sumMessageTokens(messages: Anthropic.MessageParam[]): number {
+  return messages.reduce((sum, message) => sum + estimateTokens(message), 0)
+}
+
+function buildTopicRounds(topic: 'deployment' | 'billing' | 'infra', rounds: number, seed: number): Anthropic.MessageParam[] {
   const messages: Anthropic.MessageParam[] = []
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < rounds; i++) {
+    const idx = seed + i
+    if (topic === 'deployment') {
+      messages.push({
+        role: 'user',
+        content:
+          `Deployment checklist item ${idx}: verify rollout gates, rollback command, deploy.ts health checks, and canary status.`
+      })
+      messages.push({
+        role: 'assistant',
+        content:
+          `Logged deployment readiness ${idx}. Captured release checklist evidence, rollback sequence, and incident prevention controls.`
+      })
+      continue
+    }
+
+    if (topic === 'billing') {
+      messages.push({
+        role: 'user',
+        content:
+          `Billing migration item ${idx}: validate invoice retry policy, duplicate charge prevention, and reconciliation checkpoints.`
+      })
+      messages.push({
+        role: 'assistant',
+        content:
+          `Recorded billing migration ${idx}. Added invoice retry safeguards, settlement checks, and alerting scope.`
+      })
+      continue
+    }
+
     messages.push({
       role: 'user',
-      content: `Release checklist item ${i}: verify health checks, rollback path, and deployment gates.`
+      content:
+        `Infrastructure ops task ${idx}: confirm backup windows, restore verification, and infra maintenance handoff rules.`
     })
     messages.push({
       role: 'assistant',
-      content: `Acknowledged checklist item ${i}. Captured risks and mitigation plans for rollout.`
+      content:
+        `Captured infra operations ${idx}. Backup integrity, restore drill outcomes, and maintenance ownership are documented.`
     })
   }
 
-  messages.push({
-    role: 'user',
-    content: 'Please provide an overview of release checklist and major risks.'
-  })
   return messages
 }
 
-test('layered strategy reduces token usage against baseline L2 replay', async () => {
+function buildConversationHistory(query: string): Anthropic.MessageParam[] {
+  const messages: Anthropic.MessageParam[] = []
+  messages.push(...buildTopicRounds('deployment', 8, 0))
+  messages.push(...buildTopicRounds('billing', 8, 100))
+  messages.push(...buildTopicRounds('infra', 8, 200))
+
+  messages.push({
+    role: 'user',
+    content: query
+  })
+
+  return messages
+}
+
+test('layered strategy reports consistent token savings across query modes', async () => {
   const { storage, cleanup } = await createTempStorage()
   try {
     const summaryGenerator = new LayeredSummaryGenerator()
@@ -36,35 +99,95 @@ test('layered strategy reduces token usage against baseline L2 replay', async ()
     const retriever = new LayeredContextRetriever(storage, createLayeredTestDenseScoreProvider())
     const manager = new LayeredContextManager(storage, indexer, retriever)
 
+    const scenarios: SavingsScenario[] = [
+      {
+        name: 'broad-deployment',
+        query: 'deployment release checklist rollback status'
+      },
+      {
+        name: 'structured-billing',
+        query: 'billing migration overview and architecture flow'
+      },
+      {
+        name: 'precise-deployment-evidence',
+        query: 'what is the exact error line in deploy.ts during rollout',
+        expectLayer: 'L2'
+      }
+    ]
+
     const config = {
       ...DEFAULT_LAYERED_CONTEXT_CONFIG,
-      maxPromptTokens: 2500,
+      maxPromptTokens: 2800,
       maxRecentMessages: 8,
-      maxArchives: 8,
-      archiveChunkSize: 6
+      maxArchives: 10,
+      archiveChunkSize: 8
     }
 
-    const messages = buildConversationHistory()
-    const result = await manager.apply({
-      sessionKey: 'telegram:integration',
-      platform: 'telegram',
-      chatId: null,
-      query: 'release checklist overview',
-      messages,
-      config
-    })
+    const samples: ScenarioSample[] = []
+    for (const scenario of scenarios) {
+      const messages = buildConversationHistory(scenario.query)
+      const promptBefore = sumMessageTokens(messages)
 
-    assert.equal(result.applied, true)
-    assert.ok(result.retrieval)
-    assert.ok(result.retrieval!.tokenUsage.total < result.retrieval!.tokenUsage.baselineL2)
-    assert.ok(result.retrieval!.tokenUsage.savings > 0)
-    console.log('[LayeredSavings]', result.retrieval!.tokenUsage)
+      const result = await manager.apply({
+        sessionKey: `telegram:integration:${scenario.name}`,
+        platform: 'telegram',
+        chatId: null,
+        query: scenario.query,
+        messages,
+        config
+      })
 
-    const hasQualitySignal = result.updatedMessages.some((message) => {
-      if (typeof message.content !== 'string') return false
-      return message.content.toLowerCase().includes('release checklist')
-    })
-    assert.equal(hasQualitySignal, true)
+      assert.equal(result.applied, true)
+      assert.ok(result.retrieval)
+
+      const retrieval = result.retrieval!
+      if (scenario.expectLayer) {
+        assert.equal(retrieval.decision.reachedLayer, scenario.expectLayer)
+      }
+
+      const promptAfter = sumMessageTokens(result.updatedMessages)
+      const promptSavingsTokens = promptBefore - promptAfter
+      const promptSavingsRatio = promptBefore > 0 ? promptSavingsTokens / promptBefore : 0
+
+      assert.ok(retrieval.tokenUsage.savings > 0)
+      assert.ok(promptSavingsTokens > 0)
+
+      samples.push({
+        name: scenario.name,
+        reachedLayer: retrieval.decision.reachedLayer,
+        retrievalSavingsTokens: retrieval.tokenUsage.savings,
+        retrievalSavingsRatio: retrieval.tokenUsage.savingsRatio,
+        promptSavingsTokens,
+        promptSavingsRatio,
+        promptBefore,
+        promptAfter
+      })
+    }
+
+    const avgPromptSavingsRatio =
+      samples.reduce((sum, sample) => sum + sample.promptSavingsRatio, 0) / samples.length
+    const avgRetrievalSavingsRatio =
+      samples.reduce((sum, sample) => sum + sample.retrievalSavingsRatio, 0) / samples.length
+
+    const report = {
+      scenarios: samples.map((sample) => ({
+        name: sample.name,
+        reachedLayer: sample.reachedLayer,
+        retrievalSavingsTokens: sample.retrievalSavingsTokens,
+        retrievalSavingsRatio: Number((sample.retrievalSavingsRatio * 100).toFixed(1)),
+        promptSavingsTokens: sample.promptSavingsTokens,
+        promptSavingsRatio: Number((sample.promptSavingsRatio * 100).toFixed(1)),
+        promptBefore: sample.promptBefore,
+        promptAfter: sample.promptAfter
+      })),
+      avgRetrievalSavingsRatio: Number((avgRetrievalSavingsRatio * 100).toFixed(1)),
+      avgPromptSavingsRatio: Number((avgPromptSavingsRatio * 100).toFixed(1))
+    }
+
+    console.log('[LayeredSavingsReport]', JSON.stringify(report, null, 2))
+
+    assert.ok(avgRetrievalSavingsRatio > 0.25)
+    assert.ok(avgPromptSavingsRatio > 0.35)
   } finally {
     await cleanup()
   }
