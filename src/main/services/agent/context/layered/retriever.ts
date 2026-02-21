@@ -221,7 +221,8 @@ export class LayeredContextRetriever {
     let reachedLayer: 'L0' | 'L1' | 'L2' = 'L0'
     let reason = 'High confidence on L0 retrieval after hybrid scoring.'
 
-    if (!highConfidence || queryMode !== 'broad') {
+    // All query modes start from L0; only escalate when confidence is insufficient.
+    if (!highConfidence) {
       const l1Ranked = scored.slice(0, thresholds.maxItemsForL1)
       const l1SparseScores = scoreBm25Batch(
         buildBm25Model(
@@ -254,12 +255,12 @@ export class LayeredContextRetriever {
       const l1Margin = l1Top1 - l1Top2
 
       const l1Confidence = l1Top1 >= thresholds.scoreThresholdHigh * 0.9 && l1Margin >= thresholds.top1Top2Margin * 0.5
-      if (queryMode !== 'precise' && l1Confidence) {
+      if (l1Confidence) {
         reachedLayer = 'L1'
         reason = 'L0 confidence is insufficient; L1 confidence is acceptable after hybrid rerank.'
       } else {
         reachedLayer = 'L2'
-        reason = 'Precise query or low confidence after L1; L2 escalation required for evidence.'
+        reason = 'Low confidence remains after L1 rerank; L2 escalation required for evidence.'
       }
 
       for (const candidate of l1Candidates) {

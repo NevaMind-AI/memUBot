@@ -110,8 +110,7 @@ test('layered strategy reports consistent token savings across query modes', asy
       },
       {
         name: 'precise-deployment-evidence',
-        query: 'what is the exact error line in deploy.ts during rollout',
-        expectLayer: 'L2'
+        query: 'what is the exact error line in deploy.ts during rollout'
       }
     ]
 

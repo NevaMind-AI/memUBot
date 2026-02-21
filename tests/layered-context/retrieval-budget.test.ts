@@ -4,7 +4,7 @@ import { LayeredContextRetriever } from '../../src/main/services/agent/context/l
 import { DEFAULT_LAYERED_CONTEXT_CONFIG } from '../../src/main/services/agent/context/layered/config'
 import { createLayeredTestDenseScoreProvider, createTempStorage, seedIndex } from './helpers'
 
-test('retrieval chooses correct node across L0/L1/L2 paths', async () => {
+test('retrieval chooses correct node and avoids unnecessary L2 escalation', async () => {
   const { storage, cleanup } = await createTempStorage()
   try {
     const index = await seedIndex(storage, 'telegram:default', [
@@ -38,8 +38,12 @@ test('retrieval chooses correct node across L0/L1/L2 paths', async () => {
       ...DEFAULT_LAYERED_CONTEXT_CONFIG,
       maxPromptTokens: 5000
     })
-    assert.equal(precise.decision.reachedLayer, 'L2')
-    assert.ok(precise.selections.some((item) => item.layer === 'L2' && item.nodeId === 'billing-node'))
+    assert.notEqual(precise.decision.reachedLayer, 'L2')
+    assert.ok(
+      precise.selections.some(
+        (item) => (item.layer === 'L0' || item.layer === 'L1') && item.nodeId === 'billing-node'
+      )
+    )
   } finally {
     await cleanup()
   }

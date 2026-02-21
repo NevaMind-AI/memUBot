@@ -7,8 +7,8 @@ function clampNumber(value: number, min: number, max: number): number {
 }
 
 export const DEFAULT_RETRIEVAL_ESCALATION_THRESHOLDS: RetrievalEscalationThresholds = {
-  scoreThresholdHigh: 0.72,
-  top1Top2Margin: 0.12,
+  scoreThresholdHigh: 0.64,
+  top1Top2Margin: 0.08,
   maxItemsForL1: 4,
   maxItemsForL2: 2
 }

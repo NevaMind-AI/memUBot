@@ -85,6 +85,13 @@ import {
   buildLayeredSessionKey,
   getLayeredContextConfig
 } from './agent/context/layered'
+import {
+  buildTopicReference,
+  decideTemporaryTopicTransition,
+  createLLMTopicClassifier,
+  type TopicScorer
+} from './agent/context/layered/temporary-topic'
+import { getAuthService } from './auth'
 import { getToolsForPlatform } from './agent/tools'
 import { executeTool } from './agent/tool-executor'
 import { getSystemPromptForPlatform } from './agent/prompt-builder'
@@ -112,6 +119,12 @@ import type {
   AgentActivityItem
 } from './agent/types'
 
+interface TemporaryTopicRuntimeState {
+  mode: 'MAIN' | 'TEMP'
+  frozenMainMessages: Anthropic.MessageParam[] | null
+  frozenMainReference: string
+}
+
 /**
  * AgentService handles conversation with Claude and tool execution
  * Supports Computer Use for full computer control
@@ -129,6 +142,12 @@ export class AgentService {
   private activityLog: AgentActivityItem[] = [] // Track agent activity for UI display
   private activityIdCounter = 0 // Counter for generating unique activity IDs
   private layeredContextManager = createLayeredContextManager()
+  private topicScorer: TopicScorer | null = null
+  private temporaryTopicState: TemporaryTopicRuntimeState = {
+    mode: 'MAIN',
+    frozenMainMessages: null,
+    frozenMainReference: ''
+  }
 
   /**
    * Get current LLM status
@@ -592,6 +611,107 @@ export class AgentService {
     return ''
   }
 
+  private cloneConversationHistory(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    return JSON.parse(JSON.stringify(messages)) as Anthropic.MessageParam[]
+  }
+
+  private getTopicScorer(): TopicScorer {
+    if (!this.topicScorer) {
+      const apiKey = getAuthService().getAuthState().memuApiKey ?? ''
+      this.topicScorer = createLLMTopicClassifier({ apiKey })
+    }
+    return this.topicScorer
+  }
+
+  private resetTemporaryTopicState(): void {
+    this.temporaryTopicState = {
+      mode: 'MAIN',
+      frozenMainMessages: null,
+      frozenMainReference: ''
+    }
+  }
+
+  private getHistoryWithoutCurrentUserDuplicate(userMessage: string): Anthropic.MessageParam[] {
+    const normalizedInput = userMessage.trim()
+    if (!normalizedInput || this.conversationHistory.length === 0) {
+      return this.conversationHistory
+    }
+
+    const lastMessage = this.conversationHistory[this.conversationHistory.length - 1]
+    if (
+      lastMessage.role === 'user' &&
+      typeof lastMessage.content === 'string' &&
+      lastMessage.content.trim() === normalizedInput
+    ) {
+      return this.conversationHistory.slice(0, -1)
+    }
+
+    return this.conversationHistory
+  }
+
+  private async applyTemporaryTopicTransition(userMessage: string, imageUrls: string[]): Promise<void> {
+    if (imageUrls.length > 0) {
+      return
+    }
+
+    const query = userMessage.trim()
+    if (!query) {
+      return
+    }
+
+    const scorer = this.getTopicScorer()
+    const historyForClassification = this.getHistoryWithoutCurrentUserDuplicate(query)
+
+    if (this.temporaryTopicState.mode === 'MAIN') {
+      const mainTopicReference = buildTopicReference(historyForClassification)
+      const transition = await decideTemporaryTopicTransition({
+        mode: 'MAIN',
+        query,
+        mainTopicReference
+      }, scorer)
+
+      if (transition.decision === 'enter-temp') {
+        this.temporaryTopicState = {
+          mode: 'TEMP',
+          frozenMainMessages: this.cloneConversationHistory(historyForClassification),
+          frozenMainReference: mainTopicReference
+        }
+        this.conversationHistory = []
+        console.log(`[LayeredContext] Entered temporary topic (rel_main=${transition.relMain.toFixed(3)})`)
+      }
+      return
+    }
+
+    const tempTopicReference = buildTopicReference(historyForClassification)
+    const transition = await decideTemporaryTopicTransition({
+      mode: 'TEMP',
+      query,
+      mainTopicReference: this.temporaryTopicState.frozenMainReference,
+      tempTopicReference
+    }, scorer)
+
+    if (transition.decision === 'exit-temp') {
+      const restoredMainContext = this.temporaryTopicState.frozenMainMessages
+        ? this.cloneConversationHistory(this.temporaryTopicState.frozenMainMessages)
+        : []
+      this.conversationHistory = restoredMainContext
+      this.resetTemporaryTopicState()
+      console.log(
+        `[LayeredContext] Exited temporary topic and restored main context ` +
+          `(rel_main=${transition.relMain.toFixed(3)}, rel_temp=${transition.relTemp.toFixed(3)})`
+      )
+      return
+    }
+
+    if (transition.decision === 'replace-temp') {
+      this.conversationHistory = []
+      console.log(
+        `[LayeredContext] Replaced temporary topic context ` +
+          `(rel_main=${transition.relMain.toFixed(3)}, rel_temp=${transition.relTemp.toFixed(3)})`
+      )
+    }
+  }
+
   private getStorageLoadLimit(settings: AppSettings): number {
     const config = getLayeredContextConfig(settings)
     const layeredWindow = config.maxRecentMessages + config.maxArchives * config.archiveChunkSize
@@ -599,6 +719,10 @@ export class AgentService {
   }
 
   private async applyLayeredContextIfEnabled(settings: AppSettings): Promise<void> {
+    if (this.temporaryTopicState.mode === 'TEMP') {
+      return
+    }
+
     const layeredConfig = getLayeredContextConfig(settings)
     if (!layeredConfig.enableSessionCompression) {
       return
@@ -681,6 +805,7 @@ export class AgentService {
       this.conversationHistory = []
       this.contextLoadedForPlatform = null
       this.contextLoadedForChatId = null
+      this.resetTemporaryTopicState()
     }
   }
 
@@ -701,6 +826,7 @@ export class AgentService {
       this.conversationHistory = []
       this.contextLoadedForPlatform = null
       this.contextLoadedForChatId = null
+      this.resetTemporaryTopicState()
     }
 
     // Skip if context already loaded for this platform and chat
@@ -1004,6 +1130,8 @@ export class AgentService {
       console.log(`[Agent] Processing message from ${platform}:`, userMessage.substring(0, 50) + '...')
       console.log(`[Agent] Image URLs:`, imageUrls.length > 0 ? imageUrls : 'none')
       this.setStatus('thinking')
+
+      await this.applyTemporaryTopicTransition(userMessage, imageUrls)
 
       // Check if the message is already in conversation history (loaded from storage)
       // This happens when storage is updated before calling processMessage
@@ -1505,6 +1633,7 @@ export class AgentService {
     this.conversationHistory = []
     this.contextLoadedForPlatform = null
     this.contextLoadedForChatId = null
+    this.resetTemporaryTopicState()
     // Clean up old offloaded files in the background
     cleanupOffloadedFiles().catch(() => {})
   }

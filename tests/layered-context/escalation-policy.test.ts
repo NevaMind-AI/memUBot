@@ -40,7 +40,7 @@ test('retrieval stays at L0 when confidence is high for broad query', async () =
   }
 })
 
-test('retrieval escalates to L2 when query is precise', async () => {
+test('retrieval can stay at L0 for precise query when confidence is high', async () => {
   const { storage, cleanup } = await createTempStorage()
   try {
     const sessionKey = 'telegram:default'
@@ -69,8 +69,44 @@ test('retrieval escalates to L2 when query is precise', async () => {
       maxPromptTokens: 8000
     })
 
+    assert.equal(result.decision.reachedLayer, 'L0')
+    assert.ok(result.selections.some((item) => item.layer === 'L0' && item.nodeId === 'deploy-node'))
+  } finally {
+    await cleanup()
+  }
+})
+
+test('retrieval escalates to L2 when confidence remains low after L1 rerank', async () => {
+  const { storage, cleanup } = await createTempStorage()
+  try {
+    const sessionKey = 'telegram:default'
+    const index = await seedIndex(storage, sessionKey, [
+      {
+        id: 'deploy-node',
+        abstract: 'Deployment readiness summary with checklist gates.',
+        overview: 'Deployment overview about rollout checkpoints and mitigation actions.',
+        transcript: 'Deployment retrospective with incident owners and rollout summary.',
+        keywords: ['deployment', 'rollout', 'incident'],
+        recencyRank: 1
+      },
+      {
+        id: 'billing-node',
+        abstract: 'Billing migration summary with reconciliation status.',
+        overview: 'Billing overview for invoice migration milestones and monitoring.',
+        transcript: 'Billing migration status and retry summary without exact stack traces.',
+        keywords: ['billing', 'invoice', 'migration'],
+        recencyRank: 2
+      }
+    ])
+
+    const retriever = new LayeredContextRetriever(storage, createLayeredTestDenseScoreProvider())
+    const result = await retriever.retrieve(index, 'what is the exact stack trace line in controller.ts', {
+      ...DEFAULT_LAYERED_CONTEXT_CONFIG,
+      maxPromptTokens: 8000
+    })
+
     assert.equal(result.decision.reachedLayer, 'L2')
-    assert.ok(result.selections.some((item) => item.layer === 'L2' && item.nodeId === 'deploy-node'))
+    assert.ok(result.selections.some((item) => item.layer === 'L2'))
   } finally {
     await cleanup()
   }
