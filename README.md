@@ -294,6 +294,7 @@ Issues and PRs are welcome! 🤖
 - 🌐 **[memU Bot Website](https://memu.bot/)** — Official website and documentation
 - 💬 **[Discord Community](https://discord.gg/fFE4gfMvKf)** — Join the conversation
 - 🦞 **[OpenClaw](https://github.com/openclaw/openclaw)** — The project that inspired us
+- 📧 **Contact** — [info@nevamind.ai](mailto:info@nevamind.ai)
 
 ---
 
