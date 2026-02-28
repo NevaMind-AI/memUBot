@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+out
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.cursor/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Sensitive files - never commit
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+secrets.json
+config.local.json
+
+# Build artifacts
+build/*.icns
+build/*.ico
+build/icon.png
+build/icon-win.png
+nanobanana-output/
+electron-builder.mode.json
+
+_local_test/

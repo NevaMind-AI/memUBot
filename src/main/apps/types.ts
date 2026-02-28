@@ -1,0 +1,51 @@
+/**
+ * Common types for all app implementations
+ */
+
+// Supported app platforms
+export type AppPlatform = 'telegram' | 'whatsapp' | 'discord' | 'slack' | 'line' | 'feishu'
+
+// Attachment structure for messages
+export interface MessageAttachment {
+  id: string
+  name: string
+  url: string
+  contentType?: string
+  size: number
+  width?: number
+  height?: number
+}
+
+// Base message structure
+export interface AppMessage {
+  id: string
+  platform: AppPlatform
+  chatId: string
+  senderId: string
+  senderName: string
+  content: string
+  attachments?: MessageAttachment[]
+  timestamp: Date
+  isFromBot: boolean
+  replyToId?: string
+  metadata?: Record<string, unknown>
+}
+
+// Bot status
+export interface BotStatus {
+  platform: AppPlatform
+  isConnected: boolean
+  username?: string
+  botName?: string
+  avatarUrl?: string
+  error?: string
+}
+
+// App service interface (single-user mode)
+export interface IAppService {
+  platform: AppPlatform
+  connect(): Promise<void>
+  disconnect(): Promise<void>
+  getStatus(): BotStatus
+  getMessages(limit?: number): Promise<AppMessage[]>
+}

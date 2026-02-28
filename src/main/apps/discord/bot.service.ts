@@ -1,0 +1,875 @@
+// Use require for discord.js to avoid bundling issues
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Discord = require('discord.js')
+const { Client, GatewayIntentBits, Events } = Discord as typeof import('discord.js')
+
+// Import types from discord.js
+type DiscordClient = import('discord.js').Client
+type Message = import('discord.js').Message
+
+import { discordStorage } from './storage'
+import { getSetting } from '../../config/settings.config'
+import { agentService } from '../../services/agent.service'
+import { infraService } from '../../services/infra.service'
+import { securityService } from '../../services/security.service'
+import { appEvents } from '../../events'
+import { app } from 'electron'
+import * as fs from 'fs/promises'
+import * as path from 'path'
+import type { BotStatus, AppMessage, MessageAttachment } from '../types'
+import type { StoredDiscordMessage, StoredAttachment } from './types'
+
+/**
+ * DiscordBotService manages the Discord bot connection and message handling
+ * Single-user mode: only processes messages from bound users who @mention the bot
+ */
+export class DiscordBotService {
+  private client: DiscordClient | null = null
+  private status: BotStatus = {
+    platform: 'discord',
+    isConnected: false
+  }
+  private currentChannelId: string | null = null
+
+  /**
+   * Connect to Discord
+   */
+  async connect(): Promise<void> {
+    try {
+      console.log('[Discord] Starting connection...')
+
+      // Get bot token from settings
+      const botToken = await getSetting('discordBotToken')
+      if (!botToken) {
+        throw new Error('Discord Bot Token not configured. Please set it in Settings.')
+      }
+
+      // Initialize storage
+      await discordStorage.initialize()
+      console.log('[Discord] Storage initialized')
+
+      // Create client with required intents
+      this.client = new Client({
+        intents: [
+          GatewayIntentBits.Guilds,
+          GatewayIntentBits.GuildMessages,
+          GatewayIntentBits.MessageContent,
+          GatewayIntentBits.DirectMessages
+        ]
+      })
+
+      // Setup ready promise BEFORE login to avoid missing the event
+      const readyPromise = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Connection timeout - Discord may be blocked. Check your network/proxy settings.'))
+        }, 30000)
+
+        this.client!.once(Events.ClientReady, () => {
+          console.log('[Discord] ClientReady event received')
+          clearTimeout(timeout)
+          resolve()
+        })
+
+        this.client!.once(Events.Error, (error: Error) => {
+          console.error('[Discord] Error event:', error)
+          clearTimeout(timeout)
+          reject(error)
+        })
+      })
+
+      // Setup message handlers
+      this.setupEventHandlers()
+      console.log('[Discord] Event handlers set up')
+
+      // Login (this triggers the connection)
+      console.log('[Discord] Logging in...')
+      await this.client.login(botToken)
+      console.log('[Discord] Login successful, waiting for ready event...')
+
+      // Wait for ready event
+      await readyPromise
+
+      // Get bot info
+      const user = this.client.user
+      if (user) {
+        // Get bot avatar URL
+        const avatarUrl = user.displayAvatarURL({ size: 128 })
+
+        this.status = {
+          platform: 'discord',
+          isConnected: true,
+          username: user.username,
+          botName: user.displayName || user.username,
+          avatarUrl
+        }
+
+        console.log(`[Discord] Bot connected: ${user.username}`)
+        console.log(`[Discord] Bot ID: ${user.id}`)
+        console.log(`[Discord] Bot avatar: ${avatarUrl}`)
+      }
+
+      appEvents.emitDiscordStatusChanged(this.status)
+
+      // Update avatars for all bound users on startup
+      this.updateBoundUsersAvatars().catch((err) => {
+        console.error('[Discord] Error updating bound users avatars:', err)
+      })
+    } catch (error) {
+      console.error('[Discord] Connection error:', error)
+      this.status = {
+        platform: 'discord',
+        isConnected: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+      appEvents.emitDiscordStatusChanged(this.status)
+      throw error
+    }
+  }
+
+  /**
+   * Disconnect from Discord
+   */
+  async disconnect(): Promise<void> {
+    if (this.client) {
+      this.client.destroy()
+      this.client = null
+    }
+    this.status = {
+      platform: 'discord',
+      isConnected: false
+    }
+    appEvents.emitDiscordStatusChanged(this.status)
+    console.log('[Discord] Disconnected')
+  }
+
+  /**
+   * Setup event handlers
+   */
+  private setupEventHandlers(): void {
+    if (!this.client) return
+
+    this.client.on(Events.MessageCreate, async (message: Message) => {
+      await this.handleMessage(message)
+    })
+
+    this.client.on(Events.Error, (error: Error) => {
+      console.error('[Discord] Client error:', error)
+      this.status.error = error.message
+    })
+
+    console.log('[Discord] Event handlers ready')
+  }
+
+  /**
+   * Handle incoming message
+   */
+  private async handleMessage(message: Message): Promise<void> {
+    // Ignore bot messages
+    if (message.author.bot) return
+
+    const userId = message.author.id
+    const username = message.author.username
+
+    console.log('[Discord] Message received from:', username, ':', message.content.substring(0, 50))
+
+    try {
+      // First check if bot is mentioned (required for all commands in Discord)
+      const botMentioned = this.client?.user && message.mentions.has(this.client.user)
+      if (!botMentioned) {
+        // Silently ignore messages that don't mention the bot
+        return
+      }
+
+      // Remove bot mention from content to get the actual command/message
+      let content = message.content
+      if (this.client?.user) {
+        // Remove user mention (<@123> or <@!123>)
+        content = content.replace(new RegExp(`<@!?${this.client.user.id}>`, 'g'), '').trim()
+      }
+      // Also remove any role mentions (<@&123>) that might be used to trigger the bot
+      content = content.replace(/<@&\d+>/g, '').trim()
+
+      console.log('[Discord] Content after removing mention:', content)
+
+      // Check if this is a /bind command (doesn't require authorization)
+      if (content.startsWith('/bind')) {
+        await this.handleBindCommand(message, content)
+        return
+      }
+
+      // For other messages, check if user is authorized
+      const isAuthorized = await securityService.isAuthorizedByStringId(userId, 'discord')
+
+      if (!isAuthorized) {
+        console.log(`[Discord] Unauthorized user ${username}, ignoring message`)
+        await message.reply(
+          '❌ Your account is not bound to this device.\n\n' +
+            'Use `@bot /bind <code>` to bind your account first.\n' +
+            'Get the security code from the memU bot app (Settings → Security).'
+        )
+        return
+      }
+
+      // Process the message
+      await this.handleIncomingMessage(message)
+    } catch (error) {
+      console.error('[Discord] Error handling message:', error)
+    }
+  }
+
+  /**
+   * Handle /bind command
+   * @param message - The Discord message
+   * @param content - The message content with bot mention removed
+   */
+  private async handleBindCommand(message: Message, content: string): Promise<void> {
+    const userId = message.author.id
+    const username = message.author.username
+    const displayName = message.author.displayName || username
+    // Get user avatar URL
+    const avatarUrl = message.author.displayAvatarURL({ size: 128 })
+
+    // Check if already bound on Discord platform
+    const isAlreadyBound = await securityService.isAuthorizedByStringId(userId, 'discord')
+    if (isAlreadyBound) {
+      await message.reply('✅ Your account is already bound to this device.')
+      return
+    }
+
+    // Extract security code from command (e.g., "/bind 123456")
+    const parts = content.split(/\s+/)
+    if (parts.length < 2 || !parts[1]) {
+      await message.reply(
+        '🔐 Please provide a security code:\n\n' +
+          '`@bot /bind <6-digit-code>`\n\n' +
+          'Get the code from the memU bot app (Settings → Security).'
+      )
+      return
+    }
+
+    const code = parts[1].trim()
+
+    // Validate and bind to Discord platform using string ID
+    // Discord snowflake IDs are too large for JavaScript numbers (precision loss)
+    const result = await securityService.validateAndBindByStringId(
+      code,
+      userId, // Use original string ID directly
+      username,
+      displayName,
+      undefined, // lastName
+      'discord' // platform
+    )
+
+    if (result.success) {
+      // Save user avatar after successful bind
+      await securityService.updateUserAvatar(userId, 'discord', avatarUrl)
+      console.log(`[Discord] User ${username} (${userId}) successfully bound with avatar: ${avatarUrl}`)
+      await message.reply(
+        `✅ Success! Your account **${username}** is now bound to this device.\n\n` +
+          'You can now @mention the bot to interact with the AI assistant.'
+      )
+    } else {
+      console.log(`[Discord] Bind failed for ${username}: ${result.error}`)
+      await message.reply(`❌ ${result.error}`)
+    }
+  }
+
+  /**
+   * Handle incoming message from authorized user
+   */
+  private async handleIncomingMessage(message: Message): Promise<void> {
+    console.log('[Discord] ========== Processing message ==========')
+    console.log('[Discord] Message ID:', message.id)
+    console.log('[Discord] Author:', message.author.username, `(${message.author.id})`)
+    console.log('[Discord] Content (raw):', message.content)
+    console.log('[Discord] Content length:', message.content.length)
+    
+    // Log attachments info
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const attachments = (message as any).attachments
+    if (attachments && attachments.size > 0) {
+      console.log('[Discord] Attachments count:', attachments.size)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      attachments.forEach((att: any, key: string) => {
+        console.log('[Discord] Attachment:', {
+          id: key,
+          name: att.name,
+          url: att.url,
+          proxyURL: att.proxyURL,
+          contentType: att.contentType,
+          size: att.size,
+          width: att.width,
+          height: att.height
+        })
+      })
+    } else {
+      console.log('[Discord] Attachments: none')
+    }
+
+    // Log embeds info
+    if (message.embeds && message.embeds.length > 0) {
+      console.log('[Discord] Embeds count:', message.embeds.length)
+      message.embeds.forEach((embed, idx) => {
+        console.log(`[Discord] Embed ${idx}:`, {
+          title: embed.title,
+          description: embed.description?.substring(0, 100),
+          url: embed.url,
+          image: embed.image?.url,
+          thumbnail: embed.thumbnail?.url
+        })
+      })
+    } else {
+      console.log('[Discord] Embeds: none')
+    }
+
+    // Set current channel for tool calls
+    this.currentChannelId = message.channelId
+
+    // Remove bot mention from content
+    let content = message.content
+    if (this.client?.user) {
+      // Remove user mention (<@123> or <@!123>)
+      content = content.replace(new RegExp(`<@!?${this.client.user.id}>`, 'g'), '').trim()
+    }
+    // Also remove any role mentions (<@&123>) that might be used to trigger the bot
+    content = content.replace(/<@&\d+>/g, '').trim()
+    console.log('[Discord] Content (cleaned):', content)
+
+    // Extract attachments
+    const storedAttachments: StoredAttachment[] = []
+    if (attachments && attachments.size > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      attachments.forEach((att: any) => {
+        storedAttachments.push({
+          id: att.id,
+          name: att.name,
+          url: att.url,
+          proxyURL: att.proxyURL,
+          contentType: att.contentType,
+          size: att.size,
+          width: att.width,
+          height: att.height
+        })
+      })
+    }
+
+    // Store incoming message first
+    const storedMsg: StoredDiscordMessage = {
+      messageId: message.id,
+      channelId: message.channelId,
+      guildId: message.guildId || undefined,
+      fromId: message.author.id,
+      fromUsername: message.author.username,
+      fromDisplayName: message.author.displayName,
+      text: content,
+      attachments: storedAttachments.length > 0 ? storedAttachments : undefined,
+      date: Math.floor(message.createdTimestamp / 1000),
+      isFromBot: false
+    }
+    await discordStorage.storeMessage(storedMsg)
+    console.log('[Discord] Message stored:', storedMsg.messageId)
+
+    // Emit event for new message
+    const appMessage = this.convertToAppMessage(storedMsg)
+    appEvents.emitDiscordNewMessage(appMessage)
+
+    // Publish incoming message event to infraService
+    infraService.publish('message:incoming', {
+      platform: 'discord',
+      timestamp: storedMsg.date,
+      message: { role: 'user', content: content || '' },
+      metadata: {
+        userId: message.author.id,
+        chatId: message.channelId,
+        messageId: message.id,
+        imageUrls: storedAttachments.filter(a => a.contentType?.startsWith('image/')).map(a => a.url)
+      }
+    })
+
+    // Process with Agent and reply (if there's content or attachments)
+    if (content || storedAttachments.length > 0) {
+      console.log('[Discord] Sending to Agent, content:', content)
+      console.log('[Discord] Attachments to send:', storedAttachments.length)
+      await this.processWithAgentAndReply(message, content, storedAttachments)
+    } else {
+      console.log('[Discord] No text content or attachments, skipping Agent processing')
+    }
+    console.log('[Discord] ========== Message processing complete ==========')
+  }
+
+  /**
+   * Process message with Agent and send reply
+   */
+  private async processWithAgentAndReply(
+    originalMessage: Message,
+    userMessage: string,
+    attachments: StoredAttachment[] = []
+  ): Promise<void> {
+    console.log('[Discord] ===== Sending to Agent =====')
+    console.log('[Discord] Full message being sent:', userMessage)
+    console.log('[Discord] Message length:', userMessage.length)
+    console.log('[Discord] Attachments count:', attachments.length)
+
+    // Separate image attachments from other files
+    const imageAttachments = attachments.filter(att => att.contentType?.startsWith('image/'))
+    const fileAttachments = attachments.filter(att => !att.contentType?.startsWith('image/'))
+
+    // Extract image URLs for multimodal processing
+    const imageUrls = imageAttachments.map(att => att.url)
+    console.log('[Discord] Image URLs:', imageUrls)
+
+    // Download non-image files to local storage for Agent to process
+    const downloadedFiles: { path: string; name: string; mimeType: string }[] = []
+    for (const att of fileAttachments) {
+      const localPath = await this.downloadFile(att.url, att.name)
+      if (localPath) {
+        downloadedFiles.push({
+          path: localPath,
+          name: att.name,
+          mimeType: att.contentType || 'application/octet-stream'
+        })
+      }
+    }
+    console.log('[Discord] Downloaded files:', downloadedFiles.length)
+
+    // Build text message with file info
+    let fullMessage = userMessage
+    if (downloadedFiles.length > 0) {
+      const fileInfo = downloadedFiles.map(f => `- ${f.name} (${f.mimeType}): ${f.path}`).join('\n')
+      const fileMessage = `\n\n[Attached files - use file_read tool to read content]:\n${fileInfo}`
+      fullMessage = userMessage ? userMessage + fileMessage : fileMessage.trim()
+    }
+
+    console.log('[Discord] Full message:', fullMessage.substring(0, 200) + '...')
+
+    try {
+      // Check if message should be consumed by other services (e.g., proactive service)
+      if (await infraService.tryConsumeUserInput(fullMessage, 'discord')) {
+        console.log('[Discord] Message consumed by another service, returning silently')
+        return
+      }
+
+      // Get response from Agent with Discord-specific tools
+      const response = await agentService.processMessage(fullMessage, 'discord', imageUrls)
+
+      // Check if rejected due to processing lock
+      if (!response.success && response.busyWith) {
+        console.log(`[Discord] Agent is busy with ${response.busyWith}`)
+        if (response.message) {
+          await originalMessage.reply(response.message)
+        }
+        return
+      }
+
+      if (response.success && response.message) {
+        console.log('[Discord] Agent response:', response.message.substring(0, 100) + '...')
+
+        // Reply to the original message
+        const sentMsg = await originalMessage.reply(response.message)
+        console.log('[Discord] Reply sent, message ID:', sentMsg.id)
+
+        // Store bot's reply
+        const botReply: StoredDiscordMessage = {
+          messageId: sentMsg.id,
+          channelId: sentMsg.channelId,
+          guildId: sentMsg.guildId || undefined,
+          fromId: this.client?.user?.id || 'bot',
+          fromUsername: this.client?.user?.username || 'Bot',
+          fromDisplayName: this.client?.user?.displayName,
+          text: response.message,
+          date: Math.floor(sentMsg.createdTimestamp / 1000),
+          replyToMessageId: originalMessage.id,
+          isFromBot: true
+        }
+        await discordStorage.storeMessage(botReply)
+
+        // Emit event for bot's reply
+        const appMessage = this.convertToAppMessage(botReply)
+        appEvents.emitDiscordNewMessage(appMessage)
+
+        // Publish outgoing message event to infraService
+        infraService.publish('message:outgoing', {
+          platform: 'discord',
+          timestamp: botReply.date,
+          message: { role: 'assistant', content: response.message },
+          metadata: {
+            messageId: sentMsg.id,
+            replyToId: originalMessage.id
+          }
+        })
+      } else {
+        console.error('[Discord] Agent error:', response.error)
+        await originalMessage.reply(`Error: ${response.error || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('[Discord] Error processing with Agent:', error)
+      await originalMessage.reply('Sorry, something went wrong.')
+    }
+  }
+
+  /**
+   * Get bot status
+   */
+  getStatus(): BotStatus {
+    return this.status
+  }
+
+  /**
+   * Get current channel ID
+   */
+  getCurrentChannelId(): string | null {
+    return this.currentChannelId
+  }
+
+  /**
+   * Get Discord client
+   */
+  getClient(): DiscordClient | null {
+    return this.client
+  }
+
+  /**
+   * Get all messages
+   */
+  async getMessages(limit = 200): Promise<AppMessage[]> {
+    const messages = await discordStorage.getMessages(limit)
+    return messages.map((msg) => this.convertToAppMessage(msg))
+  }
+
+  /**
+   * Convert stored message to AppMessage
+   */
+  private convertToAppMessage(msg: StoredDiscordMessage): AppMessage {
+    // Convert stored attachments to MessageAttachment format
+    const attachments: MessageAttachment[] | undefined = msg.attachments?.map(att => ({
+      id: att.id,
+      name: att.name,
+      url: att.url,
+      contentType: att.contentType,
+      size: att.size,
+      width: att.width,
+      height: att.height
+    }))
+
+    return {
+      id: msg.messageId,
+      platform: 'discord',
+      chatId: msg.channelId,
+      senderId: msg.fromId,
+      senderName: msg.fromDisplayName || msg.fromUsername,
+      content: msg.text || '',
+      attachments,
+      timestamp: new Date(msg.date * 1000),
+      isFromBot: msg.isFromBot,
+      replyToId: msg.replyToMessageId
+    }
+  }
+
+  // ========== Public Media Sending Methods ==========
+
+  /**
+   * Send a text message to a channel
+   * @param storeInHistory - Whether to store message in history (default: true)
+   */
+  async sendText(
+    channelId: string,
+    text: string,
+    options?: { storeInHistory?: boolean }
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const channel = await this.client.channels.fetch(channelId)
+      if (!channel || !channel.isTextBased() || !('send' in channel)) {
+        return { success: false, error: 'Invalid channel' }
+      }
+      // Type assertion since we've verified 'send' exists
+      const msg = await (channel as { send: (text: string) => Promise<{ id: string; createdTimestamp: number }> }).send(text)
+
+      // Store message in history (default: true)
+      const shouldStore = options?.storeInHistory !== false
+      if (shouldStore) {
+        const storedMsg: StoredDiscordMessage = {
+          messageId: msg.id,
+          channelId,
+          fromId: this.client.user?.id || '',
+          fromUsername: this.client.user?.username || 'Bot',
+          text,
+          date: Math.floor(msg.createdTimestamp / 1000),
+          isFromBot: true
+        }
+        await discordStorage.storeMessage(storedMsg)
+
+        // Emit event for UI update
+        const appMessage = this.convertToAppMessage(storedMsg)
+        appEvents.emitDiscordNewMessage(appMessage)
+      }
+
+      return { success: true, messageId: msg.id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a direct message (DM) to a user by their ID
+   * Used for proactive notifications to bound users
+   */
+  async sendDMToUser(
+    userId: string,
+    text: string,
+    options?: { storeInHistory?: boolean }
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const user = await this.client.users.fetch(userId)
+      if (!user) {
+        return { success: false, error: 'User not found' }
+      }
+
+      const dmChannel = await user.createDM()
+      const msg = await dmChannel.send(text)
+
+      // Store message in history (default: true)
+      const shouldStore = options?.storeInHistory !== false
+      if (shouldStore) {
+        const storedMsg: StoredDiscordMessage = {
+          messageId: msg.id,
+          channelId: dmChannel.id,
+          fromId: this.client.user?.id || '',
+          fromUsername: this.client.user?.username || 'Bot',
+          text,
+          date: Math.floor(msg.createdTimestamp / 1000),
+          isFromBot: true
+        }
+        await discordStorage.storeMessage(storedMsg)
+
+        // Emit event for UI update
+        const appMessage = this.convertToAppMessage(storedMsg)
+        appEvents.emitDiscordNewMessage(appMessage)
+      }
+
+      return { success: true, messageId: msg.id }
+    } catch (error) {
+      console.error('[Discord] Failed to send DM:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send an embed message to a channel
+   */
+  async sendEmbed(
+    channelId: string,
+    embed: {
+      title?: string
+      description?: string
+      color?: number
+      url?: string
+      footer?: string
+      thumbnail_url?: string
+      image_url?: string
+      fields?: Array<{ name: string; value: string; inline?: boolean }>
+    }
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const channel = await this.client.channels.fetch(channelId)
+      if (!channel || !channel.isTextBased() || !('send' in channel)) {
+        return { success: false, error: 'Invalid channel' }
+      }
+
+      // Build embed object
+      const embedData: Record<string, unknown> = {}
+      if (embed.title) embedData.title = embed.title
+      if (embed.description) embedData.description = embed.description
+      if (embed.color) embedData.color = embed.color
+      if (embed.url) embedData.url = embed.url
+      if (embed.footer) embedData.footer = { text: embed.footer }
+      if (embed.thumbnail_url) embedData.thumbnail = { url: embed.thumbnail_url }
+      if (embed.image_url) embedData.image = { url: embed.image_url }
+      if (embed.fields) embedData.fields = embed.fields
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = await (channel as any).send({ embeds: [embedData] })
+      return { success: true, messageId: msg.id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Download a file from Discord to local storage
+   * Returns the local file path or null if download failed
+   */
+  private async downloadFile(fileUrl: string, fileName: string): Promise<string | null> {
+    try {
+      // Create downloads directory in app data
+      const downloadsDir = path.join(app.getPath('userData'), 'downloads', 'discord')
+      await fs.mkdir(downloadsDir, { recursive: true })
+
+      // Generate unique filename with timestamp
+      const timestamp = Date.now()
+      const safeName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const localPath = path.join(downloadsDir, `${timestamp}_${safeName}`)
+
+      console.log(`[Discord] Downloading file: ${fileName} -> ${localPath}`)
+      
+      const response = await fetch(fileUrl)
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.status}`)
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer())
+      await fs.writeFile(localPath, buffer)
+      
+      console.log(`[Discord] File downloaded: ${localPath} (${buffer.length} bytes)`)
+      return localPath
+    } catch (error) {
+      console.error(`[Discord] Error downloading file:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Send a file to a channel
+   */
+  async sendFile(
+    channelId: string,
+    filePath: string,
+    options?: { filename?: string; description?: string }
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const channel = await this.client.channels.fetch(channelId)
+      if (!channel || !channel.isTextBased() || !('send' in channel)) {
+        return { success: false, error: 'Invalid channel' }
+      }
+
+      const attachment = {
+        attachment: filePath,
+        name: options?.filename,
+        description: options?.description
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msg = await (channel as any).send({
+        files: [attachment],
+        content: options?.description
+      })
+      return { success: true, messageId: msg.id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Reply to a specific message
+   */
+  async reply(
+    channelId: string,
+    messageId: string,
+    text: string
+  ): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const channel = await this.client.channels.fetch(channelId)
+      if (!channel || !channel.isTextBased() || !('messages' in channel)) {
+        return { success: false, error: 'Invalid channel' }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const message = await (channel as any).messages.fetch(messageId)
+      const reply = await message.reply(text)
+      return { success: true, messageId: reply.id }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Add a reaction to a message
+   */
+  async addReaction(
+    channelId: string,
+    messageId: string,
+    emoji: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const channel = await this.client.channels.fetch(channelId)
+      if (!channel || !channel.isTextBased() || !('messages' in channel)) {
+        return { success: false, error: 'Invalid channel' }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const message = await (channel as any).messages.fetch(messageId)
+      await message.react(emoji)
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send typing indicator
+   */
+  async sendTyping(
+    channelId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.client) {
+      return { success: false, error: 'Bot not connected' }
+    }
+    try {
+      const channel = await this.client.channels.fetch(channelId)
+      if (!channel || !channel.isTextBased() || !('sendTyping' in channel)) {
+        return { success: false, error: 'Invalid channel' }
+      }
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (channel as any).sendTyping()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Update avatars for all bound Discord users
+   * Called on startup to refresh avatar URLs
+   */
+  private async updateBoundUsersAvatars(): Promise<void> {
+    if (!this.client) return
+
+    const boundUsers = await securityService.getBoundUsers('discord')
+    console.log(`[Discord] Updating avatars for ${boundUsers.length} bound users`)
+
+    for (const user of boundUsers) {
+      try {
+        // Fetch user from Discord to get current avatar
+        const discordUser = await this.client.users.fetch(user.uniqueId)
+        if (discordUser) {
+          const avatarUrl = discordUser.displayAvatarURL({ size: 128 })
+          await securityService.updateUserAvatar(user.uniqueId, 'discord', avatarUrl)
+          console.log(`[Discord] Updated avatar for ${user.username}: ${avatarUrl}`)
+        }
+      } catch (error) {
+        console.error(`[Discord] Failed to update avatar for ${user.username}:`, error)
+      }
+    }
+  }
+}
+
+// Export singleton instance
+export const discordBotService = new DiscordBotService()

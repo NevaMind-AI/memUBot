@@ -1,0 +1,75 @@
+appId: com.nevamind.memu-bot
+productName: memU bot
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!scripts/*'
+  - '!modes/*'
+  - '!docs/*'
+  - '!electron-vite.config.*'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,CHANGELOG.md,README.md}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  # Sensitive & unnecessary files
+  - '!.env'
+  - '!.env.*'
+  - '!*.pem'
+  - '!*.key'
+  - '!.npmrc'
+  - '!.gitignore'
+  - '!electron-builder.yml'
+  - '!electron-builder.mode.json'
+  - '!electron-builder.flavor.json'
+  - '!build-windows.ps1'
+  - '!postcss.config.js'
+  - '!tailwind.config.js'
+  # IDE & editor configs
+  - '!**/.cursor/*'
+asarUnpack:
+  - resources/**
+  # screenshot-desktop uses a batch file on Windows that must be unpacked from ASAR
+  # to be executable by the system
+  - node_modules/screenshot-desktop/lib/win32/**
+  # nut.js native modules for cross-platform mouse/keyboard automation
+  - node_modules/@nut-tree-fork/**/build/**
+  - node_modules/@nut-tree-fork/**/*.node
+  - node_modules/@nut-tree-fork/**/*.dll
+win:
+  executableName: memu-bot
+  # Windows icon - with rounded corners (electron-builder auto-converts PNG to ICO)
+  icon: build/icon-win.png
+nsis:
+  artifactName: ${name}-${version}-setup.${ext}
+  shortcutName: ${productName}
+  uninstallDisplayName: ${productName}
+  createDesktopShortcut: always
+mac:
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  # macOS icon - should be square WITHOUT rounded corners (system adds them)
+  # Use .icns format or a 1024x1024 PNG
+  icon: build/icon.icns
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSCameraUsageDescription: Application requests access to the device's camera.
+    - NSMicrophoneUsageDescription: Application requests access to the device's microphone.
+    - NSDocumentsFolderUsageDescription: Application requests access to the user's Documents folder.
+    - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
+  notarize:
+    teamId: AP69DBR725
+dmg:
+  artifactName: ${name}-${version}.${ext}
+linux:
+  target:
+    - AppImage
+    - snap
+    - deb
+  maintainer: electronjs.org
+  category: Utility
+  # Linux icon - PNG format, can include effects as desired
+  icon: build/icon.png
+appImage:
+  artifactName: ${name}-${version}.${ext}
+npmRebuild: false

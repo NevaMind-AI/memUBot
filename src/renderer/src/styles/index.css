@@ -1,0 +1,248 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   MEMU Theme (Default) - Cool Blue
+   ============================================ */
+
+/* CSS Variables - Light Theme (memu) */
+:root {
+  --primary: #2596D1;
+  --primary-light: #7DCBF7;
+  --primary-gradient: linear-gradient(135deg, #7DCBF7 0%, #2596D1 100%);
+  --primary-bg: rgba(37, 150, 209, 0.12);
+  --primary-bg-hover: rgba(37, 150, 209, 0.18);
+  
+  /* Backgrounds */
+  --bg-base: #f0f9ff;
+  --bg-secondary: #e0f2fe;
+  --bg-tertiary: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.7);
+  --bg-card-solid: #ffffff;
+  --bg-input: rgba(248, 250, 252, 0.8);
+  
+  /* Icon Background */
+  --icon-bg: rgba(37, 150, 209, 0.1);
+  
+  /* Glass */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.8);
+  
+  /* Text */
+  --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --text-placeholder: #94a3b8;
+  
+  /* Borders */
+  --border-color: rgba(148, 163, 184, 0.2);
+  --border-light: rgba(255, 255, 255, 0.8);
+  
+  /* Status */
+  --success: #22c55e;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 4px 24px rgba(37, 150, 209, 0.08);
+  --shadow-primary: 0 4px 14px rgba(37, 150, 209, 0.25);
+}
+
+/* CSS Variables - Dark Theme (memu) */
+.dark {
+  --primary: #7DCBF7;
+  --primary-light: #a8ddf9;
+  --primary-gradient: linear-gradient(135deg, #7DCBF7 0%, #2596D1 100%);
+  --primary-bg: rgba(125, 203, 247, 0.15);
+  --primary-bg-hover: rgba(125, 203, 247, 0.22);
+  
+  /* Backgrounds */
+  --bg-base: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #0f172a;
+  --bg-card: rgba(30, 41, 59, 0.7);
+  --bg-card-solid: #1e293b;
+  --bg-input: rgba(15, 23, 42, 0.8);
+  
+  /* Icon Background */
+  --icon-bg: rgba(125, 203, 247, 0.15);
+  
+  /* Glass */
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(51, 65, 85, 0.5);
+  
+  /* Text */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --text-placeholder: #64748b;
+  
+  /* Borders */
+  --border-color: rgba(51, 65, 85, 0.5);
+  --border-light: rgba(51, 65, 85, 0.5);
+  
+  /* Shadows */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 4px 24px rgba(0, 0, 0, 0.3);
+  --shadow-primary: 0 4px 14px rgba(37, 150, 209, 0.3);
+}
+
+/* Base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    'SF Pro Display',
+    'SF Pro Text',
+    Roboto,
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: linear-gradient(180deg, var(--bg-base) 0%, var(--bg-secondary) 50%, var(--bg-tertiary) 100%);
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+/* Custom scrollbar - overlay style (not taking layout space) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  opacity: 0.3;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.5;
+}
+
+/* Make scrollbar overlay content instead of taking space */
+.overflow-y-auto,
+.overflow-x-auto,
+.overflow-auto {
+  overflow: overlay;
+}
+
+@supports not (overflow: overlay) {
+  .overflow-y-auto {
+    overflow-y: auto;
+  }
+  .overflow-x-auto {
+    overflow-x: auto;
+  }
+  .overflow-auto {
+    overflow: auto;
+  }
+}
+
+/* Selection */
+::selection {
+  background: rgba(37, 150, 209, 0.2);
+}
+
+/* Input autofill */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0px 1000px var(--bg-card-solid) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/* Number input arrows */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* Custom select styling */
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px !important;
+}
+
+.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* Range slider track */
+input[type='range'] {
+  -webkit-appearance: none;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 6px rgba(37, 150, 209, 0.3);
+  border: 2px solid var(--primary);
+  cursor: pointer;
+  margin-top: -6px;
+}
+
+/* Slider input with dynamic background */
+.slider-input {
+  height: 4px;
+}
+
+.slider-input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 2px 6px rgba(37, 150, 209, 0.3);
+  border: 2px solid var(--primary);
+  cursor: pointer;
+  margin-top: 0;
+}
+
+/* Theme transition */
+.theme-transition,
+.theme-transition * {
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease !important;
+}

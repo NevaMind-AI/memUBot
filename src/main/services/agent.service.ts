@@ -1,0 +1,1702 @@
+import Anthropic from '@anthropic-ai/sdk'
+import path from 'path'
+import { nativeImage } from 'electron'
+import { loadSettings, type AppSettings } from '../config/settings.config'
+import { t } from '../i18n'
+import { appEvents } from '../events'
+import { telegramStorage } from '../apps/telegram/storage'
+import { discordStorage } from '../apps/discord/storage'
+import { slackStorage } from '../apps/slack/storage'
+import { feishuStorage } from '../apps/feishu/storage'
+import type { ConversationMessage, AgentResponse } from '../types'
+import * as fs from 'fs/promises'
+
+// Max base64 size for Anthropic API is 5MB. Raw file ~3.75MB → base64 ~5MB.
+// We use 3.5MB as the raw threshold to leave margin.
+const MAX_BASE64_RAW_SIZE_MB = 3.5
+
+/**
+ * Compress an image buffer to fit within the Anthropic API base64 size limit.
+ * Uses Electron's nativeImage to resize large images to JPEG.
+ * Returns { buffer, mediaType } after compression.
+ */
+function compressImageForLLM(
+  imageData: Buffer<ArrayBufferLike>,
+  filename: string
+): { buffer: Buffer<ArrayBufferLike>; mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' } {
+  const img = nativeImage.createFromBuffer(imageData)
+  if (img.isEmpty()) {
+    // nativeImage couldn't parse it, return original
+    console.warn(`[Agent] nativeImage could not parse: ${filename}, returning original`)
+    return { buffer: imageData, mediaType: 'image/jpeg' }
+  }
+
+  const { width, height } = img.getSize()
+
+  // Scale down so the largest dimension is at most 1568px (Anthropic's recommended max)
+  const maxDim = 1568
+  let scaledImg = img
+  if (width > maxDim || height > maxDim) {
+    const scale = maxDim / Math.max(width, height)
+    const newWidth = Math.round(width * scale)
+    const newHeight = Math.round(height * scale)
+    scaledImg = img.resize({ width: newWidth, height: newHeight, quality: 'better' })
+    console.log(`[Agent] Resized image ${filename}: ${width}x${height} → ${newWidth}x${newHeight}`)
+  }
+
+  // Convert to JPEG (quality ~85) for smaller size
+  const jpegBuffer = scaledImg.toJPEG(85)
+  const jpegSizeMB = jpegBuffer.length / (1024 * 1024)
+  console.log(`[Agent] Compressed image ${filename}: ${(imageData.length / (1024 * 1024)).toFixed(2)}MB → ${jpegSizeMB.toFixed(2)}MB (JPEG)`)
+
+  // If still too large after resize, try lower quality
+  if (jpegSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+    const lqJpeg = scaledImg.toJPEG(60)
+    console.log(`[Agent] Further compressed ${filename}: ${jpegSizeMB.toFixed(2)}MB → ${(lqJpeg.length / (1024 * 1024)).toFixed(2)}MB (JPEG q60)`)
+    return { buffer: Buffer.from(lqJpeg), mediaType: 'image/jpeg' }
+  }
+
+  return { buffer: Buffer.from(jpegBuffer), mediaType: 'image/jpeg' }
+}
+
+/**
+ * Detect media type from image buffer magic bytes.
+ */
+function detectImageMediaType(imageData: Buffer<ArrayBufferLike>): 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' {
+  if (imageData[0] === 0xff && imageData[1] === 0xd8 && imageData[2] === 0xff) return 'image/jpeg'
+  if (imageData[0] === 0x89 && imageData[1] === 0x50 && imageData[2] === 0x4e && imageData[3] === 0x47) return 'image/png'
+  if (imageData[0] === 0x47 && imageData[1] === 0x49 && imageData[2] === 0x46) return 'image/gif'
+  if (imageData[0] === 0x52 && imageData[1] === 0x49 && imageData[2] === 0x46 && imageData[3] === 0x46 &&
+      imageData[8] === 0x57 && imageData[9] === 0x45 && imageData[10] === 0x42 && imageData[11] === 0x50) return 'image/webp'
+  return 'image/png' // default
+}
+
+// Import from refactored modules
+import {
+  MAX_CONTEXT_MESSAGES,
+  MAX_CONTEXT_TOKENS,
+  estimateTokens,
+  createClient
+} from './agent/utils'
+import { compactToolResults, cleanupOffloadedFiles } from './agent/context'
+import {
+  createLayeredContextManager,
+  buildLayeredSessionKey,
+  getLayeredContextConfig
+} from './agent/context/layered'
+import {
+  buildTopicReference,
+  decideTemporaryTopicTransition,
+  createLLMTopicClassifier,
+  type TopicScorer
+} from './agent/context/layered/temporary-topic'
+import { getToolsForPlatform } from './agent/tools'
+import { executeTool } from './agent/tool-executor'
+import { getSystemPromptForPlatform } from './agent/prompt-builder'
+
+// Re-export types from module for backwards compatibility
+export type {
+  MessagePlatform,
+  UnmemorizedMessage,
+  EvaluationDecision,
+  EvaluationContext,
+  EvaluationData,
+  LLMStatus,
+  LLMStatusInfo,
+  AgentActivityType,
+  AgentActivityItem
+} from './agent/types'
+
+import type {
+  MessagePlatform,
+  LLMStatus,
+  LLMStatusInfo,
+  EvaluationContext,
+  EvaluationData,
+  EvaluationDecision,
+  AgentActivityItem
+} from './agent/types'
+
+interface TemporaryTopicRuntimeState {
+  mode: 'MAIN' | 'TEMP'
+  frozenMainMessages: Anthropic.MessageParam[] | null
+  frozenMainReference: string
+}
+
+/**
+ * AgentService handles conversation with Claude and tool execution
+ * Supports Computer Use for full computer control
+ */
+export class AgentService {
+  private conversationHistory: Anthropic.MessageParam[] = []
+  private currentStatus: LLMStatusInfo = { status: 'idle' }
+  private abortController: AbortController | null = null
+  private isAborted = false
+  private currentPlatform: MessagePlatform = 'none'
+  private contextLoadedForPlatform: MessagePlatform | null = null // Track which platform's context is loaded
+  private contextLoadedForChatId: string | null = null // Track which chatId's context is loaded (for per-chat isolation)
+  private recentReplyPlatform: MessagePlatform = 'none' // Track which platform the user most recently sent a message from (persisted to disk)
+  private processingLock: MessagePlatform | null = null // Global lock for processMessage - only one platform at a time
+  private activityLog: AgentActivityItem[] = [] // Track agent activity for UI display
+  private activityIdCounter = 0 // Counter for generating unique activity IDs
+  private layeredContextManager = createLayeredContextManager()
+  private topicScorer: TopicScorer | null = null
+  private temporaryTopicState: TemporaryTopicRuntimeState = {
+    mode: 'MAIN',
+    frozenMainMessages: null,
+    frozenMainReference: ''
+  }
+
+  /**
+   * Get current LLM status
+   */
+  getStatus(): LLMStatusInfo {
+    return this.currentStatus
+  }
+
+  /**
+   * Get current platform
+   */
+  getCurrentPlatform(): MessagePlatform {
+    return this.currentPlatform
+  }
+
+  /**
+   * Get the platform from which the user most recently sent a message
+   */
+  getRecentReplyPlatform(): MessagePlatform {
+    return this.recentReplyPlatform
+  }
+
+  /**
+   * Load persisted recent reply platform from disk (call during init)
+   */
+  async loadPersistedRecentPlatform(): Promise<void> {
+    try {
+      const { app } = await import('electron')
+      const filePath = path.join(app.getPath('userData'), 'recent-platform.json')
+      const content = await fs.readFile(filePath, 'utf-8')
+      const data = JSON.parse(content)
+      if (data.platform && data.platform !== 'none') {
+        this.recentReplyPlatform = data.platform
+        console.log(`[Agent] Restored recent reply platform: ${data.platform}`)
+      }
+    } catch {
+      // File doesn't exist yet — first launch
+    }
+  }
+
+  /**
+   * Persist recent reply platform to disk
+   */
+  private async persistRecentPlatform(platform: MessagePlatform): Promise<void> {
+    try {
+      const { app } = await import('electron')
+      const filePath = path.join(app.getPath('userData'), 'recent-platform.json')
+      await fs.writeFile(filePath, JSON.stringify({ platform, updatedAt: new Date().toISOString() }))
+    } catch {
+      // Non-critical, ignore
+    }
+  }
+
+  /**
+   * Update and emit status
+   */
+  private setStatus(status: LLMStatus, currentTool?: string, iteration?: number): void {
+    this.currentStatus = { status, currentTool, iteration }
+    appEvents.emitLLMStatusChanged(this.currentStatus)
+  }
+
+  /**
+   * Generate a unique activity ID
+   */
+  private generateActivityId(): string {
+    this.activityIdCounter++
+    return `activity-${Date.now()}-${this.activityIdCounter}`
+  }
+
+  /**
+   * Add an activity item and emit event
+   * Returns the activity ID for later updates
+   */
+  private addActivity(item: Omit<AgentActivityItem, 'id' | 'timestamp'>): string {
+    const id = this.generateActivityId()
+    const activity: AgentActivityItem = {
+      ...item,
+      id,
+      timestamp: Date.now()
+    }
+    this.activityLog.push(activity)
+    appEvents.emitAgentActivityChanged(activity)
+    return id
+  }
+
+  /**
+   * Update an existing activity item and emit event
+   */
+  private updateActivity(id: string, updates: Partial<Omit<AgentActivityItem, 'id' | 'timestamp'>>): void {
+    const index = this.activityLog.findIndex(a => a.id === id)
+    if (index !== -1) {
+      this.activityLog[index] = { ...this.activityLog[index], ...updates }
+      appEvents.emitAgentActivityChanged(this.activityLog[index])
+    }
+  }
+
+  /**
+   * Get activity log
+   */
+  getActivityLog(): AgentActivityItem[] {
+    return [...this.activityLog]
+  }
+
+  /**
+   * Clear activity log (called when starting new processing)
+   */
+  clearActivityLog(): void {
+    this.activityLog = []
+    this.activityIdCounter = 0
+  }
+
+  /**
+   * Abort the current processing
+   */
+  abort(): void {
+    console.log('[Agent] Aborting current processing...')
+    this.isAborted = true
+    if (this.abortController) {
+      this.abortController.abort()
+    }
+    this.setStatus('idle')
+  }
+
+  /**
+   * Platform display names (not localized — proper nouns)
+   */
+  private static readonly PLATFORM_NAMES: Record<string, string> = {
+    telegram: 'Telegram',
+    discord: 'Discord',
+    slack: 'Slack',
+    whatsapp: 'WhatsApp',
+    line: 'Line',
+    feishu: 'Feishu'
+  }
+
+  /**
+   * Build a localized rejection message when the agent is busy.
+   * Uses the shared i18n locale files (same as renderer).
+   */
+  private async buildBusyRejectionMessage(
+    requestingPlatform: MessagePlatform,
+    busyWithPlatform: MessagePlatform
+  ): Promise<string> {
+    const isSamePlatform = requestingPlatform === busyWithPlatform
+    const busyName = AgentService.PLATFORM_NAMES[busyWithPlatform] || busyWithPlatform
+
+    if (isSamePlatform) {
+      return t('agent.busySamePlatform')
+    }
+    return t('agent.busyCrossPlatform', { platform: busyName })
+  }
+
+  /**
+   * Map platform to its send_text tool name.
+   * Returns null if the platform has no send_text tool (e.g. 'none').
+   */
+  private getSendTextToolName(): string | null {
+    const map: Partial<Record<MessagePlatform, string>> = {
+      telegram: 'telegram_send_text',
+      discord: 'discord_send_text',
+      whatsapp: 'whatsapp_send_text',
+      slack: 'slack_send_text',
+      line: 'line_send_text',
+      feishu: 'feishu_send_text'
+    }
+    return map[this.currentPlatform] ?? null
+  }
+
+  /**
+   * Send the assistant's intent summary (text blocks from a tool_use response)
+   * to the user via the platform's send_text tool.
+   * This is a programmatic call (no extra LLM round), used to show
+   * what the agent is about to do before executing tools.
+   */
+  private async sendIntentSummaryToUser(content: Anthropic.ContentBlock[]): Promise<void> {
+    const toolName = this.getSendTextToolName()
+    if (!toolName) return
+
+    // Extract text blocks (the "what I'm about to do" summary)
+    const summaryText = content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('\n')
+
+    if (!summaryText.trim()) return
+
+    try {
+      // Truncate very long summaries to avoid flooding the chat
+      const maxLen = 2000
+      const truncated =
+        summaryText.length > maxLen
+          ? summaryText.substring(0, maxLen) + '\n...(truncated)'
+          : summaryText
+
+      const message = `💭 ${truncated}`
+      await this.executeToolInternal(toolName, { text: message, _storeInHistory: false })
+      console.log(`[Agent] Sent intent summary to user via ${toolName} (${summaryText.length} chars)`)
+    } catch (err) {
+      // Non-critical — don't break the agent loop if sending fails
+      console.warn('[Agent] Failed to send intent summary to user:', err)
+    }
+  }
+
+  /**
+   * Check if a message contains tool_use blocks
+   */
+  private hasToolUse(msg: Anthropic.MessageParam): boolean {
+    if (!Array.isArray(msg.content)) return false
+    return msg.content.some(block => block.type === 'tool_use')
+  }
+
+  /**
+   * Check if a message contains tool_result blocks
+   */
+  private hasToolResult(msg: Anthropic.MessageParam): boolean {
+    if (!Array.isArray(msg.content)) return false
+    return msg.content.some(block => block.type === 'tool_result')
+  }
+
+  /**
+   * Sanitize content blocks for storage in conversation history
+   * Removes extra fields that some model providers don't accept
+   */
+  private sanitizeContentBlocks(content: Anthropic.ContentBlock[]): Anthropic.ContentBlockParam[] {
+    return content
+      .filter((block) => block.type !== 'thinking')
+      .map((block) => {
+        if (block.type === 'text') {
+          // Only keep type and text
+          return { type: 'text' as const, text: block.text }
+        } else if (block.type === 'tool_use') {
+          // Only keep type, id, name, input
+          return {
+            type: 'tool_use' as const,
+            id: block.id,
+            name: block.name,
+            input: block.input as Record<string, unknown>
+          }
+        }
+        // For other types, return as-is (shouldn't happen normally)
+        return block as unknown as Anthropic.ContentBlockParam
+      })
+  }
+
+  /**
+   * Truncate conversation history if it exceeds token limit
+   * Removes oldest messages while ensuring tool_use/tool_result pairs stay together
+   */
+  /**
+   * Enforce message count limit on conversation history
+   * Should be called once before the agent loop starts, not during iterations.
+   * Agent loop tool calls should accumulate freely within the current task.
+   */
+  private enforceMessageCountLimit(): void {
+    const maxMessages = MAX_CONTEXT_MESSAGES * 3 // ~60 entries (user + assistant + tool pairs for 20 rounds)
+    if (this.conversationHistory.length <= maxMessages) {
+      return
+    }
+
+    const excess = this.conversationHistory.length - maxMessages
+    // Find a safe cut point that doesn't break tool pairs
+    let cutIndex = 0
+    let removed = 0
+    while (cutIndex < this.conversationHistory.length && removed < excess) {
+      const currentMsg = this.conversationHistory[cutIndex]
+      if (this.hasToolUse(currentMsg)) {
+        cutIndex += 2
+        removed += 2
+      } else if (this.hasToolResult(currentMsg)) {
+        cutIndex += 1
+        removed += 1
+      } else {
+        cutIndex += 1
+        removed += 1
+      }
+    }
+    if (cutIndex > 0) {
+      const removedMsgs = this.conversationHistory.splice(0, cutIndex)
+      this.verifyAndFixToolPairs()
+      console.log(`[Agent] Message count limit: removed ${removedMsgs.length} old messages (${this.conversationHistory.length} remaining)`)
+    }
+  }
+
+  private truncateContextIfNeeded(): void {
+    // Enforce token limit
+    let totalTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
+    
+    if (totalTokens <= MAX_CONTEXT_TOKENS) {
+      return
+    }
+    
+    console.log(`[Agent] Context too large (${totalTokens} tokens), truncating...`)
+    
+    // Find a safe truncation point - we need to remove messages in pairs when they contain tool_use/tool_result
+    // Strategy: Find the earliest point where we can safely cut without breaking tool pairs
+    let cutIndex = 0
+    
+    while (cutIndex < this.conversationHistory.length - 2) {
+      // Calculate tokens from cutIndex onwards
+      let remainingTokens = 0
+      for (let i = cutIndex; i < this.conversationHistory.length; i++) {
+        remainingTokens += estimateTokens(this.conversationHistory[i])
+      }
+      
+      if (remainingTokens <= MAX_CONTEXT_TOKENS) {
+        break
+      }
+      
+      // Check if current message has tool_use - if so, we need to skip the next message too (tool_result)
+      const currentMsg = this.conversationHistory[cutIndex]
+      if (this.hasToolUse(currentMsg)) {
+        // Skip both this message and the next (tool_result)
+        cutIndex += 2
+      } else if (this.hasToolResult(currentMsg)) {
+        // This shouldn't happen if we're iterating correctly, but handle it anyway
+        // Skip this message
+        cutIndex += 1
+      } else {
+        // Regular message, can safely remove
+        cutIndex += 1
+      }
+    }
+    
+    // Ensure we don't cut too much - keep at least the last 2 messages
+    if (cutIndex > this.conversationHistory.length - 2) {
+      cutIndex = Math.max(0, this.conversationHistory.length - 2)
+    }
+    
+    // Remove messages up to cutIndex
+    if (cutIndex > 0) {
+      const removed = this.conversationHistory.splice(0, cutIndex)
+      const removedTokens = removed.reduce((sum, msg) => sum + estimateTokens(msg), 0)
+      totalTokens -= removedTokens
+      console.log(`[Agent] Token limit: removed ${removed.length} messages (${removedTokens} tokens)`)
+    }
+    
+    // Verify tool_use/tool_result integrity after truncation
+    this.verifyAndFixToolPairs()
+    
+    // If still too large (single message is huge), we need to handle specially
+    if (totalTokens > MAX_CONTEXT_TOKENS && this.conversationHistory.length > 0) {
+      // Check if it's a multimodal message with large images
+      const firstMsg = this.conversationHistory[0]
+      if (Array.isArray(firstMsg.content)) {
+        // Remove image blocks from the message to reduce size
+        const filteredContent = firstMsg.content.filter(block => {
+          if (block.type === 'image') {
+            console.log('[Agent] Removing large image from context to fit limit')
+            return false
+          }
+          return true
+        })
+        if (filteredContent.length > 0) {
+          firstMsg.content = filteredContent as Anthropic.ContentBlockParam[]
+        } else {
+          // No content left, add a placeholder
+          firstMsg.content = '[Previous image removed due to size limit]'
+        }
+      }
+    }
+    
+    totalTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
+    console.log(`[Agent] Context truncated to ${this.conversationHistory.length} messages (~${totalTokens} tokens)`)
+  }
+
+  /**
+   * Verify and fix tool_use/tool_result pairs in conversation history
+   * If a tool_use exists without a corresponding tool_result, remove it
+   */
+  private verifyAndFixToolPairs(): void {
+    // Collect all tool_use IDs
+    const toolUseIds = new Set<string>()
+    const toolResultIds = new Set<string>()
+    
+    for (const msg of this.conversationHistory) {
+      if (!Array.isArray(msg.content)) continue
+      
+      for (const block of msg.content) {
+        if (block.type === 'tool_use') {
+          toolUseIds.add(block.id)
+        } else if (block.type === 'tool_result') {
+          toolResultIds.add(block.tool_use_id)
+        }
+      }
+    }
+    
+    // Find orphaned tool_use IDs (no corresponding tool_result)
+    const orphanedIds = new Set<string>()
+    for (const id of toolUseIds) {
+      if (!toolResultIds.has(id)) {
+        orphanedIds.add(id)
+        console.log(`[Agent] Found orphaned tool_use: ${id}`)
+      }
+    }
+    
+    // Find orphaned tool_result IDs (no corresponding tool_use)
+    for (const id of toolResultIds) {
+      if (!toolUseIds.has(id)) {
+        orphanedIds.add(id)
+        console.log(`[Agent] Found orphaned tool_result: ${id}`)
+      }
+    }
+    
+    if (orphanedIds.size === 0) return
+    
+    // Remove messages containing orphaned tool blocks
+    this.conversationHistory = this.conversationHistory.filter(msg => {
+      if (!Array.isArray(msg.content)) return true
+      
+      // Check if any block in this message is orphaned
+      const hasOrphan = msg.content.some(block => {
+        if (block.type === 'tool_use' && orphanedIds.has(block.id)) return true
+        if (block.type === 'tool_result' && orphanedIds.has(block.tool_use_id)) return true
+        return false
+      })
+      
+      if (hasOrphan) {
+        console.log(`[Agent] Removing message with orphaned tool block`)
+        return false
+      }
+      return true
+    })
+  }
+
+  private getMessageTextForRetrieval(message: Anthropic.MessageParam): string {
+    if (typeof message.content === 'string') {
+      return message.content
+    }
+
+    const parts: string[] = []
+    for (const block of message.content) {
+      if (block.type === 'text') {
+        parts.push(block.text)
+      } else if (block.type === 'tool_use') {
+        parts.push(`[Tool use] ${block.name}`)
+      } else if (block.type === 'tool_result') {
+        if (typeof block.content === 'string') {
+          parts.push(block.content)
+        } else if (Array.isArray(block.content)) {
+          for (const item of block.content) {
+            if (item.type === 'text') {
+              parts.push(item.text)
+            }
+          }
+        }
+      }
+    }
+
+    return parts.join('\n').trim()
+  }
+
+  private getLatestUserQueryFromHistory(): string {
+    for (let i = this.conversationHistory.length - 1; i >= 0; i--) {
+      const msg = this.conversationHistory[i]
+      if (msg.role !== 'user') continue
+      const text = this.getMessageTextForRetrieval(msg)
+      if (text) return text
+    }
+    return ''
+  }
+
+  private cloneConversationHistory(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+    return JSON.parse(JSON.stringify(messages)) as Anthropic.MessageParam[]
+  }
+
+  private async getTopicScorer(): Promise<TopicScorer> {
+    if (!this.topicScorer) {
+      const settings = await loadSettings()
+      const apiKey = settings.claudeApiKey ?? ''
+      this.topicScorer = createLLMTopicClassifier({ apiKey })
+    }
+    return this.topicScorer
+  }
+
+  private resetTemporaryTopicState(): void {
+    this.temporaryTopicState = {
+      mode: 'MAIN',
+      frozenMainMessages: null,
+      frozenMainReference: ''
+    }
+  }
+
+  private getHistoryWithoutCurrentUserDuplicate(userMessage: string): Anthropic.MessageParam[] {
+    const normalizedInput = userMessage.trim()
+    if (!normalizedInput || this.conversationHistory.length === 0) {
+      return this.conversationHistory
+    }
+
+    const lastMessage = this.conversationHistory[this.conversationHistory.length - 1]
+    if (
+      lastMessage.role === 'user' &&
+      typeof lastMessage.content === 'string' &&
+      lastMessage.content.trim() === normalizedInput
+    ) {
+      return this.conversationHistory.slice(0, -1)
+    }
+
+    return this.conversationHistory
+  }
+
+  private async applyTemporaryTopicTransition(userMessage: string, imageUrls: string[]): Promise<void> {
+    if (imageUrls.length > 0) {
+      return
+    }
+
+    const query = userMessage.trim()
+    if (!query) {
+      return
+    }
+
+    const scorer = await this.getTopicScorer()
+    const historyForClassification = this.getHistoryWithoutCurrentUserDuplicate(query)
+
+    if (this.temporaryTopicState.mode === 'MAIN') {
+      const mainTopicReference = buildTopicReference(historyForClassification)
+      const transition = await decideTemporaryTopicTransition({
+        mode: 'MAIN',
+        query,
+        mainTopicReference
+      }, scorer)
+
+      if (transition.decision === 'enter-temp') {
+        this.temporaryTopicState = {
+          mode: 'TEMP',
+          frozenMainMessages: this.cloneConversationHistory(historyForClassification),
+          frozenMainReference: mainTopicReference
+        }
+        this.conversationHistory = []
+        console.log(`[LayeredContext] Entered temporary topic (rel_main=${transition.relMain.toFixed(3)})`)
+      }
+      return
+    }
+
+    const tempTopicReference = buildTopicReference(historyForClassification)
+    const transition = await decideTemporaryTopicTransition({
+      mode: 'TEMP',
+      query,
+      mainTopicReference: this.temporaryTopicState.frozenMainReference,
+      tempTopicReference
+    }, scorer)
+
+    if (transition.decision === 'exit-temp') {
+      const restoredMainContext = this.temporaryTopicState.frozenMainMessages
+        ? this.cloneConversationHistory(this.temporaryTopicState.frozenMainMessages)
+        : []
+      this.conversationHistory = restoredMainContext
+      this.resetTemporaryTopicState()
+      console.log(
+        `[LayeredContext] Exited temporary topic and restored main context ` +
+          `(rel_main=${transition.relMain.toFixed(3)}, rel_temp=${transition.relTemp.toFixed(3)})`
+      )
+      return
+    }
+
+    if (transition.decision === 'replace-temp') {
+      this.conversationHistory = []
+      console.log(
+        `[LayeredContext] Replaced temporary topic context ` +
+          `(rel_main=${transition.relMain.toFixed(3)}, rel_temp=${transition.relTemp.toFixed(3)})`
+      )
+    }
+  }
+
+  private getStorageLoadLimit(settings: AppSettings): number {
+    const config = getLayeredContextConfig(settings)
+    const layeredWindow = config.maxRecentMessages + config.maxArchives * config.archiveChunkSize
+    return Math.max(MAX_CONTEXT_MESSAGES, layeredWindow)
+  }
+
+  private async applyLayeredContextIfEnabled(settings: AppSettings): Promise<void> {
+    if (this.temporaryTopicState.mode === 'TEMP') {
+      return
+    }
+
+    const layeredConfig = getLayeredContextConfig(settings)
+    if (!layeredConfig.enableSessionCompression) {
+      return
+    }
+
+    const query = this.getLatestUserQueryFromHistory()
+    if (!query) {
+      return
+    }
+
+    const sessionKey = buildLayeredSessionKey(this.currentPlatform, this.contextLoadedForChatId)
+    const layeredResult = await this.layeredContextManager.apply({
+      sessionKey,
+      platform: this.currentPlatform,
+      chatId: this.contextLoadedForChatId,
+      query,
+      messages: this.conversationHistory,
+      config: layeredConfig
+    })
+
+    if (!layeredResult.applied || !layeredResult.retrieval) {
+      return
+    }
+
+    this.conversationHistory = layeredResult.updatedMessages
+    const usage = layeredResult.retrieval.tokenUsage
+    const decision = layeredResult.retrieval.decision
+    console.log(
+      `[LayeredContext] Escalation ${decision.reachedLayer} (${decision.reason}), ` +
+        `tokens L0=${usage.l0}, L1=${usage.l1}, L2=${usage.l2}, total=${usage.total}, ` +
+        `baseline=${usage.baselineL2}, savings=${usage.savings} (${(usage.savingsRatio * 100).toFixed(1)}%)`
+    )
+
+    const metrics = this.layeredContextManager.getMetricsSnapshot()
+    console.log(
+      `[LayeredContext] Average savings: ${metrics.avgSavingsTokens.toFixed(1)} tokens ` +
+        `(${(metrics.avgSavingsRatio * 100).toFixed(1)}%) over ${metrics.totalRuns} runs`
+    )
+
+    if (layeredResult.fallbackEvents.length > 0) {
+      console.warn(`[LayeredContext] Summary fallback events: ${layeredResult.fallbackEvents.join(', ')}`)
+    }
+  }
+
+  /**
+   * Check if processing is currently active
+   */
+  isProcessing(): boolean {
+    return this.processingLock !== null
+  }
+
+  /**
+   * Get the platform currently holding the processing lock
+   * Returns null if no processing is active
+   */
+  getProcessingLockPlatform(): MessagePlatform | null {
+    return this.processingLock
+  }
+
+  /**
+   * Check if a specific platform can start processing
+   * Returns { canProcess: true } or { canProcess: false, busyWith: platform }
+   */
+  canProcess(platform: MessagePlatform): { canProcess: boolean; busyWith?: MessagePlatform } {
+    if (this.processingLock === null) {
+      return { canProcess: true }
+    }
+    // Reject regardless of whether it's the same or a different platform
+    return { canProcess: false, busyWith: this.processingLock }
+  }
+
+  /**
+   * Invalidate cached context for a specific platform, forcing a reload on next processMessage.
+   * Called when external sources (e.g. proactive agent) store messages directly to platform storage,
+   * bypassing the normal agent flow.
+   */
+  invalidateContextForPlatform(platform: MessagePlatform): void {
+    if (this.contextLoadedForPlatform === platform) {
+      console.log(`[Agent] Context invalidated for ${platform} (external message stored)`)
+      this.conversationHistory = []
+      this.contextLoadedForPlatform = null
+      this.contextLoadedForChatId = null
+      this.resetTemporaryTopicState()
+    }
+  }
+
+  /**
+   * Load historical context from storage for a specific platform
+   */
+  private async loadContextFromStorage(platform: MessagePlatform, chatId?: string): Promise<void> {
+    // Skip if platform is 'none'
+    if (platform === 'none') {
+      return
+    }
+
+    // If switching platforms or chats, clear previous context and reload
+    const platformChanged = this.contextLoadedForPlatform !== null && this.contextLoadedForPlatform !== platform
+    const chatChanged = chatId && this.contextLoadedForChatId !== null && this.contextLoadedForChatId !== chatId
+    if (platformChanged || chatChanged) {
+      console.log(`[Agent] Context switched (platform: ${this.contextLoadedForPlatform}->${platform}, chat: ${this.contextLoadedForChatId}->${chatId || 'none'}), clearing context...`)
+      this.conversationHistory = []
+      this.contextLoadedForPlatform = null
+      this.contextLoadedForChatId = null
+      this.resetTemporaryTopicState()
+    }
+
+    // Skip if context already loaded for this platform and chat
+    if (this.contextLoadedForPlatform === platform && this.contextLoadedForChatId === (chatId || null)) {
+      return
+    }
+
+    console.log(`[Agent] Loading historical context for ${platform}...`)
+
+    try {
+      const settings = await loadSettings()
+      const storageLoadLimit = this.getStorageLoadLimit(settings)
+      let messages: Array<{ text?: string; isFromBot: boolean }> = []
+
+      if (platform === 'telegram') {
+        const storedMessages = await telegramStorage.getMessages(storageLoadLimit)
+        messages = storedMessages.map(m => ({
+          text: m.text,
+          isFromBot: m.isFromBot
+        }))
+      } else if (platform === 'discord') {
+        const storedMessages = await discordStorage.getMessages(storageLoadLimit)
+        messages = storedMessages.map(m => ({
+          text: m.text,
+          isFromBot: m.isFromBot
+        }))
+      } else if (platform === 'slack') {
+        const storedMessages = await slackStorage.getMessages(storageLoadLimit)
+        messages = storedMessages.map(m => ({
+          text: m.text,
+          isFromBot: m.isFromBot
+        }))
+      } else if (platform === 'feishu') {
+        const storedMessages = await feishuStorage.getMessages(storageLoadLimit, chatId)
+        // For Feishu, also include image attachments in context
+        for (const m of storedMessages) {
+          const hasImages = m.attachments?.some(a => a.contentType?.startsWith('image/'))
+          if (hasImages && !m.isFromBot) {
+            // Load images for user messages (limit to recent messages to avoid memory issues)
+            const imageAttachments = m.attachments?.filter(a => a.contentType?.startsWith('image/')) || []
+            const imageContents: Anthropic.ContentBlockParam[] = []
+            const imagePaths: string[] = [] // Track local paths for reference
+            
+            for (const att of imageAttachments.slice(0, 3)) { // Max 3 images per message
+              if (att.url && !att.url.startsWith('http')) {
+                // Local file - read, compress if needed, convert to base64
+                try {
+                  let imageData: Buffer<ArrayBufferLike> = await fs.readFile(att.url)
+                  let mediaType = detectImageMediaType(imageData)
+                  const rawSizeMB = imageData.length / (1024 * 1024)
+                  
+                  if (rawSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+                    // Compress large image before sending to LLM
+                    const compressed = compressImageForLLM(imageData, path.basename(att.url))
+                    imageData = compressed.buffer
+                    mediaType = compressed.mediaType
+                  }
+                  
+                  imageContents.push({
+                    type: 'image',
+                    source: {
+                      type: 'base64',
+                      media_type: mediaType,
+                      data: imageData.toString('base64')
+                    }
+                  })
+                  imagePaths.push(att.url)
+                } catch (err) {
+                  console.log(`[Agent] Could not load historical image: ${att.url}`)
+                }
+              }
+            }
+            
+            if (imageContents.length > 0 || imagePaths.length > 0) {
+              // Build text with image paths and user's message
+              const pathInfo = imagePaths.map((p, i) => `[Image ${i + 1} local path: ${p}]`).join('\n')
+              const textParts = [pathInfo]
+              if (m.text) {
+                textParts.push(m.text)
+              }
+              
+              if (imageContents.length > 0) {
+                // Has images - create multimodal message
+                imageContents.push({ type: 'text', text: textParts.join('\n\n') })
+                messages.push({
+                  text: undefined, // Will be handled specially
+                  isFromBot: false,
+                  _multimodal: imageContents
+                } as { text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] })
+              } else {
+                // Failed to load all images - just add as text with paths
+                messages.push({
+                  text: textParts.join('\n\n'),
+                  isFromBot: false
+                })
+              }
+              continue
+            }
+          }
+          
+          messages.push({
+            text: m.text,
+            isFromBot: m.isFromBot
+          })
+        }
+      }
+
+      // Convert to Anthropic message format
+      // We need to group consecutive messages from the same role
+      if (messages.length > 0) {
+        let lastRole: 'user' | 'assistant' | null = null
+        let totalTokens = 0
+        
+        for (const msg of messages as Array<{ text?: string; isFromBot: boolean; _multimodal?: Anthropic.ContentBlockParam[] }>) {
+          // Handle multimodal messages (images)
+          if (msg._multimodal && msg._multimodal.length > 0) {
+            const role = 'user' as const
+            // For multimodal, we can't easily merge, so add as new message
+            if (role !== lastRole || this.conversationHistory.length === 0) {
+              const newMsg: Anthropic.MessageParam = {
+                role,
+                content: msg._multimodal
+              }
+              const msgTokens = estimateTokens(newMsg)
+              
+              // Check if adding this message would exceed token limit
+              if (totalTokens + msgTokens > MAX_CONTEXT_TOKENS) {
+                console.log(`[Agent] Stopping context load - would exceed token limit (${totalTokens} + ${msgTokens} > ${MAX_CONTEXT_TOKENS})`)
+                break
+              }
+              
+              this.conversationHistory.push(newMsg)
+              totalTokens += msgTokens
+              lastRole = role
+            }
+            continue
+          }
+          
+          if (!msg.text) continue
+          
+          const role: 'user' | 'assistant' = msg.isFromBot ? 'assistant' : 'user'
+          
+          // Anthropic API requires alternating user/assistant messages
+          // If same role as last, append to previous or skip
+          if (role === lastRole && this.conversationHistory.length > 0) {
+            // Append to last message
+            const lastMsg = this.conversationHistory[this.conversationHistory.length - 1]
+            if (typeof lastMsg.content === 'string') {
+              lastMsg.content = lastMsg.content + '\n\n' + msg.text
+              totalTokens += Math.ceil(msg.text.length / 4)
+            }
+          } else {
+            const newMsg: Anthropic.MessageParam = {
+              role,
+              content: msg.text
+            }
+            const msgTokens = estimateTokens(newMsg)
+            
+            // Check if adding this message would exceed token limit
+            if (totalTokens + msgTokens > MAX_CONTEXT_TOKENS) {
+              console.log(`[Agent] Stopping context load - would exceed token limit (${totalTokens} + ${msgTokens} > ${MAX_CONTEXT_TOKENS})`)
+              break
+            }
+            
+            this.conversationHistory.push(newMsg)
+            totalTokens += msgTokens
+            lastRole = role
+          }
+        }
+        
+        console.log(`[Agent] Loaded ${this.conversationHistory.length} context messages (~${totalTokens} tokens)`)
+      }
+    } catch (error) {
+      console.error('[Agent] Error loading context:', error)
+    }
+
+    this.contextLoadedForPlatform = platform
+    this.contextLoadedForChatId = chatId || null
+  }
+
+  /**
+   * Process a user message and return the agent's response
+   * This implements the agentic loop for computer use
+   * @param userMessage The message from the user
+   * @param platform The platform the message came from (affects available tools)
+   * @param imageUrls Optional array of image URLs to include in the message
+   */
+  async processMessage(
+    userMessage: string,
+    platform: MessagePlatform = 'none',
+    imageUrls: string[] = [],
+    chatId?: string
+  ): Promise<AgentResponse> {
+    // Check if agent is currently processing (same or different platform)
+    const lockCheck = this.canProcess(platform)
+    if (!lockCheck.canProcess) {
+      console.log(`[Agent] Rejected: ${platform} cannot process, busy with ${lockCheck.busyWith}`)
+      const rejectionMessage = await this.buildBusyRejectionMessage(platform, lockCheck.busyWith!)
+      return {
+        success: false,
+        message: rejectionMessage,
+        error: `busy:${lockCheck.busyWith}`,
+        busyWith: lockCheck.busyWith
+      }
+    }
+
+    // Acquire the processing lock
+    this.processingLock = platform
+    console.log(`[Agent] Lock acquired by ${platform}`)
+
+    // Load historical context if this is a new session or platform/chat changed
+    if (platform !== 'none') {
+      await this.loadContextFromStorage(platform, chatId)
+    }
+
+    // Reset abort state
+    this.isAborted = false
+    this.abortController = new AbortController()
+    this.currentPlatform = platform
+    
+    // Clear activity log for new processing session
+    this.clearActivityLog()
+    
+    // Track the platform the user most recently sent a message from (persist to disk)
+    if (platform !== 'none') {
+      this.recentReplyPlatform = platform
+      this.persistRecentPlatform(platform)
+    }
+
+    try {
+      console.log(`[Agent] Processing message from ${platform}:`, userMessage.substring(0, 50) + '...')
+      console.log(`[Agent] Image URLs:`, imageUrls.length > 0 ? imageUrls : 'none')
+      this.setStatus('thinking')
+
+      await this.applyTemporaryTopicTransition(userMessage, imageUrls)
+
+      // Check if the message is already in conversation history (loaded from storage)
+      // This happens when storage is updated before calling processMessage
+      const lastMessage = this.conversationHistory[this.conversationHistory.length - 1]
+      const isAlreadyInHistory = lastMessage && 
+        lastMessage.role === 'user' && 
+        typeof lastMessage.content === 'string' && 
+        lastMessage.content === userMessage
+      
+      if (isAlreadyInHistory) {
+        console.log(`[Agent] Message already in history from storage, skipping duplicate add to conversationHistory`)
+      } else {
+        // Build message content with images if present
+        if (imageUrls.length > 0) {
+          // Create multimodal content with images and text
+          const contentParts: Anthropic.ContentBlockParam[] = []
+          const localImagePaths: string[] = [] // Track local paths for reference
+          
+          // Add images first
+          for (const imageUrl of imageUrls) {
+            // Check if it's a local file path or a URL
+            if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+              // Remote URL - use url type
+              contentParts.push({
+                type: 'image',
+                source: {
+                  type: 'url',
+                  url: imageUrl
+                }
+              } as Anthropic.ImageBlockParam)
+            } else {
+              // Local file path - read, compress if needed, convert to base64
+              try {
+                let imageData: Buffer<ArrayBufferLike> = await fs.readFile(imageUrl)
+                let mediaType = detectImageMediaType(imageData)
+                const rawSizeMB = imageData.length / (1024 * 1024)
+                
+                if (rawSizeMB > MAX_BASE64_RAW_SIZE_MB) {
+                  // Compress large image before sending to LLM
+                  const compressed = compressImageForLLM(imageData, path.basename(imageUrl))
+                  imageData = compressed.buffer
+                  mediaType = compressed.mediaType
+                } else {
+                  console.log(`[Agent] Detected media type: ${mediaType} for ${path.basename(imageUrl)} (${rawSizeMB.toFixed(2)}MB)`)
+                }
+                
+                contentParts.push({
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: mediaType,
+                    data: imageData.toString('base64')
+                  }
+                } as Anthropic.ImageBlockParam)
+                localImagePaths.push(imageUrl)
+                console.log(`[Agent] Added image to context: ${path.basename(imageUrl)} (${(imageData.length / (1024 * 1024)).toFixed(2)}MB)`)
+              } catch (err) {
+                console.error(`[Agent] Failed to read local image: ${imageUrl}`, err)
+              }
+            }
+          }
+          
+          // Build text with local image paths (so Agent knows where to find them)
+          const textParts: string[] = []
+          if (localImagePaths.length > 0) {
+            const pathInfo = localImagePaths.map((p, i) => `[Image ${i + 1} local path: ${p}]`).join('\n')
+            textParts.push(pathInfo)
+          }
+          if (userMessage) {
+            textParts.push(userMessage)
+          }
+          
+          // Add text if present
+          if (textParts.length > 0) {
+            contentParts.push({
+              type: 'text',
+              text: textParts.join('\n\n')
+            })
+          }
+          
+          const multimodalMessage: Anthropic.MessageParam = {
+            role: 'user',
+            content: contentParts
+          }
+          this.conversationHistory.push(multimodalMessage)
+          console.log(`[Agent] Added multimodal message with ${imageUrls.length} images`)
+        } else {
+          // Text-only message
+          const textMessage: Anthropic.MessageParam = {
+            role: 'user',
+            content: userMessage
+          }
+          this.conversationHistory.push(textMessage)
+        }
+      }
+
+      // Run the agentic loop
+      const response = await this.runAgentLoop()
+
+      // Set status to complete
+      this.setStatus('complete')
+      return response
+    } catch (error) {
+      // Check if it was an abort
+      if (this.isAborted) {
+        console.log('[Agent] Processing was aborted')
+        this.setStatus('aborted')
+        return {
+          success: true,
+          message: '[Processing stopped by user]'
+        }
+      }
+
+      // Set status to complete even on error (it finished, just with an error)
+      this.setStatus('complete')
+      console.error('[Agent] Error:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    } finally {
+      this.abortController = null
+      // Release the processing lock
+      console.log(`[Agent] Lock released by ${this.processingLock}`)
+      this.processingLock = null
+    }
+  }
+
+  /**
+   * Run the agentic loop until we get a final response
+   */
+  private async runAgentLoop(): Promise<AgentResponse> {
+    // Create client with current settings (re-read each time in case settings changed)
+    const { client, model, maxTokens, provider } = await createClient()
+    const settings = await loadSettings()
+    const systemPrompt = await getSystemPromptForPlatform(this.currentPlatform)
+    const tools = getToolsForPlatform(this.currentPlatform, {
+      visualModeEnabled: settings.experimentalVisualMode,
+      computerUseEnabled: settings.experimentalComputerUse
+    })
+
+    // Enforce message count limit once before the loop starts
+    // This trims old historical context while preserving current task's tool calls
+    this.enforceMessageCountLimit()
+
+    // Apply layered context strategy before the first model call:
+    // use archived L0/L1 by default and escalate to L2 only when needed.
+    await this.applyLayeredContextIfEnabled(settings)
+
+    console.log(`[Agent] Using tools for platform: ${this.currentPlatform}`)
+    console.log(`[Agent] Visual mode: ${settings.experimentalVisualMode ? 'enabled' : 'disabled'}`)
+    console.log(`[Agent] Computer use: ${settings.experimentalComputerUse ? 'enabled' : 'disabled'}`)
+    console.log(`[Agent] Available tools: ${tools.map(t => t.name).join(', ')}`)
+
+    let iterations = 0
+    const maxIterations = 50 // Prevent infinite loops
+
+    while (iterations < maxIterations) {
+      // Check if aborted
+      if (this.isAborted) {
+        throw new Error('Aborted')
+      }
+
+      iterations++
+      console.log(`[Agent] Loop iteration ${iterations}, model: ${model}`)
+      this.setStatus('thinking', undefined, iterations)
+
+      // Check and truncate context if too large
+      this.truncateContextIfNeeded()
+      
+      // Verify tool_use/tool_result pairs before API call
+      // This handles cases where previous session was interrupted mid-tool-execution
+      this.verifyAndFixToolPairs()
+
+      // Estimate tokens before API call for debugging
+      const estimatedMsgTokens = this.conversationHistory.reduce((sum, msg) => sum + estimateTokens(msg), 0)
+      const estimatedSystemTokens = Math.ceil(systemPrompt.length / 3)
+      const estimatedToolsTokens = Math.ceil(JSON.stringify(tools).length / 3)
+      const estimatedTotalTokens = estimatedMsgTokens + estimatedSystemTokens + estimatedToolsTokens
+      console.log(`[Agent] Estimated tokens - messages: ${estimatedMsgTokens}, system: ${estimatedSystemTokens}, tools: ${estimatedToolsTokens}, total: ${estimatedTotalTokens}`)
+      
+      // Store thinking activity ID so we can update it with actual tokens later
+      const thinkingActivityId = this.addActivity({
+        type: 'thinking',
+        iteration: iterations,
+        content: `Processing iteration ${iterations}...`,
+        tokenUsage: {
+          estimated: {
+            messages: estimatedMsgTokens,
+            system: estimatedSystemTokens,
+            tools: estimatedToolsTokens,
+            total: estimatedTotalTokens
+          }
+        }
+      })
+
+      // Call Claude API with platform-specific tools
+      // Only use beta API with context management for official Claude provider
+      // Custom providers (minimax, custom) may not support beta features
+      let response: Anthropic.Message
+      
+      try {
+        if (provider === 'claude') {
+          // Use beta API with context management for automatic tool result clearing
+          const betaResponse = await client.beta.messages.create({
+            model,
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            tools,
+            messages: this.conversationHistory,
+            // Enable context editing to automatically clear old tool results when approaching token limit
+            betas: ['context-management-2025-06-27'],
+            context_management: {
+              edits: [{
+                type: 'clear_tool_uses_20250919',
+                trigger: { type: 'input_tokens', value: 100000 },
+                keep: { type: 'tool_uses', value: 5 },
+                clear_at_least: { type: 'input_tokens', value: 10000 }
+              }]
+            }
+          })
+          
+          // Log context editing if applied (beta API feature)
+          const contextMgmt = (betaResponse as unknown as { context_management?: { applied_edits?: Array<{ cleared_tool_uses?: number; cleared_input_tokens?: number }> } }).context_management
+          if (contextMgmt?.applied_edits?.length) {
+            for (const edit of contextMgmt.applied_edits) {
+              console.log(`[Agent] Context editing applied: cleared ${edit.cleared_tool_uses ?? 0} tool uses (${edit.cleared_input_tokens ?? 0} tokens)`)
+            }
+          }
+          
+          response = betaResponse as unknown as Anthropic.Message
+        } else {
+          // For non-Claude providers: offload old large tool_results to files
+          // LLM can use file_read to access the content on demand
+          const compacted = await compactToolResults(this.conversationHistory)
+          if (compacted > 0) {
+            console.log(`[Agent] Context compaction: offloaded ${compacted} old tool results to files`)
+          }
+
+          // Use standard API for non-Claude providers
+          response = await client.messages.create({
+            model,
+            max_tokens: maxTokens,
+            system: systemPrompt,
+            tools,
+            messages: this.conversationHistory
+          })
+        }
+      } catch (apiError: unknown) {
+        // Check if this is a token limit / context length error
+        const errorStr = String(apiError)
+        const isTokenLimitError =
+          (apiError instanceof Error && 'status' in apiError && (apiError as { status: number }).status === 400 &&
+            (errorStr.includes('context length') || errorStr.includes('token') || errorStr.includes('too long'))) ||
+          errorStr.includes('maximum context length') ||
+          errorStr.includes('input tokens exceeds')
+
+        if (isTokenLimitError && this.conversationHistory.length > 4) {
+          // Force truncate half the context and retry
+          const halfLen = Math.floor(this.conversationHistory.length / 2)
+          let cutIndex = halfLen
+          // Ensure we don't break tool pairs
+          while (cutIndex < this.conversationHistory.length - 2) {
+            const msg = this.conversationHistory[cutIndex]
+            if (this.hasToolResult(msg)) {
+              cutIndex++
+            } else {
+              break
+            }
+          }
+          const removed = this.conversationHistory.splice(0, cutIndex)
+          this.verifyAndFixToolPairs()
+          console.log(`[Agent] Token limit exceeded by API - force truncated ${removed.length} messages (${this.conversationHistory.length} remaining), retrying...`)
+          continue // Retry the loop iteration
+        }
+
+        // Not a token limit error, re-throw
+        throw apiError
+      }
+
+      // Check if aborted after API call
+      if (this.isAborted) {
+        throw new Error('Aborted')
+      }
+
+      // Log actual token usage from API response and update thinking activity
+      if (response.usage) {
+        const actualInput = response.usage.input_tokens
+        const actualOutput = response.usage.output_tokens
+        console.log(`[Agent] Actual tokens - input: ${actualInput}, output: ${actualOutput}`)
+        
+        // Update the thinking activity with actual token usage
+        this.updateActivity(thinkingActivityId, {
+          tokenUsage: {
+            estimated: {
+              messages: estimatedMsgTokens,
+              system: estimatedSystemTokens,
+              tools: estimatedToolsTokens,
+              total: estimatedTotalTokens
+            },
+            actual: {
+              input: actualInput,
+              output: actualOutput,
+              total: actualInput + actualOutput
+            }
+          }
+        })
+      }
+      
+      console.log('[Agent] Response received, stop_reason:', response.stop_reason)
+
+      // Use response directly (already Anthropic.Message type)
+      const standardResponse = response
+
+      // Check if we need to use tools
+      if (standardResponse.stop_reason === 'tool_use') {
+        // Before executing tools, send the assistant's text summary
+        // (the "what I'm about to do" message) to the user via the platform
+        await this.sendIntentSummaryToUser(standardResponse.content)
+
+        // Process tool calls
+        await this.processToolUse(standardResponse)
+      } else {
+        // Extract final text response
+        const textContent = standardResponse.content.find((block) => block.type === 'text')
+        const message = textContent && textContent.type === 'text' ? textContent.text : ''
+
+        // Add assistant response to history (sanitize to remove extra fields)
+        const assistantMessage: Anthropic.MessageParam = {
+          role: 'assistant',
+          content: this.sanitizeContentBlocks(standardResponse.content)
+        }
+        this.conversationHistory.push(assistantMessage)
+
+        console.log('[Agent] Final response:', message.substring(0, 100) + '...')
+
+        // Add response activity
+        this.addActivity({
+          type: 'response',
+          message: message
+        })
+
+        return {
+          success: true,
+          message
+        }
+      }
+    }
+
+    return {
+      success: false,
+      error: 'Max iterations reached'
+    }
+  }
+
+  /**
+   * Process tool use blocks and execute tools
+   */
+  private async processToolUse(response: Anthropic.Message): Promise<void> {
+    // Check if aborted
+    if (this.isAborted) {
+      throw new Error('Aborted')
+    }
+
+    // Add assistant's response (with tool use) to history (sanitize to remove extra fields)
+    const assistantToolUseMessage: Anthropic.MessageParam = {
+      role: 'assistant',
+      content: this.sanitizeContentBlocks(response.content)
+    }
+    this.conversationHistory.push(assistantToolUseMessage)
+
+    // Find all tool use blocks
+    const toolUseBlocks = response.content.filter(
+      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use'
+    )
+
+    console.log('[Agent] Executing', toolUseBlocks.length, 'tool(s)')
+
+    // Execute each tool and collect results
+    const toolResults: Anthropic.ToolResultBlockParam[] = []
+
+    for (const toolUse of toolUseBlocks) {
+      // Check if aborted before each tool
+      if (this.isAborted) {
+        throw new Error('Aborted')
+      }
+
+      console.log('[Agent] Executing tool:', toolUse.name)
+      this.setStatus('tool_executing', toolUse.name)
+      
+      // Add tool_call activity
+      this.addActivity({
+        type: 'tool_call',
+        toolName: toolUse.name,
+        toolInput: toolUse.input as Record<string, unknown>,
+        toolUseId: toolUse.id
+      })
+      
+      const result = await this.executeToolInternal(toolUse.name, toolUse.input)
+
+      // Add tool_result activity
+      const resultSummary = result.success 
+        ? (typeof result.data === 'string' ? result.data.substring(0, 500) : JSON.stringify(result.data).substring(0, 500))
+        : result.error || 'Unknown error'
+      this.addActivity({
+        type: 'tool_result',
+        toolUseId: toolUse.id,
+        toolName: toolUse.name,
+        success: result.success,
+        result: result.success ? resultSummary : undefined,
+        error: result.success ? undefined : result.error
+      })
+
+      // Handle screenshot specially - include image in response
+      if (toolUse.name === 'computer' && (toolUse.input as { action: string }).action === 'screenshot') {
+        if (result.success && result.data && typeof result.data === 'object') {
+          const screenshotData = result.data as { type: string; media_type: string; data: string }
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: screenshotData.media_type as 'image/png',
+                  data: screenshotData.data
+                }
+              },
+              {
+                type: 'text',
+                text: 'Screenshot captured successfully'
+              }
+            ]
+          })
+        } else {
+          toolResults.push({
+            type: 'tool_result',
+            tool_use_id: toolUse.id,
+            content: JSON.stringify(result),
+            is_error: !result.success
+          })
+        }
+      } else {
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: toolUse.id,
+          content: JSON.stringify(result),
+          is_error: !result.success
+        })
+      }
+    }
+
+    // Add tool results to history
+    const toolResultsMessage: Anthropic.MessageParam = {
+      role: 'user',
+      content: toolResults
+    }
+    this.conversationHistory.push(toolResultsMessage)
+  }
+
+  /**
+   * Execute a single tool
+   * Delegates to the tool-executor module
+   */
+  private async executeToolInternal(
+    name: string,
+    input: unknown
+  ): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    return await executeTool(name, input, this.currentPlatform)
+  }
+
+  /**
+   * Get conversation history for display
+   */
+  getHistory(): ConversationMessage[] {
+    const displayHistory: ConversationMessage[] = []
+
+    for (const msg of this.conversationHistory) {
+      if (msg.role === 'user' && typeof msg.content === 'string') {
+        displayHistory.push({ role: 'user', content: msg.content })
+      } else if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        const textBlock = msg.content.find(
+          (block): block is Anthropic.TextBlock => block.type === 'text'
+        )
+        if (textBlock) {
+          displayHistory.push({ role: 'assistant', content: textBlock.text })
+        }
+      }
+    }
+
+    return displayHistory
+  }
+
+  /**
+   * Clear conversation history
+   */
+  clearHistory(): void {
+    this.conversationHistory = []
+    this.contextLoadedForPlatform = null
+    this.contextLoadedForChatId = null
+    this.resetTemporaryTopicState()
+    // Clean up old offloaded files in the background
+    cleanupOffloadedFiles().catch(() => {})
+  }
+
+  /**
+   * Evaluate whether to notify user based on context and data
+   * This is a single LLM call without tool use, designed for automated monitoring services
+   * 
+   * @param context User's original request and expectations
+   * @param data Current event data to evaluate
+   * @returns Evaluation decision with shouldNotify, message, and reason
+   */
+  async evaluate(
+    context: EvaluationContext,
+    data: EvaluationData
+  ): Promise<{ success: boolean; decision?: EvaluationDecision; error?: string }> {
+    try {
+      console.log('[Agent] Evaluating notification request...')
+      console.log('[Agent] User request:', context.userRequest.substring(0, 50) + '...')
+      console.log('[Agent] Data summary:', data.summary.substring(0, 50) + '...')
+
+      // Create client
+      const { client, model, maxTokens } = await createClient()
+
+      // Build the evaluation prompt
+      const evaluationPrompt = this.buildEvaluationPrompt(context, data)
+
+      // Single LLM call without tools
+      const response = await client.messages.create({
+        model,
+        max_tokens: Math.min(maxTokens, 1024), // Limit tokens for evaluation
+        system: `You are a STRICT evaluation assistant. Your job is to decide whether an event warrants notifying the user based on their EXACT expectations.
+
+You MUST respond with a valid JSON object in this exact format:
+{
+  "shouldNotify": true or false,
+  "message": "The notification message to send to user (only if shouldNotify is true)",
+  "reason": "Brief explanation of your decision"
+}
+
+STRICT Guidelines:
+- Be VERY conservative: only notify when the event EXACTLY matches user's expectations
+- For TIME-BASED requests (reminders, alarms):
+  - ONLY notify when current time >= target time (not before!)
+  - "Remind me at 4:30pm" means notify at 4:30pm or after, NEVER before
+  - Being "close to" the time (e.g., 3 minutes early) is NOT a match - REJECT it
+- For THRESHOLD-BASED requests (price alerts, monitoring):
+  - The threshold must be clearly met or exceeded
+  - "Near" the threshold is NOT enough
+- If shouldNotify is false, message can be omitted or empty
+- Keep the notification message concise and actionable
+- The reason should explain why you made this decision
+
+IMPORTANT: Respond with ONLY the JSON object, no additional text.`,
+        messages: [
+          {
+            role: 'user',
+            content: evaluationPrompt
+          }
+        ]
+      })
+
+      // Extract text response
+      const textContent = response.content.find((block) => block.type === 'text')
+      if (!textContent || textContent.type !== 'text') {
+        return { success: false, error: 'No text response from LLM' }
+      }
+
+      // Parse JSON response
+      const responseText = textContent.text.trim()
+      console.log('[Agent] Evaluation response:', responseText)
+
+      try {
+        // Try to extract JSON from response (handle potential markdown code blocks)
+        let jsonStr = responseText
+        const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)\s*```/)
+        if (jsonMatch) {
+          jsonStr = jsonMatch[1]
+        }
+
+        const decision = JSON.parse(jsonStr) as EvaluationDecision
+
+        // Validate decision structure
+        if (typeof decision.shouldNotify !== 'boolean') {
+          return { success: false, error: 'Invalid decision: shouldNotify must be boolean' }
+        }
+        if (typeof decision.reason !== 'string') {
+          return { success: false, error: 'Invalid decision: reason must be string' }
+        }
+        if (decision.shouldNotify && typeof decision.message !== 'string') {
+          return { success: false, error: 'Invalid decision: message required when shouldNotify is true' }
+        }
+
+        console.log('[Agent] Evaluation decision:', decision.shouldNotify ? 'NOTIFY' : 'IGNORE')
+        return { success: true, decision }
+      } catch (parseError) {
+        console.error('[Agent] Failed to parse evaluation response:', parseError)
+        return { success: false, error: `Failed to parse LLM response: ${responseText}` }
+      }
+    } catch (error) {
+      console.error('[Agent] Evaluation error:', error)
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+
+  /**
+   * Build the evaluation prompt for LLM
+   */
+  private buildEvaluationPrompt(context: EvaluationContext, data: EvaluationData): string {
+    const metadataStr = data.metadata
+      ? `\nAdditional Metadata:\n${JSON.stringify(data.metadata, null, 2)}`
+      : ''
+
+    return `Strictly evaluate whether the following event should trigger a notification.
+
+== USER'S ORIGINAL REQUEST ==
+${context.userRequest}
+
+== USER'S EXPECTATION ==
+${context.expectation}
+
+== CURRENT EVENT ==
+Time: ${data.timestamp}
+Summary: ${data.summary}
+${data.details ? `Details: ${data.details}` : ''}${metadataStr}
+
+IMPORTANT: Only return shouldNotify=true if the conditions are EXACTLY met:
+- For time-based requests: current time must be AT or AFTER the target time
+- For threshold-based requests: the threshold must be clearly met or exceeded
+
+Should this event trigger a notification? Answer strictly based on whether conditions are EXACTLY met.`
+  }
+}
+
+// Export singleton instance
+export const agentService = new AgentService()
