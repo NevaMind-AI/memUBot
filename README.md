@@ -10,7 +10,7 @@
   <a href="https://github.com/NevaMind-AI/memUBot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NevaMind-AI/memUBot" alt="License"/></a>
   <a href="https://github.com/NevaMind-AI/memUBot/releases"><img src="https://img.shields.io/github/v/release/NevaMind-AI/memUBot" alt="Release"/></a>
   <a href="https://github.com/NevaMind-AI/memUBot/stargazers"><img src="https://img.shields.io/github/stars/NevaMind-AI/memUBot" alt="Stars"/></a>
-  <a href="https://discord.gg/fFE4gfMvKf"><img src="https://img.shields.io/discord/fFE4gfMvKf?label=Discord&logo=discord" alt="Discord"/></a>
+  <a href="https://discord.gg/fFE4gfMvKf"><img src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white" alt="Discord"/></a>
 </p>
 
 <p align="center">
