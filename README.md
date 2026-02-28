@@ -2,9 +2,9 @@
   <img src="assets/memubot-logo.png" alt="memUBot Logo" width="200"/>
 </p>
 
-<h1 align="center">memUBot</h1>
+<h1 align="center">memU Bot</h1>
 
-<h3 align="center">The Enterprise-Ready OpenClaw.<br/>Your Proactive AI Agent That Remembers Everything. 🧠</h3>
+<h3 align="center">The Enterprise-Ready OpenClaw.<br/>Your Proactive AI Assistant That Remembers Everything. 🧠</h3>
 
 <p align="center">
   <a href="https://github.com/NevaMind-AI/memUBot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NevaMind-AI/memUBot" alt="License"/></a>
@@ -26,13 +26,13 @@
 
 ---
 
-## 💡 Why memUBot?
+## 💡 Why memU Bot?
 
-[OpenClaw](https://github.com/openclaw/openclaw) pioneered the open-source personal AI assistant space — and we love it. But when it comes to **production deployments**, **team-scale usage**, and **enterprise security requirements**, there's a gap.
+OpenClaw pioneered the open-source personal AI assistant space — and we love it. But when it comes to **production deployments**, **team-scale usage**, and **enterprise security requirements**, there's a gap.
 
-**memUBot bridges that gap.** Built on the [memU](https://github.com/NevaMind-AI/memU) open-source memory framework, memUBot is a **proactive, 24/7 AI agent** designed from the ground up to be **enterprise-ready** — secure, stable, cost-efficient, and easy to deploy.
+**[memU](https://memu.bot/) Bot bridges that gap.** Built on the [memU](https://github.com/NevaMind-AI/memU) open-source memory framework, memU Bot is a **proactive, 24/7 AI assistant** designed from the ground up to be **enterprise-ready** — secure, stable, cost-efficient, and easy to deploy.
 
-> 🦞 Love OpenClaw? Think of memUBot as **OpenClaw for your whole team** — with persistent memory, proactive execution, and production-grade reliability.
+> 🦞 Love OpenClaw? Think of memU Bot as **OpenClaw for your whole team** — with persistent memory, proactive execution, and production-grade reliability.
 
 ### Key Differentiators
 
@@ -46,9 +46,9 @@
 
 ## 🧠 Memory: The Core Advantage
 
-What sets memUBot apart from every other AI assistant is its **memory layer**, powered by the open-source **[memU framework](https://github.com/NevaMind-AI/memU)**.
+What sets memU Bot apart from every other AI assistant is its **memory layer**, powered by the open-source **memU framework**.
 
-> 📖 For a deep dive into the memory architecture, see the [memU Memory Documentation](https://github.com/NevaMind-AI/memU/blob/main/readme/README_zh.md).
+> 📖 For a deep dive into the memory architecture, see the [memU main repository](https://github.com/NevaMind-AI/memU/blob/main/readme/README_zh.md).
 
 ### Beyond OpenClaw's Native Memory
 
@@ -56,7 +56,7 @@ OpenClaw stores memory via flat Markdown files (`MEMORY.md` for long-term facts,
 
 **memU replaces this entire layer** with a purpose-built memory infrastructure:
 
-| Capability | OpenClaw Native | memU (powering memUBot) |
+| Capability | OpenClaw Native | memU (powering memU Bot) |
 |---|---|---|
 | **Long-Term Memory** | Single `MEMORY.md` file, manually managed | Structured, auto-organized persistent memory with semantic indexing |
 | **Daily Context** | Date-stamped log files (`YYYY-MM-DD.md`) | Continuous context capture with automatic compaction and flush |
@@ -80,7 +80,7 @@ OpenClaw stores memory via flat Markdown files (`MEMORY.md` for long-term facts,
 
 ## 🏢 Enterprise-Ready Features
 
-memUBot isn't a toy. It's built for production.
+memU Bot isn't a toy. It's built for production.
 
 ### 🔒 Security & Compliance
 
@@ -97,7 +97,7 @@ memUBot isn't a toy. It's built for production.
 | Feature | Description |
 |---|---|
 | **One-Click Install** | Up and running in under 3 minutes. No Docker, no VMs, no headaches |
-| **Multi-Platform** | macOS, Windows, Linux — native support across all major OS |
+| **Multi-Platform** | macOS, Windows — native support across all major OS |
 | **Auto-Recovery** | Task continuation mechanism handles token limits, API errors, and interruptions gracefully |
 | **24/7 Stability** | Designed for always-on operation. Memory persists across restarts and sessions |
 | **Team Scalability** | From individual use to team-wide deployment with shared knowledge bases |
@@ -113,101 +113,70 @@ memUBot isn't a toy. It's built for production.
 
 ---
 
-## ⚔️ memUBot vs OpenClaw
+## ⚔️ memU Bot vs OpenClaw
 
 We respect OpenClaw and the community behind it. Here's an honest comparison:
 
-| Dimension | memUBot | OpenClaw |
+| Dimension | memU Bot | OpenClaw |
 |---|---|---|
 | **Primary Focus** | Enterprise-ready proactive agent | Personal AI assistant |
 | **Memory System** | Enterprise memory layer ([memU](https://github.com/NevaMind-AI/memU)) with semantic search, auto-flush & shared pools | Flat Markdown files + basic SQLite vector store |
 | **Deployment** | One-click install, < 3 min | Complex setup, multiple dependencies |
-| **Data Security** | Local-first, no cloud dependency | Cloud-dependent features, [known CVEs](https://github.com/openclaw/openclaw/security) |
+| **Data Security** | Local-first, no cloud dependency | Cloud-dependent features, known CVEs |
 | **Token Cost** | ~1/10 of comparable usage | Standard token consumption |
 | **Proactive Actions** | 24/7 intent capture & autonomous execution | Reactive to user commands |
 | **Long-Term Memory** | Persistent with auto-flush, semantic indexing & shared pools | `MEMORY.md` + daily logs, risk of loss on context overflow |
-| **Platform Integration** | Telegram, Discord, Slack, Feishu | Primarily desktop-focused |
-| **Team Support** | Multi-user, shared knowledge bases | Single-user oriented |
-| **Stability** | Auto-recovery, task continuation | Manual restart on failures |
 
-> 💡 OpenClaw is a fantastic personal assistant. memUBot is what you deploy when your **team** needs an AI agent that **runs 24/7**, **remembers everything**, and **meets enterprise security requirements**.
+> 💡 OpenClaw is a fantastic personal assistant. memU Bot is what you deploy when your **team** needs an AI assistant that **runs 24/7**, **remembers everything**, and **meets enterprise security requirements**.
 
 ---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+Getting started with memU Bot takes just a few minutes:
 
-- Node.js 18+ (or use the bundled runtime)
-- An LLM API key (OpenAI, Anthropic, or local models via Ollama)
+### 1. Get the Installer
 
-### Install
+Visit **[memu.bot](https://memu.bot)** and enter your email to receive the installer package.
 
-```bash
-# One-line install (macOS / Linux)
-curl -fsSL https://get.memubot.ai | sh
+### 2. Configure Your Platforms
 
-# Or via npm
-npm install -g memubot
+Follow the **[Setup Tutorial](https://memu.bot/tutorial)** to connect memU Bot with your preferred messaging platforms (Telegram, Discord, Slack, Feishu).
 
-# Or via Homebrew
-brew install memubot
-```
+### 3. Done!
 
-### Configure
-
-```bash
-# Interactive setup — choose your LLM, platform integrations, and memory settings
-memubot init
-```
-
-### Run
-
-```bash
-# Start memUBot as a background service
-memubot start
-
-# Or run in foreground for development
-memubot dev
-```
-
-That's it. Your enterprise-ready AI agent is live. 🧠
+Your enterprise-ready AI assistant is live and ready to go.
 
 ---
 
 ## 📱 Platform Support
 
-memUBot integrates with the tools your team already uses:
+memU Bot integrates with the tools your team already uses:
 
 | Platform | Status | Description |
 |---|---|---|
 | **Telegram** | ✅ Supported | Full bot API support with inline commands |
 | **Discord** | ✅ Supported | Server bots with slash commands and thread support |
 | **Slack** | ✅ Supported | Workspace apps with channel and DM support |
-| **Feishu / Lark** | ✅ Supported | Native integration with Feishu bots and group chats |
+| **Feishu** | ✅ Supported | Native integration with Feishu bots and group chats |
 
 ---
 
 ## 🔧 Skills & MCP
 
-memUBot is extensible through **Skills** (custom automation modules) and **MCP** (Model Context Protocol) integrations.
+memU Bot is extensible through **Skills** and **MCP** (Model Context Protocol) integrations.
 
 ### Skills
 
-```yaml
-# Example: Auto-summarize daily standup messages
-skills:
-  - name: standup-summarizer
-    trigger: schedule("0 10 * * 1-5")
-    action: summarize-channel
-    params:
-      channel: "#daily-standup"
-      output: "#team-digest"
-```
+Skills are custom automation modules that extend memU Bot's capabilities. No coding required — configure them directly in the **memU Bot application**:
+
+- **Scheduled Tasks** — Set up recurring automations (e.g., daily summaries, weekly reports)
+- **Event-Driven Actions** — Trigger skills based on messages, keywords, or platform events
+- **Built-in Templates** — Get started quickly with pre-built skill templates for common workflows
 
 ### MCP Integration
 
-memUBot supports the [Model Context Protocol](https://modelcontextprotocol.io/) standard, allowing seamless connection with:
+memU Bot supports the [Model Context Protocol](https://modelcontextprotocol.io/) standard, allowing seamless connection with:
 
 - File systems, databases, and APIs
 - Browser automation tools
@@ -220,7 +189,7 @@ memUBot supports the [Model Context Protocol](https://modelcontextprotocol.io/) 
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   memUBot                        │
+│                   memU Bot                        │
 ├─────────────┬───────────────┬───────────────────┤
 │  Platform   │   Agent Core  │   Skills Engine   │
 │  Adapters   │               │                   │
@@ -242,8 +211,6 @@ memUBot supports the [Model Context Protocol](https://modelcontextprotocol.io/) 
 │   OpenAI │ Anthropic │ Ollama │ Custom          │
 └─────────────────────────────────────────────────┘
 ```
-
-> 📖 The **[memU Memory Layer](https://github.com/NevaMind-AI/memU)** is the heart of the system. It's an independent open-source project — you can use it in your own AI applications too.
 
 ---
 
@@ -269,7 +236,7 @@ memUBot supports the [Model Context Protocol](https://modelcontextprotocol.io/) 
 - [x] Telegram
 - [x] Discord
 - [x] Slack
-- [x] Feishu / Lark
+- [x] Feishu
 - [ ] WhatsApp
 - [ ] Email (Gmail / Outlook)
 - [ ] Web UI
@@ -311,32 +278,20 @@ memUBot supports the [Model Context Protocol](https://modelcontextprotocol.io/) 
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-```bash
-# Clone the repo
-git clone https://github.com/NevaMind-AI/memUBot.git
-cd memUBot
-
-# Install dependencies
-npm install
-
-# Run in development mode
-npm run dev
-```
-
-AI-assisted / vibe-coded PRs are welcome! 🤖
+Issues and PRs are welcome! 🤖
 
 ---
 
 ## 📄 License
 
-[MIT License](LICENSE) — Use it, fork it, deploy it. Just don't forget to star ⭐
+[Apache License 2.0](LICENSE) — Use it, fork it, deploy it. Just don't forget to star ⭐
 
 ---
 
 ## 🔗 Links
 
-- 🧠 **[memU — The Open-Source Memory Framework](https://github.com/NevaMind-AI/memU)** — The memory layer powering memUBot
-- 🌐 **[memUBot Website](https://memubot.ai)** — Official website and documentation
+- 🧠 **[memU — The Open-Source Memory Framework](https://github.com/NevaMind-AI/memU)** — The memory layer powering memU Bot
+- 🌐 **[memU Bot Website](https://memu.bot/)** — Official website and documentation
 - 💬 **[Discord Community](https://discord.gg/fFE4gfMvKf)** — Join the conversation
 - 🦞 **[OpenClaw](https://github.com/openclaw/openclaw)** — The project that inspired us
 
