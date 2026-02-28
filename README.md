@@ -284,7 +284,7 @@ Issues and PRs are welcome! 🤖
 
 ## 📄 License
 
-[Apache License 2.0](LICENSE) — Use it, fork it, deploy it. Just don't forget to star ⭐
+[GNU Affero General Public License v3.0](LICENSE) — Use it, fork it, deploy it. Just don't forget to star ⭐
 
 ---
 

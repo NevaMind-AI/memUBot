@@ -7,7 +7,7 @@
     "node": ">=v23.11.1"
   },
   "author": "NevaMind AI",
-  "license": "Apache-2.0",
+  "license": "AGPL-3.0-only",
   "scripts": {
     "postinstall": "electron-builder install-app-deps",
     "prepare-mode": "tsx scripts/prepare-mode.ts",
