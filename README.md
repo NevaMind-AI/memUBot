@@ -4,7 +4,7 @@
 
 <h1 align="center">memU Bot</h1>
 
-<h3 align="center">The Enterprise-Ready OpenClaw.<br/>Your Proactive AI Assistant That Remembers Everything. 🧠</h3>
+<h3 align="center">The Enterprise-Ready OpenClaw.<br/>Your Proactive AI Assistant That Remembers Everything.</h3>
 
 <p align="center">
   <a href="https://github.com/NevaMind-AI/memUBot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NevaMind-AI/memUBot" alt="License"/></a>
@@ -14,7 +14,7 @@
 </p>
 
 <p align="center">
-  <a href="#-why-memubot">Why memUBot</a> •
+  <a href="#-why-memubot">Why memU Bot</a> •
   <a href="#-memory-the-core-advantage">Memory</a> •
   <a href="#-enterprise-ready-features">Enterprise</a> •
   <a href="#-memubot-vs-openclaw">vs OpenClaw</a> •
@@ -23,6 +23,13 @@
   <a href="#-skills--mcp">Skills & MCP</a> •
   <a href="#-contributing">Contributing</a>
 </p>
+
+---
+
+## ⭐️ Star the repository
+
+<img width="100%" src="https://github.com/NevaMind-AI/memUBot/blob/main/assets/star%20memU%20bot.gif" />
+If you find memU Bot useful or interesting, a GitHub Star ⭐️ would be greatly appreciated.
 
 ---
 
