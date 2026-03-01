@@ -8,9 +8,9 @@
 
 <p align="center">
   <a href="https://github.com/NevaMind-AI/memUBot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NevaMind-AI/memUBot" alt="License"/></a>
-  <a href="https://github.com/NevaMind-AI/memUBot/releases"><img src="https://img.shields.io/github/v/release/NevaMind-AI/memUBot" alt="Release"/></a>
   <a href="https://github.com/NevaMind-AI/memUBot/stargazers"><img src="https://img.shields.io/github/stars/NevaMind-AI/memUBot" alt="Stars"/></a>
   <a href="https://discord.gg/fFE4gfMvKf"><img src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white" alt="Discord"/></a>
+   <a href="https://x.com/memU_ai"><img src="https://img.shields.io/badge/Twitter-Follow-1DA1F2?logo=x&logoColor=white" alt="Twitter"/></a>
 </p>
 
 <p align="center">
@@ -302,5 +302,5 @@ Issues and PRs are welcome! 🤖
   <b>memUBot</b> — Enterprise-Ready AI. Proactive by Design. Memory by <a href="https://github.com/NevaMind-AI/memU">memU</a>. 🧠
 </p>
 <p align="center">
-  Built with ❤️ by <a href="https://github.com/NevaMind-AI">NevaMind AI</a> and the community.
+  Built with ❤️ by <a href="https://github.com/NevaMind-AI">NevaMind AI</a>.
 </p>
