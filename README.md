@@ -28,7 +28,7 @@
 
 ## ⭐️ Star the repository
 
-<img width="100%" src="https://github.com/NevaMind-AI/memUBot/blob/main/assets/star%20memU%20bot.gif" />
+<img width="100%" src="https://github.com/NevaMind-AI/memUBot/blob/main/assets/star%20repo.gif" />
 If you find memU Bot useful or interesting, a GitHub Star ⭐️ would be greatly appreciated.
 
 ---
