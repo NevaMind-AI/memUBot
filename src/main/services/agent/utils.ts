@@ -58,6 +58,9 @@ export async function createClient(): Promise<{ client: Anthropic | OpenAI; mode
       apiKey = settings.customApiKey
       baseURL = settings.customBaseUrl || undefined
       model = settings.customModel
+      if (settings.customFormat === 'openai') {
+        return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens, provider }
+      }
       break
     default:
       apiKey = settings.claudeApiKey

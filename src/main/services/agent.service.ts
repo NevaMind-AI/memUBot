@@ -1201,6 +1201,10 @@ export class AgentService {
       visualModeEnabled: settings.experimentalVisualMode,
       computerUseEnabled: settings.experimentalComputerUse
     })
+    // Check if provider is OpenAI-compatible
+    const isOpenAICompatible = provider === 'ollama' || 
+                                   provider === 'openai' || 
+                                   (provider === 'custom' && settings.customFormat === 'openai');
 
     // Enforce message count limit once before the loop starts
     // This trims old historical context while preserving current task's tool calls
@@ -1293,23 +1297,23 @@ export class AgentService {
           }
           
           response = betaResponse as unknown as Anthropic.Message
-        } if (provider === 'ollama' || provider === 'openai') {
-          // 由于非 Claude 分支，这里沿用作者原本的压缩老旧 Tool Result 逻辑
+        } if (isOpenAICompatible) {
+          // For OpenAI-compatible providers, compress tool results before API call
           const compacted = await compactToolResults(this.conversationHistory)
           if (compacted > 0) {
             console.log(`[Agent] Context compaction: offloaded ${compacted} old tool results to files`)
           }
 
-          // 使用适配器调用 OpenAI / Ollama
+          // Call OpenAI-compatible provider with adapter
           response = await runOpenAIAdapter(
-            client as unknown as OpenAI, // 因为之前创建的可能是 Anthropic 联合类型
+            client as OpenAI,
             model,
             maxTokens,
-            0.7,
+            settings.temperature || 0.7,
             systemPrompt,
             tools,
             this.conversationHistory
-          );
+         );
         } else {
           // For non-Claude providers: offload old large tool_results to files
           // LLM can use file_read to access the content on demand
@@ -1634,13 +1638,17 @@ STRICT Guidelines:
 IMPORTANT: Respond with ONLY the JSON object, no additional text.`
 
       let textContent: Anthropic.TextBlock | undefined;
+      const settings = await loadSettings()
+      const isOpenAICompatible = provider === 'ollama' || 
+                                 provider === 'openai' || 
+                                 (provider === 'custom' && settings.customFormat === 'openai');
 
-      if (provider === 'ollama' || provider === 'openai') {
+      if (isOpenAICompatible) {
         const response = await runOpenAIAdapter(
           client as OpenAI,
           model,
           Math.min(maxTokens, 1024),
-          0.7,
+          settings.temperature || 0.7,
           evalSystemPrompt,
           [],
           [{ role: 'user', content: evaluationPrompt }]
