@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import { loadSettings } from '../config/settings.config'
+import { runOpenAIAdapter } from './agent/openai-adapter'
+import { runGeminiAdapter, createToolUseIdMap } from './agent/gemini-adapter'
 import { agentService, type MessagePlatform } from './agent.service'
 import { proactiveStorage } from './proactive.storage'
 import { infraService, type IncomingMessageEvent, type OutgoingMessageEvent } from './infra.service'
@@ -496,15 +499,10 @@ class ProactiveService {
     // No need for finally block - setTimeout scheduling handles sequential execution
   }
 
-  /**
-   * Create Anthropic client with current settings
-   * Supports multiple providers: Claude, MiniMax, or custom Anthropic-compatible API
-   */
-  private async createClient(): Promise<{ client: Anthropic; model: string; maxTokens: number }> {
+  private async createClient(): Promise<{ client: Anthropic | OpenAI | null; model: string; maxTokens: number; provider: string; geminiApiKey?: string }> {
     const settings = await loadSettings()
     const provider = settings.llmProvider || 'claude'
 
-    // Get API key and base URL based on provider
     let apiKey: string
     let baseURL: string | undefined
     let model: string
@@ -525,6 +523,25 @@ class ProactiveService {
         baseURL = 'https://zenmux.ai/api/anthropic'
         model = settings.zenmuxModel
         break
+      case 'ollama':
+        apiKey = 'ollama'
+        baseURL = settings.ollamaBaseUrl || 'http://localhost:11434/v1'
+        model = settings.ollamaModel || 'llama3'
+        console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
+        return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens || 4096, provider }
+      case 'openai':
+        apiKey = settings.openaiApiKey
+        baseURL = settings.openaiBaseUrl || 'https://api.openai.com/v1'
+        model = settings.openaiModel || 'gpt-4o'
+        if (!apiKey) throw new Error('API key not configured for openai. Please set it in Settings.')
+        console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
+        return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens || 4096, provider }
+      case 'gemini':
+        apiKey = settings.geminiApiKey
+        model = settings.geminiModel || 'gemini-2.5-pro'
+        if (!apiKey) throw new Error('API key not configured for gemini. Please set it in Settings.')
+        console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
+        return { client: null, model, maxTokens: settings.maxTokens || 4096, provider, geminiApiKey: apiKey }
       case 'custom':
         apiKey = settings.customApiKey
         baseURL = settings.customBaseUrl || undefined
@@ -546,18 +563,15 @@ class ProactiveService {
 
     console.log(`[Proactive] Using LLM provider: ${provider}, model: ${model}`)
 
-    return {
-      client,
-      model,
-      maxTokens: settings.maxTokens || 4096
-    }
+    return { client, model, maxTokens: settings.maxTokens || 4096, provider }
   }
 
   /**
    * Run the agent loop to process context messages
    */
   private async runAgentLoop(): Promise<AgentResponse> {
-    const { client, model, maxTokens } = await this.createClient()
+    const { client, model, maxTokens, provider, geminiApiKey } = await this.createClient()
+    const geminiToolIdMap = provider === 'gemini' ? createToolUseIdMap() : undefined
     const tools = this.getTools()
 
     console.log('[Proactive] Starting agent loop')
@@ -588,14 +602,26 @@ class ProactiveService {
       iterations++
       console.log(`[Proactive] Loop iteration ${iterations}, model: ${model}`)
 
-      // Call Claude API
-      const response = await client.messages.create({
-        model,
-        max_tokens: maxTokens,
-        system: PROACTIVE_SYSTEM_PROMPT,
-        tools,
-        messages: this.agentLoopMessages
-      })
+      let response: Anthropic.Message
+      if (provider === 'ollama' || provider === 'openai') {
+        response = await runOpenAIAdapter(
+          client as OpenAI, model, maxTokens, 0.7,
+          PROACTIVE_SYSTEM_PROMPT, tools, this.agentLoopMessages
+        )
+      } else if (provider === 'gemini') {
+        response = await runGeminiAdapter(
+          geminiApiKey!, model, maxTokens, 0.7,
+          PROACTIVE_SYSTEM_PROMPT, tools, this.agentLoopMessages,
+          geminiToolIdMap
+        )
+      } else {
+        const anthropicClient = client as Anthropic
+        response = await anthropicClient.messages.create({
+          model, max_tokens: maxTokens,
+          system: PROACTIVE_SYSTEM_PROMPT, tools,
+          messages: this.agentLoopMessages
+        })
+      }
 
       console.log('[Proactive] Response received, stop_reason:', response.stop_reason)
 

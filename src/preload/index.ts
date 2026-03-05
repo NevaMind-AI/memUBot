@@ -56,7 +56,7 @@ const settingsApi = {
 }
 
 // Security API
-type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu' | 'line' | 'whatsapp'
 
 const securityApi = {
   generateCode: () => ipcRenderer.invoke('security:generate-code'),

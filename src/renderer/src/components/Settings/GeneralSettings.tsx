@@ -62,6 +62,9 @@ export function GeneralSettings(): JSX.Element {
     settings.openaiApiKey !== originalSettings.openaiApiKey ||
     settings.openaiBaseUrl !== originalSettings.openaiBaseUrl ||
     settings.openaiModel !== originalSettings.openaiModel ||
+    // Gemini settings
+    settings.geminiApiKey !== originalSettings.geminiApiKey ||
+    settings.geminiModel !== originalSettings.geminiModel ||
     // Other settings
     settings.memuApiKey !== originalSettings.memuApiKey ||
     settings.memuUserId !== originalSettings.memuUserId ||
@@ -97,6 +100,9 @@ export function GeneralSettings(): JSX.Element {
         openaiApiKey: settings.openaiApiKey,
         openaiBaseUrl: settings.openaiBaseUrl,
         openaiModel: settings.openaiModel,
+        // Gemini settings
+        geminiApiKey: settings.geminiApiKey,
+        geminiModel: settings.geminiModel,
         // Custom provider settings
         customApiKey: settings.customApiKey,
         customBaseUrl: settings.customBaseUrl,
@@ -305,6 +311,32 @@ export function GeneralSettings(): JSX.Element {
                   value={settings.openaiModel || ''}
                   onChange={(e) => setSettings({ ...settings, openaiModel: e.target.value })}
                   className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-green-500/50 focus:ring-2 focus:ring-green-500/10 transition-all"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Gemini Settings */}
+          {settings.llmProvider === 'gemini' && (
+            <div className="space-y-3 p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">API Key</label>
+                <input
+                  type="password"
+                  placeholder="AIza..."
+                  value={settings.geminiApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Model Name</label>
+                <input
+                  type="text"
+                  placeholder="gemini-2.5-pro"
+                  value={settings.geminiModel || ''}
+                  onChange={(e) => setSettings({ ...settings, geminiModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
                 />
               </div>
             </div>

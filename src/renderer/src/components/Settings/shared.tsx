@@ -3,7 +3,7 @@ import { Loader2, Check, AlertCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 // LLM Provider type
-export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'ollama' | 'openai' | 'custom'
+export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'ollama' | 'openai' | 'gemini' | 'custom'
 
 // Provider options for select
 export const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
@@ -12,6 +12,7 @@ export const PROVIDER_OPTIONS: { value: LLMProvider; label: string }[] = [
   { value: 'minimax', label: 'MiniMax' },
   { value: 'ollama', label: 'Ollama' },
   { value: 'openai', label: 'OpenAI' },
+  { value: 'gemini', label: 'Gemini (Google)' },
   { value: 'custom', label: 'Custom Provider' }
 ]
 
@@ -36,6 +37,9 @@ export interface AppSettings {
   openaiApiKey: string
   openaiBaseUrl: string
   openaiModel: string
+  // Gemini settings
+  geminiApiKey: string
+  geminiModel: string
   // Custom provider settings
   customApiKey: string
   customBaseUrl: string

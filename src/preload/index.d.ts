@@ -59,7 +59,7 @@ interface BotStatus {
 }
 
 // LLM Provider type
-type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'ollama' | 'openai' | 'custom'
+type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'ollama' | 'openai' | 'gemini' | 'custom'
 
 // App settings type
 interface AppSettings {
@@ -82,6 +82,9 @@ interface AppSettings {
   openaiApiKey: string
   openaiBaseUrl: string
   openaiModel: string
+  // Gemini settings
+  geminiApiKey: string
+  geminiModel: string
   // Custom provider settings
   customApiKey: string
   customBaseUrl: string
@@ -126,6 +129,7 @@ interface AppSettings {
   experimentalComputerUse: boolean
   showAgentActivity: boolean
   tavilyApiKey: string
+  preventSleep: boolean
 }
 
 // Agent API interface

@@ -180,7 +180,7 @@ export class SlackBotService {
     // Handle mentions in channels - requires @mention
     this.app.event('app_mention', async ({ event, say }) => {
       console.log('[Slack] Received app_mention event:', event)
-      await this.handleMessage(event, say, false)
+      await this.handleMessage(event as Parameters<typeof this.handleMessage>[0], say, false)
     })
 
     // Handle direct messages - no @mention required
@@ -202,7 +202,7 @@ export class SlackBotService {
       }
 
       console.log('[Slack] Received DM message event:', event)
-      await this.handleMessage(event, say, true)
+      await this.handleMessage(event as Parameters<typeof this.handleMessage>[0], say, true)
     })
   }
 

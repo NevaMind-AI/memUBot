@@ -8,7 +8,7 @@ const SETTINGS_FILE = 'settings.json'
 /**
  * LLM Provider type
  */
-export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'ollama' | 'openai' | 'custom' 
+export type LLMProvider = 'claude' | 'minimax' | 'zenmux' | 'ollama' | 'openai' | 'gemini' | 'custom'
 
 /**
  * Provider configurations
@@ -43,6 +43,11 @@ export const PROVIDER_CONFIGS: Record<LLMProvider, { name: string; baseUrl: stri
     name: 'OpenAI',
     baseUrl: 'https://api.openai.com/v1',
     defaultModel: 'gpt-4o'
+  },
+  gemini: {
+    name: 'Gemini (Google)',
+    baseUrl: '',
+    defaultModel: 'gemini-2.5-pro'
   }
 }
 
@@ -74,6 +79,10 @@ export interface AppSettings {
   openaiApiKey: string;
   openaiBaseUrl: string;
   openaiModel: string;
+
+  // Gemini settings
+  geminiApiKey: string
+  geminiModel: string
   
   // Custom provider settings
   customApiKey: string
@@ -173,6 +182,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   openaiApiKey: '',
   openaiBaseUrl: 'https://api.openai.com/v1',
   openaiModel: 'gpt-4o',
+
+  // Gemini settings
+  geminiApiKey: '',
+  geminiModel: 'gemini-2.5-pro',
   
   // Custom provider settings
   customApiKey: '',
@@ -375,6 +388,13 @@ class SettingsManager {
             apiKey: this.settings.openaiApiKey,
             baseUrl: '',
             model: this.settings.openaiModel || 'gpt-4o',
+            provider
+          }
+        case 'gemini':
+          return {
+            apiKey: this.settings.geminiApiKey,
+            baseUrl: '',
+            model: this.settings.geminiModel || 'gemini-2.5-pro',
             provider
           }
       case 'custom':
