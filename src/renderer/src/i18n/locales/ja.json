@@ -171,7 +171,11 @@
       "model": "モデル名",
       "baseUrl": "API ベース URL",
       "minimaxInfo": "MiniMax M2.1（Anthropic 互換 API）を使用",
-      "zenmuxInfo": "マルチモデルプロキシサービス"
+      "zenmuxInfo": "マルチモデルプロキシサービス",
+      "testConnection": "接続テスト",
+      "testing": "テスト中...",
+      "testSuccess": "接続成功！",
+      "testFailed": "接続失敗"
     },
     "platforms": {
       "description": "メッセージングプラットフォームの接続設定",

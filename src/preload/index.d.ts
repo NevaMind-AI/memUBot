@@ -253,6 +253,7 @@ interface SettingsApi {
   openDevTools: () => Promise<IpcResponse>
   getLogs: () => Promise<IpcResponse<LogsData>>
   clearLogs: () => Promise<IpcResponse>
+  testConnection: (provider: string, config: { apiKey: string; baseUrl?: string; model: string }) => Promise<IpcResponse>
 }
 
 interface LogEntry {

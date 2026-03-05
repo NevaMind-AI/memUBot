@@ -171,7 +171,11 @@
       "model": "Model Name",
       "baseUrl": "API Base URL",
       "minimaxInfo": "Using MiniMax M2.1 via Anthropic-compatible API.",
-      "zenmuxInfo": "Multi-model proxy service."
+      "zenmuxInfo": "Multi-model proxy service.",
+      "testConnection": "Test Connection",
+      "testing": "Testing...",
+      "testSuccess": "Connection successful!",
+      "testFailed": "Connection failed"
     },
     "platforms": {
       "description": "Configure messaging platform connections",

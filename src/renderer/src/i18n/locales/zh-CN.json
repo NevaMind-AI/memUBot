@@ -171,7 +171,11 @@
       "model": "模型名称",
       "baseUrl": "API 地址",
       "minimaxInfo": "使用 MiniMax M2.1（Anthropic 兼容 API）",
-      "zenmuxInfo": "多模型代理服务"
+      "zenmuxInfo": "多模型代理服务",
+      "testConnection": "测试连接",
+      "testing": "测试中...",
+      "testSuccess": "连接成功！",
+      "testFailed": "连接失败"
     },
     "platforms": {
       "description": "配置消息平台连接",

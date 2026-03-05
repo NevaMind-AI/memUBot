@@ -3,6 +3,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { loadSettings, saveSettings, type AppSettings } from '../config/settings.config'
 import { mcpService } from '../services/mcp.service'
+import { detectCustomProtocol } from '../services/agent/utils'
 import type { IpcResponse } from '../types'
 
 /**
@@ -433,4 +434,64 @@ export function setupSettingsHandlers(): void {
       }
     }
   })
+
+  // Test LLM connection
+  ipcMain.handle(
+    'settings:test-connection',
+    async (_event, provider: string, config: { apiKey: string; baseUrl?: string; model: string }): Promise<IpcResponse> => {
+      try {
+        const { apiKey, baseUrl, model } = config
+        if (!apiKey) {
+          return { success: false, error: 'API key is required' }
+        }
+
+        // Determine the actual protocol for custom provider
+        let effectiveProvider = provider
+        if (provider === 'custom') {
+          effectiveProvider = detectCustomProtocol(baseUrl, model)
+        }
+
+        if (effectiveProvider === 'gemini') {
+          const { GoogleGenerativeAI } = await import('@google/generative-ai')
+          const genAI = new GoogleGenerativeAI(apiKey)
+          const genModel = genAI.getGenerativeModel({
+            model: model || 'gemini-2.5-pro',
+            generationConfig: { maxOutputTokens: 16 }
+          })
+          await genModel.generateContent('hi')
+          return { success: true }
+        }
+
+        if (effectiveProvider === 'openai' || effectiveProvider === 'ollama') {
+          const OpenAI = (await import('openai')).default
+          const client = new OpenAI({
+            apiKey: provider === 'ollama' ? 'ollama' : apiKey,
+            baseURL: baseUrl || 'https://api.openai.com/v1'
+          })
+          await client.chat.completions.create({
+            model: model || 'gpt-4o',
+            messages: [{ role: 'user', content: 'hi' }],
+            max_tokens: 16
+          })
+          return { success: true }
+        }
+
+        // Anthropic-compatible (claude, minimax, zenmux, custom with anthropic protocol)
+        const Anthropic = (await import('@anthropic-ai/sdk')).default
+        const client = new Anthropic({
+          apiKey,
+          ...(baseUrl && { baseURL: baseUrl })
+        })
+        await client.messages.create({
+          model: model || 'claude-opus-4-5',
+          max_tokens: 16,
+          messages: [{ role: 'user', content: 'hi' }]
+        })
+        return { success: true }
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : String(error)
+        return { success: false, error: msg }
+      }
+    }
+  )
 }
