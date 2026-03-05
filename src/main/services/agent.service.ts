@@ -1293,7 +1293,7 @@ export class AgentService {
           }
           
           response = betaResponse as unknown as Anthropic.Message
-        } if (provider === 'ollama' || provider === 'openai') {
+        } else if (provider === 'ollama' || provider === 'openai') {
           // 由于非 Claude 分支，这里沿用作者原本的压缩老旧 Tool Result 逻辑
           const compacted = await compactToolResults(this.conversationHistory)
           if (compacted > 0) {
