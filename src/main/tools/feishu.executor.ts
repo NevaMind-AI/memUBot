@@ -190,12 +190,45 @@ interface SendCardInput {
   title: string
   content: string
   template?: string
+  rows?: Record<string, string>[]
 }
 
 export async function executeFeishuSendCard(input: SendCardInput): Promise<ToolResult> {
   const chatId = getCurrentChatId()
   if (!chatId) {
     return { success: false, error: 'No active Feishu chat. User must send a message first.' }
+  }
+
+  // If rows are provided but all keys are '--'/'---', the LLM didn't provide meaningful column names.
+  // Skip the entire tool call and let buildCardElements handle it via Final Response markdown instead.
+  if (input.rows && input.rows.length > 0) {
+    const columns = Object.keys(input.rows[0])
+    const allPlaceholder = columns.every(col => /^-+$/.test(col.trim()))
+    if (allPlaceholder) {
+      return { success: true, data: { skipped: true } }
+    }
+  }
+
+  const elements: object[] = []
+
+  if (input.content) {
+    elements.push({ tag: 'markdown', content: input.content })
+  }
+
+  if (input.rows && input.rows.length > 0) {
+    const displayNames = Object.keys(input.rows[0])
+    const colKeys = displayNames.map((_, idx) => `col_${idx}`)
+    elements.push({
+      tag: 'table',
+      columns: displayNames.map((displayName, idx) => ({
+        name: colKeys[idx],
+        display_name: displayName,
+        data_type: 'text'
+      })),
+      rows: input.rows.map(row =>
+        Object.fromEntries(displayNames.map((displayName, idx) => [colKeys[idx], row[displayName] ?? '']))
+      )
+    })
   }
 
   const card = {
@@ -206,12 +239,7 @@ export async function executeFeishuSendCard(input: SendCardInput): Promise<ToolR
       },
       template: input.template || 'blue'
     },
-    elements: [
-      {
-        tag: 'markdown',
-        content: input.content
-      }
-    ]
+    elements
   }
 
   const result = await feishuBotService.sendCard(chatId, card as any)

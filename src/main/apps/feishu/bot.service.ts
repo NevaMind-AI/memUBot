@@ -857,6 +857,74 @@ export class FeishuBotService {
     }
   }
 
+  private buildCardElements(markdown: string): object[] {
+    const lines = markdown.split('\n')
+    const elements: object[] = []
+    let textBuffer: string[] = []
+    let i = 0
+
+    const flushText = () => {
+      const text = textBuffer.join('\n').trim()
+      if (text) {
+        elements.push({ tag: 'markdown', content: text })
+      }
+      textBuffer = []
+    }
+
+    while (i < lines.length) {
+      const line = lines[i]
+
+      if (/^\|.+\|$/.test(line.trim())) {
+        // Collect all consecutive table lines
+        const tableLines: string[] = []
+        while (i < lines.length && /^\|.+\|$/.test(lines[i].trim())) {
+          tableLines.push(lines[i])
+          i++
+        }
+
+        // Need at least header + separator + 1 data row
+        if (tableLines.length < 3) {
+          textBuffer.push(...tableLines)
+          continue
+        }
+
+        // Parse headers (first row), strip markdown bold syntax
+        const headers = tableLines[0]
+          .split('|')
+          .filter(cell => cell.trim() !== '')
+          .map(cell => cell.trim().replace(/\*\*/g, ''))
+
+        // Use indexed internal keys to avoid special chars in column names
+        // display_name shows the actual header text to the user
+        const colKeys = headers.map((_, idx) => `col_${idx}`)
+
+        // Parse data rows (skip separator row at index 1), strip markdown bold syntax
+        const rows = tableLines.slice(2).map(row => {
+          const cells = row.split('|').filter(cell => cell.trim() !== '').map(cell => cell.trim().replace(/\*\*/g, ''))
+          return Object.fromEntries(colKeys.map((key, idx) => [key, cells[idx] ?? '']))
+        })
+
+        flushText()
+        const tableElement = {
+          tag: 'table',
+          columns: headers.map((displayName, idx) => ({
+            name: colKeys[idx],
+            display_name: displayName,
+            data_type: 'text'
+          })),
+          rows
+        }
+        elements.push(tableElement)
+      } else {
+        textBuffer.push(line)
+        i++
+      }
+    }
+
+    flushText()
+    return elements
+  }
+
   /**
    * Send a markdown message using interactive card
    * This provides better formatting for Agent responses
@@ -871,17 +939,23 @@ export class FeishuBotService {
     }
 
     try {
-      // Build card with markdown content
-      const card = {
+      // Extract first heading from markdown as card title
+      const headingMatch = markdown.match(/^#{1,3}\s+(.+)$/m)
+      const cardTitle = headingMatch ? headingMatch[1].trim() : undefined
+
+      // Build card with markdown content, converting any markdown tables to native Feishu tables
+      const card: Record<string, unknown> = {
         config: {
           wide_screen_mode: true
         },
-        elements: [
-          {
-            tag: 'markdown',
-            content: markdown
-          }
-        ]
+        elements: this.buildCardElements(markdown)
+      }
+
+      if (cardTitle) {
+        card.header = {
+          title: { tag: 'plain_text', content: cardTitle },
+          template: 'blue'
+        }
       }
 
       const response = await this.client.im.message.create({

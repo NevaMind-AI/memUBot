@@ -1297,7 +1297,7 @@ export class AgentService {
           }
           
           response = betaResponse as unknown as Anthropic.Message
-        } if (isOpenAICompatible) {
+        } else if (isOpenAICompatible) {
           // For OpenAI-compatible providers, compress tool results before API call
           const compacted = await compactToolResults(this.conversationHistory)
           if (compacted > 0) {

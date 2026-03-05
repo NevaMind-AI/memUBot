@@ -57,7 +57,7 @@ export const feishuTools: Anthropic.Tool[] = [
   {
     name: 'feishu_send_card',
     description:
-      'Send an interactive message card to the current Feishu chat. Cards support rich formatting.',
+      'Send an interactive message card to the current Feishu chat. Cards support rich formatting. IMPORTANT: When presenting tabular/comparison data, use the rows field instead of markdown tables in content — Feishu will render a native table.',
     input_schema: {
       type: 'object',
       properties: {
@@ -67,7 +67,14 @@ export const feishuTools: Anthropic.Tool[] = [
         },
         content: {
           type: 'string',
-          description: 'Card content (markdown supported)'
+          description: 'Card content (markdown supported). Do NOT use | table | syntax here.'
+        },
+        rows: {
+          type: 'array',
+          description: 'Optional: Table data. When provided, renders a native Feishu table. Each object key is a column header, value is cell content. IMPORTANT: Keys MUST be meaningful column names (e.g. "方法", "用途", "场景"). NEVER use "--" or "---" as keys. Example: [{"名称":"GET","用途":"获取资源","是否有请求体":"否"}]',
+          items: {
+            type: 'object'
+          }
         },
         template: {
           type: 'string',
