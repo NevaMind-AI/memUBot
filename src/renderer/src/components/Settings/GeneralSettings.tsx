@@ -54,6 +54,7 @@ export function GeneralSettings(): JSX.Element {
     settings.customApiKey !== originalSettings.customApiKey ||
     settings.customBaseUrl !== originalSettings.customBaseUrl ||
     settings.customModel !== originalSettings.customModel ||
+    settings.customFormat !== originalSettings.customFormat ||
     // Ollama settings
     settings.ollamaApiKey !== originalSettings.ollamaApiKey ||
     settings.ollamaBaseUrl !== originalSettings.ollamaBaseUrl ||
@@ -101,6 +102,7 @@ export function GeneralSettings(): JSX.Element {
         customApiKey: settings.customApiKey,
         customBaseUrl: settings.customBaseUrl,
         customModel: settings.customModel,
+        customFormat: settings.customFormat || 'anthropic',
         // Other settings
         memuApiKey: settings.memuApiKey,
         language: settings.language,
@@ -313,6 +315,17 @@ export function GeneralSettings(): JSX.Element {
           {/* Custom Provider Settings */}
           {settings.llmProvider === 'custom' && (
             <div className="space-y-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">API Format</label>
+                <select
+                  value={settings.customFormat || 'anthropic'}
+                  onChange={(e) => setSettings({ ...settings, customFormat: e.target.value as 'anthropic' | 'openai' })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-[var(--brand-primary)] focus:ring-2 focus:ring-[var(--brand-primary)]/20 transition-all appearance-none"
+                >
+                  <option value="anthropic">Anthropic Standard</option>
+                  <option value="openai">OpenAI Compatible</option>
+                </select>
+              </div>
               <div>
                 <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.baseUrl')}</label>
                 <input

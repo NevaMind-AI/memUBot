@@ -86,6 +86,7 @@ interface AppSettings {
   customApiKey: string
   customBaseUrl: string
   customModel: string
+  customFormat?: 'anthropic' | 'openai';
   // Shared settings
   maxTokens: number
   temperature: number

@@ -79,6 +79,7 @@ export interface AppSettings {
   customApiKey: string
   customBaseUrl: string
   customModel: string
+  customFormat?: 'anthropic' | 'openai';
   
   // Shared LLM settings
   maxTokens: number
@@ -178,6 +179,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   customApiKey: '',
   customBaseUrl: '',
   customModel: '',
+  customFormat: 'anthropic',
   
   // Shared LLM settings
   maxTokens: 8192,
