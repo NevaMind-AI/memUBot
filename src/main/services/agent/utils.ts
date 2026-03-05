@@ -54,10 +54,18 @@ export async function createClient(): Promise<{ client: Anthropic | OpenAI; mode
       baseURL = settings.openaiBaseUrl || 'https://api.openai.com/v1'
       model = settings.openaiModel || 'gpt-4o'
       return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens, provider }
+    case 'gemini':
+      apiKey = settings.geminiApiKey
+      baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai'
+      model = settings.geminiModel || 'gemini-2.0-flash'
+      return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens, provider }
     case 'custom':
       apiKey = settings.customApiKey
       baseURL = settings.customBaseUrl || undefined
       model = settings.customModel
+      if (settings.customApiFormat === 'openai' || settings.customApiFormat === 'gemini') {
+        return { client: new OpenAI({ apiKey, baseURL }), model, maxTokens: settings.maxTokens, provider }
+      }
       break
     default:
       apiKey = settings.claudeApiKey

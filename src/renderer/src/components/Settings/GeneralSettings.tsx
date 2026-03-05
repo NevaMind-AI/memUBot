@@ -50,10 +50,14 @@ export function GeneralSettings(): JSX.Element {
     // Zenmux settings
     settings.zenmuxApiKey !== originalSettings.zenmuxApiKey ||
     settings.zenmuxModel !== originalSettings.zenmuxModel ||
+    // Gemini settings
+    settings.geminiApiKey !== originalSettings.geminiApiKey ||
+    settings.geminiModel !== originalSettings.geminiModel ||
     // Custom provider settings
     settings.customApiKey !== originalSettings.customApiKey ||
     settings.customBaseUrl !== originalSettings.customBaseUrl ||
     settings.customModel !== originalSettings.customModel ||
+    settings.customApiFormat !== originalSettings.customApiFormat ||
     // Ollama settings
     settings.ollamaApiKey !== originalSettings.ollamaApiKey ||
     settings.ollamaBaseUrl !== originalSettings.ollamaBaseUrl ||
@@ -97,10 +101,14 @@ export function GeneralSettings(): JSX.Element {
         openaiApiKey: settings.openaiApiKey,
         openaiBaseUrl: settings.openaiBaseUrl,
         openaiModel: settings.openaiModel,
+        // Gemini settings
+        geminiApiKey: settings.geminiApiKey,
+        geminiModel: settings.geminiModel,
         // Custom provider settings
         customApiKey: settings.customApiKey,
         customBaseUrl: settings.customBaseUrl,
         customModel: settings.customModel,
+        customApiFormat: settings.customApiFormat,
         // Other settings
         memuApiKey: settings.memuApiKey,
         language: settings.language,
@@ -310,14 +318,52 @@ export function GeneralSettings(): JSX.Element {
             </div>
           )}
 
+          {/* Gemini Settings */}
+          {settings.llmProvider === 'gemini' && (
+            <div className="space-y-3 p-3 rounded-xl bg-blue-500/5 border border-blue-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">API Key</label>
+                <input
+                  type="password"
+                  placeholder="AIza..."
+                  value={settings.geminiApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Model Name</label>
+                <input
+                  type="text"
+                  placeholder="gemini-2.0-flash"
+                  value={settings.geminiModel || ''}
+                  onChange={(e) => setSettings({ ...settings, geminiModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-blue-500/50 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Custom Provider Settings */}
           {settings.llmProvider === 'custom' && (
             <div className="space-y-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
               <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">API Format</label>
+                <select
+                  value={settings.customApiFormat || 'anthropic'}
+                  onChange={(e) => setSettings({ ...settings, customApiFormat: e.target.value as 'anthropic' | 'openai' | 'gemini' })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/10 transition-all"
+                >
+                  <option value="anthropic">Anthropic</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="gemini">Gemini</option>
+                </select>
+              </div>
+              <div>
                 <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.baseUrl')}</label>
                 <input
                   type="text"
-                  placeholder="https://api.example.com/anthropic"
+                  placeholder="https://api.example.com/v1"
                   value={settings.customBaseUrl || ''}
                   onChange={(e) => setSettings({ ...settings, customBaseUrl: e.target.value })}
                   className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/10 transition-all"

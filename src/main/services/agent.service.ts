@@ -1293,7 +1293,8 @@ export class AgentService {
           }
           
           response = betaResponse as unknown as Anthropic.Message
-        } if (provider === 'ollama' || provider === 'openai') {
+        } else if (provider === 'ollama' || provider === 'openai' || provider === 'gemini' ||
+          (provider === 'custom' && (settings.customApiFormat === 'openai' || settings.customApiFormat === 'gemini'))) {
           // 由于非 Claude 分支，这里沿用作者原本的压缩老旧 Tool Result 逻辑
           const compacted = await compactToolResults(this.conversationHistory)
           if (compacted > 0) {
@@ -1605,6 +1606,7 @@ export class AgentService {
 
       // Create client
       const { client, model, maxTokens, provider } = await createClient()
+      const settings = await loadSettings()
 
       // Build the evaluation prompt
       const evaluationPrompt = this.buildEvaluationPrompt(context, data)
@@ -1635,7 +1637,8 @@ IMPORTANT: Respond with ONLY the JSON object, no additional text.`
 
       let textContent: Anthropic.TextBlock | undefined;
 
-      if (provider === 'ollama' || provider === 'openai') {
+      if (provider === 'ollama' || provider === 'openai' || provider === 'gemini' ||
+          (provider === 'custom' && (settings.customApiFormat === 'openai' || settings.customApiFormat === 'gemini'))) {
         const response = await runOpenAIAdapter(
           client as OpenAI,
           model,
