@@ -74,6 +74,11 @@ export function GeneralSettings(): JSX.Element {
     settings.language !== originalSettings.language ||
     settings.tavilyApiKey !== originalSettings.tavilyApiKey
 
+  // Clear test result when settings change
+  useEffect(() => {
+    setTestResult(null)
+  }, [settings.llmProvider, settings.claudeApiKey, settings.claudeModel, settings.zenmuxApiKey, settings.zenmuxModel, settings.minimaxApiKey, settings.minimaxModel, settings.ollamaBaseUrl, settings.ollamaModel, settings.openaiApiKey, settings.openaiBaseUrl, settings.openaiModel, settings.geminiApiKey, settings.geminiModel, settings.customApiKey, settings.customBaseUrl, settings.customModel])
+
   const handleDiscard = () => {
     setSettings({ ...originalSettings })
   }
