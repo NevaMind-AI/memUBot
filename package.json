@@ -15,12 +15,15 @@
     "dev:memu": "cross-env APP_MODE=memu electron-vite dev --mode memu",
     "build:memu:mac": "tsx scripts/build-mac.ts --mode memu",
     "build:memu:win": "tsx scripts/build-win.ts --mode memu",
-    "dev:memu:proactive": "APP_MODE=memu WITH_PROACTIVE=1 electron-vite dev --mode memu"
+    "dev:memu:proactive": "APP_MODE=memu WITH_PROACTIVE=1 electron-vite dev --mode memu",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^3.0.0",
+    "@google/generative-ai": "^0.24.1",
     "@larksuiteoapi/node-sdk": "^1.58.0",
     "@nut-tree-fork/nut-js": "^4.2.6",
     "@slack/bolt": "^4.6.0",
@@ -63,6 +66,7 @@
     "typescript": "^5.5.2",
     "utf-8-validate": "^6.0.6",
     "vite": "^5.3.1",
+    "vitest": "^4.0.18",
     "zlib-sync": "^0.1.10"
   }
 }

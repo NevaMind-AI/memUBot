@@ -52,11 +52,13 @@ const settingsApi = {
   clearCache: () => ipcRenderer.invoke('settings:clear-cache'),
   openDevTools: () => ipcRenderer.invoke('settings:open-devtools'),
   getLogs: () => ipcRenderer.invoke('settings:get-logs'),
-  clearLogs: () => ipcRenderer.invoke('settings:clear-logs')
+  clearLogs: () => ipcRenderer.invoke('settings:clear-logs'),
+  testConnection: (provider: string, config: { apiKey: string; baseUrl?: string; model: string }) =>
+    ipcRenderer.invoke('settings:test-connection', provider, config)
 }
 
 // Security API
-type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu' | 'line' | 'whatsapp'
 
 const securityApi = {
   generateCode: () => ipcRenderer.invoke('security:generate-code'),

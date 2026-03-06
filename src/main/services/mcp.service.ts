@@ -344,6 +344,10 @@ class McpService {
       }
     })
 
+    // #region agent log
+    fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'mcp.service.ts:getTools',message:'MCP tools retrieved',data:{serverCount:this.servers.size,toolCount:tools.length,toolNames:tools.map(t=>t.name),sampleSchemas:tools.slice(0,2).map(t=>({name:t.name,schemaTopKeys:Object.keys(t.input_schema||{}),schemaStr:JSON.stringify(t.input_schema).substring(0,300)}))},timestamp:Date.now(),hypothesisId:'A,B'})}).catch(()=>{});
+    // #endregion
+
     return tools
   }
 

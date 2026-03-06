@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { runOpenAIAdapter } from './agent/openai-adapter'
+import { runGeminiAdapter, createToolUseIdMap } from './agent/gemini-adapter'
 import Anthropic from '@anthropic-ai/sdk'
 import path from 'path'
 import { nativeImage } from 'electron'
@@ -1164,6 +1165,9 @@ export class AgentService {
       this.setStatus('complete')
       return response
     } catch (error) {
+      // #region agent log
+      fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:processMessage:catch',message:'processMessage error caught',data:{error:String(error),errorName:(error as any)?.name,status:(error as any)?.status,stack:(error as any)?.stack?.substring?.(0,800)},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       // Check if it was an abort
       if (this.isAborted) {
         console.log('[Agent] Processing was aborted')
@@ -1194,13 +1198,17 @@ export class AgentService {
    */
   private async runAgentLoop(): Promise<AgentResponse> {
     // Create client with current settings (re-read each time in case settings changed)
-    const { client, model, maxTokens, provider } = await createClient()
+    const { client, model, maxTokens, provider, geminiApiKey } = await createClient()
+    const geminiToolIdMap = provider === 'gemini' ? createToolUseIdMap() : undefined
     const settings = await loadSettings()
     const systemPrompt = await getSystemPromptForPlatform(this.currentPlatform)
     const tools = getToolsForPlatform(this.currentPlatform, {
       visualModeEnabled: settings.experimentalVisualMode,
       computerUseEnabled: settings.experimentalComputerUse
     })
+    // #region agent log
+    fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:runAgentLoop',message:'tools loaded',data:{totalTools:tools.length,mcpTools:tools.filter(t=>t.name.startsWith('mcp_')).map(t=>({name:t.name,schemaKeys:Object.keys(t.input_schema||{})})),provider,model},timestamp:Date.now(),hypothesisId:'A,B,C'})}).catch(()=>{});
+    // #endregion
 
     // Enforce message count limit once before the loop starts
     // This trims old historical context while preserving current task's tool calls
@@ -1302,13 +1310,29 @@ export class AgentService {
 
           // 使用适配器调用 OpenAI / Ollama
           response = await runOpenAIAdapter(
-            client as unknown as OpenAI, // 因为之前创建的可能是 Anthropic 联合类型
+            client as OpenAI,
             model,
             maxTokens,
             0.7,
             systemPrompt,
             tools,
             this.conversationHistory
+          );
+        } else if (provider === 'gemini') {
+          const compacted = await compactToolResults(this.conversationHistory)
+          if (compacted > 0) {
+            console.log(`[Agent] Context compaction: offloaded ${compacted} old tool results to files`)
+          }
+
+          response = await runGeminiAdapter(
+            geminiApiKey!,
+            model,
+            maxTokens,
+            0.7,
+            systemPrompt,
+            tools,
+            this.conversationHistory,
+            geminiToolIdMap
           );
         } else {
           // For non-Claude providers: offload old large tool_results to files
@@ -1329,6 +1353,9 @@ export class AgentService {
           })
         }
       } catch (apiError: unknown) {
+        // #region agent log
+        fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:catch',message:'API error caught',data:{error:String(apiError),errorName:(apiError as any)?.name,status:(apiError as any)?.status,errorMessage:(apiError as any)?.message?.substring?.(0,500),provider,model},timestamp:Date.now(),hypothesisId:'B,D'})}).catch(()=>{});
+        // #endregion
         // Check if this is a token limit / context length error
         const errorStr = String(apiError)
         const isTokenLimitError =
@@ -1390,6 +1417,9 @@ export class AgentService {
       }
       
       console.log('[Agent] Response received, stop_reason:', response.stop_reason)
+      // #region agent log
+      fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'agent.service.ts:afterAPIcall',message:'LLM response received',data:{stopReason:response.stop_reason,contentTypes:response.content?.map((b:any)=>b.type),toolNames:response.content?.filter((b:any)=>b.type==='tool_use').map((b:any)=>b.name),iteration:iterations},timestamp:Date.now(),hypothesisId:'B,D'})}).catch(()=>{});
+      // #endregion
 
       // Use response directly (already Anthropic.Message type)
       const standardResponse = response
@@ -1603,10 +1633,8 @@ export class AgentService {
       console.log('[Agent] User request:', context.userRequest.substring(0, 50) + '...')
       console.log('[Agent] Data summary:', data.summary.substring(0, 50) + '...')
 
-      // Create client
-      const { client, model, maxTokens, provider } = await createClient()
+      const { client, model, maxTokens, provider, geminiApiKey } = await createClient()
 
-      // Build the evaluation prompt
       const evaluationPrompt = this.buildEvaluationPrompt(context, data)
 
       const evalSystemPrompt = `You are a STRICT evaluation assistant. Your job is to decide whether an event warrants notifying the user based on their EXACT expectations.
@@ -1638,6 +1666,17 @@ IMPORTANT: Respond with ONLY the JSON object, no additional text.`
       if (provider === 'ollama' || provider === 'openai') {
         const response = await runOpenAIAdapter(
           client as OpenAI,
+          model,
+          Math.min(maxTokens, 1024),
+          0.7,
+          evalSystemPrompt,
+          [],
+          [{ role: 'user', content: evaluationPrompt }]
+        );
+        textContent = response.content.find((block) => block.type === 'text') as Anthropic.TextBlock | undefined;
+      } else if (provider === 'gemini') {
+        const response = await runGeminiAdapter(
+          geminiApiKey!,
           model,
           Math.min(maxTokens, 1024),
           0.7,

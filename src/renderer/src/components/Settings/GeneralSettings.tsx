@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search } from 'lucide-react'
+import { Search, Loader2, Check, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { changeLanguage, languages } from '../../i18n'
 import logoSvg from '../../assets/logo.svg'
@@ -19,6 +19,8 @@ export function GeneralSettings(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     loadSettings()
@@ -62,12 +64,20 @@ export function GeneralSettings(): JSX.Element {
     settings.openaiApiKey !== originalSettings.openaiApiKey ||
     settings.openaiBaseUrl !== originalSettings.openaiBaseUrl ||
     settings.openaiModel !== originalSettings.openaiModel ||
+    // Gemini settings
+    settings.geminiApiKey !== originalSettings.geminiApiKey ||
+    settings.geminiModel !== originalSettings.geminiModel ||
     // Other settings
     settings.memuApiKey !== originalSettings.memuApiKey ||
     settings.memuUserId !== originalSettings.memuUserId ||
     settings.memuAgentId !== originalSettings.memuAgentId ||
     settings.language !== originalSettings.language ||
     settings.tavilyApiKey !== originalSettings.tavilyApiKey
+
+  // Clear test result when settings change
+  useEffect(() => {
+    setTestResult(null)
+  }, [settings.llmProvider, settings.claudeApiKey, settings.claudeModel, settings.zenmuxApiKey, settings.zenmuxModel, settings.minimaxApiKey, settings.minimaxModel, settings.ollamaBaseUrl, settings.ollamaModel, settings.openaiApiKey, settings.openaiBaseUrl, settings.openaiModel, settings.geminiApiKey, settings.geminiModel, settings.customApiKey, settings.customBaseUrl, settings.customModel])
 
   const handleDiscard = () => {
     setSettings({ ...originalSettings })
@@ -97,6 +107,9 @@ export function GeneralSettings(): JSX.Element {
         openaiApiKey: settings.openaiApiKey,
         openaiBaseUrl: settings.openaiBaseUrl,
         openaiModel: settings.openaiModel,
+        // Gemini settings
+        geminiApiKey: settings.geminiApiKey,
+        geminiModel: settings.geminiModel,
         // Custom provider settings
         customApiKey: settings.customApiKey,
         customBaseUrl: settings.customBaseUrl,
@@ -117,6 +130,51 @@ export function GeneralSettings(): JSX.Element {
       setMessage({ type: 'error', text: t('settings.saveError') })
     }
     setSaving(false)
+  }
+
+  const handleTestConnection = async () => {
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const provider = settings.llmProvider || 'claude'
+      let config: { apiKey: string; baseUrl?: string; model: string }
+
+      switch (provider) {
+        case 'claude':
+          config = { apiKey: settings.claudeApiKey || '', model: settings.claudeModel || 'claude-opus-4-5' }
+          break
+        case 'minimax':
+          config = { apiKey: settings.minimaxApiKey || '', baseUrl: 'https://api.minimaxi.com/anthropic', model: settings.minimaxModel || 'MiniMax-M2.1' }
+          break
+        case 'zenmux':
+          config = { apiKey: settings.zenmuxApiKey || '', baseUrl: 'https://zenmux.ai/api/anthropic', model: settings.zenmuxModel || '' }
+          break
+        case 'ollama':
+          config = { apiKey: 'ollama', baseUrl: settings.ollamaBaseUrl || 'http://localhost:11434/v1', model: settings.ollamaModel || 'llama3' }
+          break
+        case 'openai':
+          config = { apiKey: settings.openaiApiKey || '', baseUrl: settings.openaiBaseUrl || 'https://api.openai.com/v1', model: settings.openaiModel || 'gpt-4o' }
+          break
+        case 'gemini':
+          config = { apiKey: settings.geminiApiKey || '', model: settings.geminiModel || 'gemini-2.5-pro' }
+          break
+        case 'custom':
+          config = { apiKey: settings.customApiKey || '', baseUrl: settings.customBaseUrl || undefined, model: settings.customModel || '' }
+          break
+        default:
+          config = { apiKey: settings.claudeApiKey || '', model: settings.claudeModel || 'claude-opus-4-5' }
+      }
+
+      const result = await window.settings.testConnection(provider, config)
+      if (result.success) {
+        setTestResult({ type: 'success', text: t('settings.llm.testSuccess') })
+      } else {
+        setTestResult({ type: 'error', text: result.error || t('settings.llm.testFailed') })
+      }
+    } catch (error) {
+      setTestResult({ type: 'error', text: String(error) })
+    }
+    setTesting(false)
   }
 
   if (loading) {
@@ -310,6 +368,32 @@ export function GeneralSettings(): JSX.Element {
             </div>
           )}
 
+          {/* Gemini Settings */}
+          {settings.llmProvider === 'gemini' && (
+            <div className="space-y-3 p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20">
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">API Key</label>
+                <input
+                  type="password"
+                  placeholder="AIza..."
+                  value={settings.geminiApiKey || ''}
+                  onChange={(e) => setSettings({ ...settings, geminiApiKey: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[var(--text-muted)] mb-1 block">Model Name</label>
+                <input
+                  type="text"
+                  placeholder="gemini-2.5-pro"
+                  value={settings.geminiModel || ''}
+                  onChange={(e) => setSettings({ ...settings, geminiModel: e.target.value })}
+                  className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Custom Provider Settings */}
           {settings.llmProvider === 'custom' && (
             <div className="space-y-3 p-3 rounded-xl bg-purple-500/5 border border-purple-500/20">
@@ -317,7 +401,7 @@ export function GeneralSettings(): JSX.Element {
                 <label className="text-[11px] text-[var(--text-muted)] mb-1 block">{t('settings.llm.baseUrl')}</label>
                 <input
                   type="text"
-                  placeholder="https://api.example.com/anthropic"
+                  placeholder="https://api.example.com/v1"
                   value={settings.customBaseUrl || ''}
                   onChange={(e) => setSettings({ ...settings, customBaseUrl: e.target.value })}
                   className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/10 transition-all"
@@ -345,6 +429,34 @@ export function GeneralSettings(): JSX.Element {
               </div>
             </div>
           )}
+
+          {/* Test Connection Button */}
+          <div className="mt-3">
+            <button
+              onClick={handleTestConnection}
+              disabled={testing}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-[var(--bg-input)] border border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--primary)]/50 hover:bg-[var(--primary)]/5"
+            >
+              {testing ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>{t('settings.llm.testing')}</span>
+                </>
+              ) : (
+                <span>{t('settings.llm.testConnection')}</span>
+              )}
+            </button>
+            {testResult && (
+              <div className={`flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg text-[11px] ${
+                testResult.type === 'success'
+                  ? 'bg-emerald-500/10 text-emerald-500'
+                  : 'bg-red-500/10 text-red-500'
+              }`}>
+                {testResult.type === 'success' ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                <span className="break-all">{testResult.text}</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Memu Settings */}

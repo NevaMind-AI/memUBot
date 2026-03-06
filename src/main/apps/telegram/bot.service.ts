@@ -742,6 +742,9 @@ export class TelegramBotService {
 
       // Get response from Agent with Telegram-specific tools and images
       const response = await agentService.processMessage(userMessage, 'telegram', imageUrls)
+      // #region agent log
+      fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'telegram.bot.service.ts:afterProcessMessage',message:'agent response received',data:{success:response.success,hasMessage:!!response.message,error:response.error?.substring?.(0,500),busyWith:response.busyWith},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
 
       // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
@@ -794,6 +797,9 @@ export class TelegramBotService {
         await this.bot!.sendMessage(chatId, `Error: ${response.error || 'Unknown error'}`)
       }
     } catch (error) {
+      // #region agent log
+      fetch('http://localhost:7892/ingest/443430ae-db47-457c-ba67-1dd0ac8fcd15',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'eafdcd'},body:JSON.stringify({sessionId:'eafdcd',location:'telegram.bot.service.ts:catch',message:'something went wrong caught',data:{error:String(error),errorName:(error as any)?.name,status:(error as any)?.status,stack:(error as any)?.stack?.substring?.(0,500)},timestamp:Date.now(),hypothesisId:'D'})}).catch(()=>{});
+      // #endregion
       console.error('[Telegram] Error processing with Agent:', error)
       await this.bot!.sendMessage(chatId, 'Sorry, something went wrong.')
     }

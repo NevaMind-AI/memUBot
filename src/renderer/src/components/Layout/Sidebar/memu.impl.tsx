@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useThemeStore, type ThemeMode } from '../../../stores/themeStore'
 import { appIcon } from '../../../assets'
 import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../../Icons/AppIcons'
-import type { MemuSidebarProps, MemuNavItem } from './types'
+import type { MemuSidebarProps } from './types'
 
 export function MemuSidebar({ activeNav, onNavChange }: MemuSidebarProps): JSX.Element {
   const { t } = useTranslation()

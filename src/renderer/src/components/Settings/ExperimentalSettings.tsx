@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { FlaskConical, Monitor, Loader2, AlertTriangle, MousePointer2 } from 'lucide-react'
+import { Monitor, Loader2, AlertTriangle, MousePointer2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '../../stores/toastStore'
 
