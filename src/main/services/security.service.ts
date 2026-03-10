@@ -8,7 +8,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { app } from 'electron'
 
-type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu' | 'line'
 
 interface SecurityCode {
   code: string
@@ -46,6 +46,7 @@ class SecurityService {
     this.boundUsersByPlatform.set('discord', new Map())
     this.boundUsersByPlatform.set('slack', new Map())
     this.boundUsersByPlatform.set('feishu', new Map())
+    this.boundUsersByPlatform.set('line', new Map())
   }
 
   /**
