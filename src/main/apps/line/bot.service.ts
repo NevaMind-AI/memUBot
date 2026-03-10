@@ -7,8 +7,8 @@ import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
 import type { StoredLineMessage } from './types'
 
-// Note: @line/bot-sdk would be imported here for actual implementation
-// import { Client, WebhookEvent, TextMessage } from '@line/bot-sdk'
+// LINE Bot SDK
+import { Client, WebhookEvent, MessageAPIResponseBase, TextMessage, ImageMessage, StickerMessage, LocationMessage, FlexMessage } from '@line/bot-sdk'
 
 /**
  * LineBotService manages Line bot connection and message handling
@@ -21,9 +21,10 @@ export class LineBotService {
   }
   private currentSourceId: string | null = null
   private currentSourceType: 'user' | 'group' | 'room' | null = null
+  private client: Client | null = null
 
   /**
-   * Connect to Line (start webhook server)
+   * Connect to Line (initialize client)
    */
   async connect(): Promise<void> {
     try {
@@ -41,20 +42,19 @@ export class LineBotService {
       await lineStorage.initialize()
       console.log('[Line] Storage initialized')
 
-      // TODO: Implement Line client and webhook server
-      // This would involve:
-      // 1. Creating Line client with channel access token and channel secret
-      // 2. Setting up Express webhook endpoint
-      // 3. Handling webhook events
+      // Initialize LINE client
+      this.client = new Client({
+        channelAccessToken,
+        channelSecret
+      })
 
       this.status = {
         platform: 'line',
-        isConnected: false,
-        error: 'Line integration requires Channel Access Token, Channel Secret, and webhook URL. Please configure in Settings.'
+        isConnected: true
       }
 
       appEvents.emitLineStatusChanged(this.status)
-      console.log('[Line] Connection setup requires additional configuration')
+      console.log('[Line] Connected successfully')
     } catch (error) {
       console.error('[Line] Connection error:', error)
       this.status = {
@@ -71,7 +71,7 @@ export class LineBotService {
    * Disconnect from Line
    */
   async disconnect(): Promise<void> {
-    // TODO: Implement webhook server shutdown
+    this.client = null
     this.status = {
       platform: 'line',
       isConnected: false
@@ -184,14 +184,25 @@ export class LineBotService {
       // Check if rejected due to processing lock
       if (!response.success && response.busyWith) {
         console.log(`[Line] Agent is busy with ${response.busyWith}`)
-        // TODO: Send busy message to Line when client is implemented
-        // response.message contains the localized rejection text
+        if (this.client && replyToken) {
+          await this.client.replyMessage(replyToken, {
+            type: 'text',
+            text: response.message || 'I am currently busy with another task. Please try again later.'
+          })
+        }
         return
       }
 
       if (response.success && response.message) {
         console.log('[Line] Agent response:', response.message.substring(0, 100) + '...')
-        // TODO: Send reply via Line client using replyToken
+        
+        // Send reply via LINE client
+        if (this.client && replyToken) {
+          await this.client.replyMessage(replyToken, {
+            type: 'text',
+            text: response.message
+          })
+        }
 
         // Store bot's reply
         const botReply: StoredLineMessage = {
@@ -275,11 +286,21 @@ export class LineBotService {
     to: string,
     text: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.client) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement push message via Line client
-    return { success: false, error: 'Line sending not yet implemented' }
+
+    try {
+      const message: TextMessage = {
+        type: 'text',
+        text
+      }
+      await this.client.pushMessage(to, message)
+      return { success: true }
+    } catch (error) {
+      console.error('[Line] Error sending text:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -290,11 +311,22 @@ export class LineBotService {
     originalContentUrl: string,
     previewImageUrl: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.client) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement image sending via Line client
-    return { success: false, error: 'Line sending not yet implemented' }
+
+    try {
+      const message: ImageMessage = {
+        type: 'image',
+        originalContentUrl,
+        previewImageUrl
+      }
+      await this.client.pushMessage(to, message)
+      return { success: true }
+    } catch (error) {
+      console.error('[Line] Error sending image:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -305,11 +337,22 @@ export class LineBotService {
     packageId: string,
     stickerId: string
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.client) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement sticker sending via Line client
-    return { success: false, error: 'Line sending not yet implemented' }
+
+    try {
+      const message: StickerMessage = {
+        type: 'sticker',
+        packageId,
+        stickerId
+      }
+      await this.client.pushMessage(to, message)
+      return { success: true }
+    } catch (error) {
+      console.error('[Line] Error sending sticker:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -322,11 +365,24 @@ export class LineBotService {
     latitude: number,
     longitude: number
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.client) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement location sending via Line client
-    return { success: false, error: 'Line sending not yet implemented' }
+
+    try {
+      const message: LocationMessage = {
+        type: 'location',
+        title,
+        address,
+        latitude,
+        longitude
+      }
+      await this.client.pushMessage(to, message)
+      return { success: true }
+    } catch (error) {
+      console.error('[Line] Error sending location:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -337,11 +393,22 @@ export class LineBotService {
     altText: string,
     contents: unknown
   ): Promise<{ success: boolean; error?: string }> {
-    if (!this.status.isConnected) {
+    if (!this.client) {
       return { success: false, error: 'Bot not connected' }
     }
-    // TODO: Implement flex message via Line client
-    return { success: false, error: 'Line sending not yet implemented' }
+
+    try {
+      const message: FlexMessage = {
+        type: 'flex',
+        altText,
+        contents: contents as FlexMessage['contents']
+      }
+      await this.client.pushMessage(to, message)
+      return { success: true }
+    } catch (error) {
+      console.error('[Line] Error sending flex message:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 }
 

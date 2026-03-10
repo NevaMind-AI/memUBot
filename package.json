@@ -25,6 +25,7 @@
     "@nut-tree-fork/nut-js": "^4.2.6",
     "@slack/bolt": "^4.6.0",
     "discord.js": "^14.25.1",
+    "@line/bot-sdk": "^9.4.0",
     "electron-updater": "^6.7.3",
     "global-agent": "^3.0.0",
     "https-proxy-agent": "^7.0.6",
