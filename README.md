@@ -44,7 +44,7 @@ If you find 2501-Bot useful or interesting, a GitHub Star ⭐️ would be greatl
 
 ### Key Differentiators
 
-- 🧠 **Memory-First Architecture** — Powered by **CuadraLabs First QMemory System** (QDrant/Redis/Stoolap) for robust, scalable memory with semantic indexing
+- 🧠 **Memory-First Architecture** — Powered by **CuadraLabs First QMemory System** for robust, scalable memory with semantic indexing
 - 🏢 **Enterprise-Ready** — Local-first, SOC2-friendly, one-click deployment, multi-platform integration
 - 🤖 **Proactive, Not Reactive** — Continuously captures intent and acts before you ask
 - 💰 **10x Cost Reduction** — Intelligent memory caching slashes token consumption dramatically
@@ -64,10 +64,10 @@ Traditional AI assistants store memory via flat files or basic databases. They w
 
 | Capability | Traditional Memory | CuadraLabs First QMemory System |
 |---|---|---|
-| **Long-Term Memory** | Single file, manually managed | **QDrant** vector database with semantic indexing |
-| **Hot Memory** | None | **Redis** for fast session storage and state |
-| **Structured Storage** | Basic SQLite | **Stoolap** SQLite-like filing system |
-| **Retrieval** | Basic keyword search | Hybrid search (QDrant + Redis + Stoolap) |
+| **Long-Term Memory** | Single file, manually managed | Vector database with semantic indexing |
+| **Hot Memory** | None | Fast session storage and state management |
+| **Structured Storage** | Basic SQLite | SQLite-like filing system |
+| **Retrieval** | Basic keyword search | Hybrid search with semantic understanding |
 | **Memory Lifecycle** | Manual writes, risk of loss | Auto-flush with multi-tier persistence |
 | **Multi-Agent** | Single-user, single-session | Shared memory pools with access control |
 | **Observability** | None | Full audit trail, export, analytics |
@@ -195,9 +195,9 @@ Skills are custom automation modules that extend 2501-Bot's capabilities. No cod
 │ │ Email   │ │ ┌───────────┐ │         │         │
 │ │ CLI     │ │ │  Memory   │◄┼─────────┘         │
 │ └─────────┘ │ │  Layer    │ │                   │
-│      │      │ │ QDrant    │ │                   │
-│      │      │ │ Redis     │ │                   │
-│      └──────┼─┤ Stoolap   │ │                   │
+│      │      │ │ QMemory   │ │                   │
+│      │      │ │ System    │ │                   │
+│      └──────┼─┤           │ │                   │
 │             │ └───────────┘ │                   │
 ├─────────────┴───────────────┴───────────────────┤
 │              LLM Provider Layer                  │
