@@ -1,6 +1,6 @@
-# Contributing to Project 2501 Bot
+# Contributing to 2501-Bot
 
-Thank you for your interest in contributing to Project 2501 Bot! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to 2501-Bot! This document provides guidelines and information for contributors.
 
 ## 🌟 Ways to Contribute
 
@@ -12,7 +12,7 @@ We welcome all types of contributions:
 - 🔧 **Code Contributions** - Add features, fix bugs, optimize performance
 - 🧪 **Testing** - Write tests, improve coverage, test edge cases
 - 🎨 **UI/UX** - Enhance user experience and interface design
-- 🌐 **Translations** - Help make Project 2501 Bot accessible globally
+- 🌐 **Translations** - Help make 2501-Bot accessible globally
 - 📢 **Community** - Help others in discussions and support channels
 
 ## 🚀 Quick Start for Contributors
@@ -28,8 +28,8 @@ We welcome all types of contributions:
 ```bash
 # 1. Fork the repository on GitHub
 # 2. Clone your fork locally
-git clone https://github.com/YOUR_USERNAME/Project 2501Bot.git
-cd Project 2501Bot
+git clone https://github.com/YOUR_USERNAME/2501-Bot.git
+cd 2501-Bot
 
 # 3. Install dependencies
 npm install
@@ -81,7 +81,7 @@ npm run dev:2501
 ### Creating Issues
 
 When reporting bugs, please include:
-- **Environment details** (Node.js version, OS, Project 2501 Bot version)
+- **Environment details** (Node.js version, OS, 2501-Bot version)
 - **Reproduction steps** with minimal code example
 - **Expected vs actual behavior**
 - **Error messages** or stack traces
@@ -176,13 +176,13 @@ refactor(core): restructure memory storage logic
 
 **Reporting Security Issues:**
 - **DO NOT** create public issues for security vulnerabilities
-- Email security issues privately to [contact@nevamind.ai](mailto:contact@nevamind.ai)
+- Email security issues privately to [security@cuadralabs.com](mailto:security@cuadralabs.com)
 - Include detailed reproduction steps and impact assessment
 - We'll acknowledge receipt within 24 hours
 
 ## 📄 License and Attribution
 
-By contributing to Project 2501 Bot, you agree that:
+By contributing to 2501-Bot, you agree that:
 - Your contributions will be licensed under the **GNU Affero General Public License v3.0**
 - You have the right to contribute the code/content
 - Your contribution doesn't violate any third-party rights
@@ -199,16 +199,16 @@ By contributing to Project 2501 Bot, you agree that:
 
 | Channel | Best For |
 |---------|----------|
-| 💬 [Discord](https://discord.gg/fFE4gfMvKf) | Real-time chat, quick questions |
-| 🗣️ [GitHub Discussions](https://github.com/orgs/NevaMind-AI/discussions) | Feature discussions, Q&A |
-| 🐛 [GitHub Issues](https://github.com/NevaMind-AI/Project 2501Bot/issues) | Bug reports, feature requests |
-| 📧 [Email](mailto:info@nevamind.ai) | Private inquiries |
+| 💬 [Discord](https://discord.gg/YOUR_DISCORD) | Real-time chat, quick questions |
+| 🗣️ [GitHub Discussions](https://github.com/orgs/CuadraLabs/discussions) | Feature discussions, Q&A |
+| 🐛 [GitHub Issues](https://github.com/CuadraLabs/2501-Bot/issues) | Bug reports, feature requests |
+| 📧 [Email](mailto:contact@cuadralabs.com) | Private inquiries |
 
 ## 🎉 Recognition
 
 Contributors are recognized in:
 - README.md contributors section
 - Release notes for significant contributions
-- Our [Contributors](https://github.com/NevaMind-AI/Project 2501Bot/graphs/contributors) page
+- Our [Contributors](https://github.com/CuadraLabs/2501-Bot/graphs/contributors) page
 
-Thank you for helping make Project 2501 Bot better! 🚀
+Thank you for helping make 2501-Bot better! 🚀

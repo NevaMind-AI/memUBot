@@ -1,23 +1,22 @@
 <p align="center">
-  <img src="assets/2501bot-logo.png" alt="Project 2501Bot Logo" width="200"/>
+  <img src="assets/2501bot-logo.png" alt="2501-Bot Logo" width="200"/>
 </p>
 
-<h1 align="center">Project 2501 Bot</h1>
+<h1 align="center">2501-Bot</h1>
 
-<h3 align="center">The Enterprise-Ready OpenClaw.<br/>Your Proactive AI Assistant That Remembers Everything.</h3>
+<h3 align="center">The Enterprise-Ready AI Assistant.<br/>Your Proactive AI That Remembers Everything.</h3>
 
 <p align="center">
-  <a href="https://github.com/NevaMind-AI/Project 2501Bot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NevaMind-AI/Project 2501Bot" alt="License"/></a>
-  <a href="https://github.com/NevaMind-AI/Project 2501Bot/stargazers"><img src="https://img.shields.io/github/stars/NevaMind-AI/Project 2501Bot" alt="Stars"/></a>
-  <a href="https://discord.gg/fFE4gfMvKf"><img src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white" alt="Discord"/></a>
-   <a href="https://x.com/Project 2501_ai"><img src="https://img.shields.io/badge/Twitter-Follow-1DA1F2?logo=x&logoColor=white" alt="Twitter"/></a>
+  <a href="https://github.com/CuadraLabs/2501-Bot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/CuadraLabs/2501-Bot" alt="License"/></a>
+  <a href="https://github.com/CuadraLabs/2501-Bot/stargazers"><img src="https://img.shields.io/github/stars/CuadraLabs/2501-Bot" alt="Stars"/></a>
+  <a href="https://discord.gg/YOUR_DISCORD"><img src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white" alt="Discord"/></a>
+   <a href="https://x.com/cuadralabs"><img src="https://img.shields.io/badge/Twitter-Follow-1DA1F2?logo=x&logoColor=white" alt="Twitter"/></a>
 </p>
 
 <p align="center">
-  <a href="#-why-2501bot">Why Project 2501 Bot</a> •
+  <a href="#-why-2501-bot">Why 2501-Bot</a> •
   <a href="#-memory-the-core-advantage">Memory</a> •
   <a href="#-enterprise-ready-features">Enterprise</a> •
-  <a href="#-2501bot-vs-openclaw">vs OpenClaw</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-platform-support">Platforms</a> •
   <a href="#-skills--mcp">Skills & MCP</a> •
@@ -28,22 +27,24 @@
 
 ## ⭐️ Star the repository
 
-<img width="100%" src="https://github.com/NevaMind-AI/Project 2501Bot/blob/main/assets/star%20repo.gif" />
-If you find Project 2501 Bot useful or interesting, a GitHub Star ⭐️ would be greatly appreciated.
+<img width="100%" src="assets/star repo.gif" />
+If you find 2501-Bot useful or interesting, a GitHub Star ⭐️ would be greatly appreciated.
 
 ---
 
-## 💡 Why Project 2501 Bot?
+## 🙏 Acknowledgments
 
-OpenClaw pioneered the open-source personal AI assistant space — and we love it. But when it comes to **production deployments**, **team-scale usage**, and **enterprise security requirements**, there's a gap.
+2501-Bot is built on the foundation of [OpenClaw](https://github.com/openclaw/openclaw) and inspired by the work of the [NevaMind AI](https://github.com/NevaMind-AI) team. We extend our sincere gratitude to the original creators for their innovative contributions to the open-source AI assistant ecosystem.
 
-**[Project 2501](https://2501.bot/) Bot bridges that gap.** Built on the [Project 2501](https://github.com/NevaMind-AI/Project 2501) open-source memory framework, Project 2501 Bot is a **proactive, 24/7 AI assistant** designed from the ground up to be **enterprise-ready** — secure, stable, cost-efficient, and easy to deploy.
+---
 
-> 🦞 Love OpenClaw? Think of Project 2501 Bot as **OpenClaw for your whole team** — with persistent memory, proactive execution, and production-grade reliability.
+## 💡 Why 2501-Bot?
+
+**2501-Bot bridges the gap** between personal AI assistants and enterprise-ready deployments. Built on a **robust custom memory system**, 2501-Bot is a **proactive, 24/7 AI assistant** designed from the ground up to be **enterprise-ready** — secure, stable, cost-efficient, and easy to deploy.
 
 ### Key Differentiators
 
-- 🧠 **Memory-First Architecture** — Powered by [Project 2501](https://github.com/NevaMind-AI/Project 2501), the open-source memory layer that gives your AI agent true long-term understanding
+- 🧠 **Memory-First Architecture** — Powered by **CuadraLabs First QMemory System** (QDrant/Redis/Stoolap) for robust, scalable memory with semantic indexing
 - 🏢 **Enterprise-Ready** — Local-first, SOC2-friendly, one-click deployment, multi-platform integration
 - 🤖 **Proactive, Not Reactive** — Continuously captures intent and acts before you ask
 - 💰 **10x Cost Reduction** — Intelligent memory caching slashes token consumption dramatically
@@ -53,24 +54,23 @@ OpenClaw pioneered the open-source personal AI assistant space — and we love i
 
 ## 🧠 Memory: The Core Advantage
 
-What sets Project 2501 Bot apart from every other AI assistant is its **memory layer**, powered by the open-source **Project 2501 framework**.
+What sets 2501-Bot apart from every other AI assistant is its **memory layer**, powered by the **CuadraLabs First QMemory System**.
 
-> 📖 For a deep dive into the memory architecture, see the [Project 2501 main repository](https://github.com/NevaMind-AI/Project 2501/blob/main/readme/README_zh.md).
+### Beyond Traditional Memory
 
-### Beyond OpenClaw's Native Memory
+Traditional AI assistants store memory via flat files or basic databases. They work — but they weren't designed for enterprise-scale, multi-user, always-on agents.
 
-OpenClaw stores memory via flat Markdown files (`MEMORY.md` for long-term facts, `memory/YYYY-MM-DD.md` for daily logs) plus a basic SQLite vector store. It works — but it wasn't designed for enterprise-scale, multi-user, always-on agents.
+**2501-Bot replaces this entire layer** with a purpose-built memory infrastructure:
 
-**Project 2501 replaces this entire layer** with a purpose-built memory infrastructure:
-
-| Capability | OpenClaw Native | Project 2501 (powering Project 2501 Bot) |
+| Capability | Traditional Memory | CuadraLabs First QMemory System |
 |---|---|---|
-| **Long-Term Memory** | Single `MEMORY.md` file, manually managed | Structured, auto-organized persistent memory with semantic indexing |
-| **Daily Context** | Date-stamped log files (`YYYY-MM-DD.md`) | Continuous context capture with automatic compaction and flush |
-| **Retrieval** | Basic SQLite vector search | Advanced semantic search — finds relevant memories even with different phrasing |
-| **Memory Lifecycle** | Manual writes, risk of loss on context overflow | Auto-flush before compaction ensures critical info is never lost |
-| **Multi-Agent** | Single-user, single-session | Shared memory pools with access control for team deployments |
-| **Observability** | None | Full memory audit trail, export, and analytics |
+| **Long-Term Memory** | Single file, manually managed | **QDrant** vector database with semantic indexing |
+| **Hot Memory** | None | **Redis** for fast session storage and state |
+| **Structured Storage** | Basic SQLite | **Stoolap** SQLite-like filing system |
+| **Retrieval** | Basic keyword search | Hybrid search (QDrant + Redis + Stoolap) |
+| **Memory Lifecycle** | Manual writes, risk of loss | Auto-flush with multi-tier persistence |
+| **Multi-Agent** | Single-user, single-session | Shared memory pools with access control |
+| **Observability** | None | Full audit trail, export, analytics |
 
 ### Why This Matters for Enterprise
 
@@ -87,7 +87,7 @@ OpenClaw stores memory via flat Markdown files (`MEMORY.md` for long-term facts,
 
 ## 🏢 Enterprise-Ready Features
 
-Project 2501 Bot isn't a toy. It's built for production.
+2501-Bot isn't a toy. It's built for production.
 
 ### 🔒 Security & Compliance
 
@@ -120,35 +120,17 @@ Project 2501 Bot isn't a toy. It's built for production.
 
 ---
 
-## ⚔️ Project 2501 Bot vs OpenClaw
-
-We respect OpenClaw and the community behind it. Here's an honest comparison:
-
-| Dimension | Project 2501 Bot | OpenClaw |
-|---|---|---|
-| **Primary Focus** | Enterprise-ready proactive agent | Personal AI assistant |
-| **Memory System** | Enterprise memory layer ([Project 2501](https://github.com/NevaMind-AI/Project 2501)) with semantic search, auto-flush & shared pools | Flat Markdown files + basic SQLite vector store |
-| **Deployment** | One-click install, < 3 min | Complex setup, multiple dependencies |
-| **Data Security** | Local-first, no cloud dependency | Cloud-dependent features, known CVEs |
-| **Token Cost** | ~1/10 of comparable usage | Standard token consumption |
-| **Proactive Actions** | 24/7 intent capture & autonomous execution | Reactive to user commands |
-| **Long-Term Memory** | Persistent with auto-flush, semantic indexing & shared pools | `MEMORY.md` + daily logs, risk of loss on context overflow |
-
-> 💡 OpenClaw is a fantastic personal assistant. Project 2501 Bot is what you deploy when your **team** needs an AI assistant that **runs 24/7**, **remembers everything**, and **meets enterprise security requirements**.
-
----
-
 ## 🚀 Quick Start
 
-Getting started with Project 2501 Bot takes just a few minutes:
+Getting started with 2501-Bot takes just a few minutes:
 
 ### 1. Get the Installer
 
-Visit **[2501.bot](https://2501.bot)** and enter your email to receive the installer package.
+Visit **[cuadralabs.com/2501-bot](https://cuadralabs.com/2501-bot)** and enter your email to receive the installer package.
 
 ### 2. Configure Your Platforms
 
-Follow the **[Setup Tutorial](https://2501.bot/tutorial)** to connect Project 2501 Bot with your preferred messaging platforms (Telegram, Discord, Slack, Feishu).
+Follow the **[Setup Tutorial](https://cuadralabs.com/2501-bot/tutorial)** to connect 2501-Bot with your preferred messaging platforms (Telegram, Discord, Slack, Feishu).
 
 ### 3. Done!
 
@@ -158,7 +140,7 @@ Your enterprise-ready AI assistant is live and ready to go.
 
 ## 📱 Platform Support
 
-Project 2501 Bot integrates with the tools your team already uses:
+2501-Bot integrates with the tools your team already uses:
 
 | Platform | Status | Description |
 |---|---|---|
@@ -166,16 +148,19 @@ Project 2501 Bot integrates with the tools your team already uses:
 | **Discord** | ✅ Supported | Server bots with slash commands and thread support |
 | **Slack** | ✅ Supported | Workspace apps with channel and DM support |
 | **Feishu** | ✅ Supported | Native integration with Feishu bots and group chats |
+| **WhatsApp** | ✅ Supported | WhatsApp Business API integration |
+| **LINE** | ✅ Supported | LINE Messaging API integration |
+| **Web Chat** | 🚧 Coming Soon | Browser-based interface |
 
 ---
 
 ## 🔧 Skills & MCP
 
-Project 2501 Bot is extensible through **Skills** and **MCP** (Model Context Protocol) integrations.
+2501-Bot is extensible through **Skills** and **MCP** (Model Context Protocol) integrations.
 
 ### Skills
 
-Skills are custom automation modules that extend Project 2501 Bot's capabilities. No coding required — configure them directly in the **Project 2501 Bot application**:
+Skills are custom automation modules that extend 2501-Bot's capabilities. No coding required — configure them directly in the **2501-Bot application**:
 
 - **Scheduled Tasks** — Set up recurring automations (e.g., daily summaries, weekly reports)
 - **Event-Driven Actions** — Trigger skills based on messages, keywords, or platform events
@@ -183,7 +168,7 @@ Skills are custom automation modules that extend Project 2501 Bot's capabilities
 
 ### MCP Integration
 
-Project 2501 Bot supports the [Model Context Protocol](https://modelcontextprotocol.io/) standard, allowing seamless connection with:
+2501-Bot supports the [Model Context Protocol](https://modelcontextprotocol.io/) standard, allowing seamless connection with:
 
 - File systems, databases, and APIs
 - Browser automation tools
@@ -196,7 +181,7 @@ Project 2501 Bot supports the [Model Context Protocol](https://modelcontextproto
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   Project 2501 Bot                        │
+│                   2501-Bot                      │
 ├─────────────┬───────────────┬───────────────────┤
 │  Platform   │   Agent Core  │   Skills Engine   │
 │  Adapters   │               │                   │
@@ -205,13 +190,14 @@ Project 2501 Bot supports the [Model Context Protocol](https://modelcontextproto
 │ │ Telegram│ │ │  Executor │ │ │ Custom        │ │
 │ │ Discord │ │ │  Observer │ │ │ MCP           │ │
 │ │ Slack   │ │ └───────────┘ │ └───────────────┘ │
-│ │ Email   │ │       │       │         │         │
-│ │ CLI     │ │       ▼       │         │         │
-│ └─────────┘ │ ┌───────────┐ │         │         │
-│      │      │ │   Project 2501    │◄┼─────────┘         │
-│      │      │ │  Memory   │ │                   │
-│      │      │ │  Layer    │ │                   │
-│      └──────┼─┤           │ │                   │
+│ │ WhatsApp│ │       │       │         │         │
+│ │ LINE    │ │       ▼       │         │         │
+│ │ Email   │ │ ┌───────────┐ │         │         │
+│ │ CLI     │ │ │  Memory   │◄┼─────────┘         │
+│ └─────────┘ │ │  Layer    │ │                   │
+│      │      │ │ QDrant    │ │                   │
+│      │      │ │ Redis     │ │                   │
+│      └──────┼─┤ Stoolap   │ │                   │
 │             │ └───────────┘ │                   │
 ├─────────────┴───────────────┴───────────────────┤
 │              LLM Provider Layer                  │
@@ -244,7 +230,8 @@ Project 2501 Bot supports the [Model Context Protocol](https://modelcontextproto
 - [x] Discord
 - [x] Slack
 - [x] Feishu
-- [ ] WhatsApp
+- [x] WhatsApp
+- [x] LINE
 - [ ] Email (Gmail / Outlook)
 - [ ] Web UI
 - [ ] CLI
@@ -297,17 +284,16 @@ Issues and PRs are welcome! 🤖
 
 ## 🔗 Links
 
-- 🧠 **[Project 2501 — The Open-Source Memory Framework](https://github.com/NevaMind-AI/Project 2501)** — The memory layer powering Project 2501 Bot
-- 🌐 **[Project 2501 Bot Website](https://2501.bot/)** — Official website and documentation
-- 💬 **[Discord Community](https://discord.gg/fFE4gfMvKf)** — Join the conversation
-- 🦞 **[OpenClaw](https://github.com/openclaw/openclaw)** — The project that inspired us
-- 📧 **Contact** — [info@nevamind.ai](mailto:info@nevamind.ai)
+- 🧠 **[2501-Bot — The Enterprise-Ready AI Assistant](https://github.com/CuadraLabs/2501-Bot)** — The memory layer powering 2501-Bot
+- 🌐 **[2501-Bot Website](https://cuadralabs.com/2501-bot)** — Official website and documentation
+- 💬 **[Discord Community](https://discord.gg/YOUR_DISCORD)** — Join the conversation
+- 📧 **Contact** — [contact@cuadralabs.com](mailto:contact@cuadralabs.com)
 
 ---
 
 <p align="center">
-  <b>Project 2501Bot</b> — Enterprise-Ready AI. Proactive by Design. Memory by <a href="https://github.com/NevaMind-AI/Project 2501">Project 2501</a>. 🧠
+  <b>2501-Bot</b> — Enterprise-Ready AI. Proactive by Design. Memory by <a href="https://github.com/CuadraLabs">CuadraLabs</a>. 🧠
 </p>
 <p align="center">
-  Built with ❤️ by <a href="https://github.com/NevaMind-AI">NevaMind AI</a>.
+  Built with ❤️ by <a href="https://github.com/CuadraLabs">CuadraLabs</a>.
 </p>

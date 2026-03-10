@@ -1,5 +1,5 @@
-appId: com.nevamind.memu-bot
-productName: memU bot
+appId: com.cuadralabs.2501-bot
+productName: 2501-Bot
 directories:
   buildResources: build
 files:
@@ -36,7 +36,7 @@ asarUnpack:
   - node_modules/@nut-tree-fork/**/*.node
   - node_modules/@nut-tree-fork/**/*.dll
 win:
-  executableName: memu-bot
+  executableName: 2501-bot
   # Windows icon - with rounded corners (electron-builder auto-converts PNG to ICO)
   icon: build/icon-win.png
 nsis:
