@@ -3,10 +3,10 @@
  * Connects configured messaging platforms on app startup
  */
 import type { IAutoConnectService } from './types'
-import { memuAutoConnectService } from './memu.impl'
+import { 2501AutoConnectService } from './2501.impl'
 
 // Export the service instance
-export const autoConnectService: IAutoConnectService = memuAutoConnectService
+export const autoConnectService: IAutoConnectService = 2501AutoConnectService
 
 // Re-export types
 export type { IAutoConnectService } from './types'

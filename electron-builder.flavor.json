@@ -1,8 +1,8 @@
 {
   "extends": "./electron-builder.yml",
-  "appId": "com.nevamind.memu-bot",
-  "productName": "memU bot",
+  "appId": "com.cuadralabs.project-2501-bot",
+  "productName": "Project 2501",
   "win": {
-    "executableName": "memu-bot"
+    "executableName": "project-2501-bot"
   }
 }

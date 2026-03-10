@@ -1,6 +1,6 @@
 ## Dry Run Mode (MANDATORY)
 
-Every service MUST support dry run mode via the `MEMU_DRY_RUN` environment variable. When `MEMU_DRY_RUN === 'true'`:
+Every service MUST support dry run mode via the `PROJECT_2501_DRY_RUN` environment variable. When `PROJECT_2501_DRY_RUN === 'true'`:
 
 1. **Run the main data-fetching/processing logic exactly ONCE**
 2. **Print structured output** prefixed with `[DRY_RUN_RESULT]` as JSON, including:
@@ -14,7 +14,7 @@ Every service MUST support dry run mode via the `MEMU_DRY_RUN` environment varia
 ### Node.js dry run pattern
 
 ```javascript
-const DRY_RUN = process.env.MEMU_DRY_RUN === 'true';
+const DRY_RUN = process.env.PROJECT_2501_DRY_RUN === 'true';
 
 async function checkAndReport() {
   // ... fetch data ...
@@ -44,7 +44,7 @@ if (DRY_RUN) {
 ### Python dry run pattern
 
 ```python
-DRY_RUN = os.environ.get('MEMU_DRY_RUN') == 'true'
+DRY_RUN = os.environ.get('PROJECT_2501_DRY_RUN') == 'true'
 
 def check_and_report():
     # ... fetch data ...

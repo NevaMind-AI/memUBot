@@ -15,28 +15,28 @@ async function getMemuConfig(): Promise<MemuConfig> {
   const settings = await loadSettings()
 
   return {
-    baseUrl: settings.memuBaseUrl,
-    apiKey: settings.memuApiKey,
-    userId: settings.memuUserId,
-    agentId: settings.memuAgentId
+    baseUrl: settings.2501BaseUrl,
+    apiKey: settings.2501ApiKey,
+    userId: settings.2501UserId,
+    agentId: settings.2501AgentId
   }
 }
 
 /**
- * Execute memu_memory: retrieve memory by query from the Memu API.
+ * Execute 2501_memory: retrieve memory by query from the Memu API.
  */
 export async function executeMemuMemory(query: string): Promise<ToolResult> {
   try {
-    const memuConfig = await getMemuConfig()
-    const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/retrieve`, {
+    const 2501Config = await getMemuConfig()
+    const response = await fetch(`${2501Config.baseUrl}/api/v3/memory/retrieve`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${memuConfig.apiKey}`,
+        Authorization: `Bearer ${2501Config.apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        user_id: memuConfig.userId,
-        agent_id: memuConfig.agentId,
+        user_id: 2501Config.userId,
+        agent_id: 2501Config.agentId,
         query
       })
     })
@@ -52,7 +52,7 @@ export async function executeMemuMemory(query: string): Promise<ToolResult> {
  */
 export async function executeMemuTool(name: string, input: unknown): Promise<ToolResult> {
   switch (name) {
-    case 'memu_memory': {
+    case '2501_memory': {
       const { query } = input as { query: string }
       return await executeMemuMemory(query)
     }

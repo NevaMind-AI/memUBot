@@ -31,9 +31,9 @@ function getNodeInvokeLib(): string {
 
 const http = require('http');
 
-const SERVICE_ID = process.env.MEMU_SERVICE_ID || 'unknown';
-const API_URL = process.env.MEMU_API_URL || 'http://127.0.0.1:31415';
-const DRY_RUN = process.env.MEMU_DRY_RUN === 'true';
+const SERVICE_ID = process.env.PROJECT_2501_SERVICE_ID || 'unknown';
+const API_URL = process.env.PROJECT_2501_API_URL || 'http://127.0.0.1:31415';
+const DRY_RUN = process.env.PROJECT_2501_DRY_RUN === 'true';
 
 /**
  * Call the invoke API to report data and let LLM decide whether to notify user.
@@ -122,9 +122,9 @@ import json
 import urllib.request
 from datetime import datetime
 
-SERVICE_ID = os.environ.get('MEMU_SERVICE_ID', 'unknown')
-API_URL = os.environ.get('MEMU_API_URL', 'http://127.0.0.1:31415')
-DRY_RUN = os.environ.get('MEMU_DRY_RUN') == 'true'
+SERVICE_ID = os.environ.get('PROJECT_2501_SERVICE_ID', 'unknown')
+API_URL = os.environ.get('PROJECT_2501_API_URL', 'http://127.0.0.1:31415')
+DRY_RUN = os.environ.get('PROJECT_2501_DRY_RUN') == 'true'
 
 
 def invoke(*, context: dict, summary: str, details: str = '', metadata: dict = None):

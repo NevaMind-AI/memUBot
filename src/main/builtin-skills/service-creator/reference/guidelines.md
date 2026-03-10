@@ -36,7 +36,7 @@
    - **Local filter**: Only call invoke if price > $48,000 (threshold buffer)
    - **LLM evaluation**: Let LLM make final decision on edge cases
    - Tracks last notified price to avoid spam
-   - **Dry run mode**: When `MEMU_DRY_RUN=true`, fetch price once, print result, exit
+   - **Dry run mode**: When `PROJECT_2501_DRY_RUN=true`, fetch price once, print result, exit
 
 3. **Verify with `service_dry_run`** - Check that:
    - The API returns a valid BTC price

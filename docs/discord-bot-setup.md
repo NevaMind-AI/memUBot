@@ -1,12 +1,12 @@
 # Discord Bot Setup Guide
 
-This guide explains how to create a Discord bot and configure it for use with memU.
+This guide explains how to create a Discord bot and configure it for use with Project 2501.
 
 ## Step 1: Create a Discord Application
 
 1. Go to the [Discord Developer Portal](https://discord.com/developers/applications)
 2. Click **New Application**
-3. Enter a name for your application (e.g., "memU Assistant")
+3. Enter a name for your application (e.g., "Project 2501 Assistant")
 4. Accept the Terms of Service and click **Create**
 
 ## Step 2: Configure the Bot
@@ -69,9 +69,9 @@ In the **Bot** section, scroll down to **Privileged Gateway Intents** and enable
 3. Authorize the permissions
 4. Complete the CAPTCHA if prompted
 
-## Step 6: Configure in memU
+## Step 6: Configure in Project 2501
 
-1. Open memU
+1. Open Project 2501
 2. Go to **Settings** → **Discord**
 3. Paste your **Bot Token**
 4. Click **Connect**
@@ -98,7 +98,7 @@ In the **Bot** section, scroll down to **Privileged Gateway Intents** and enable
 ## Troubleshooting
 
 ### Bot is offline?
-- Verify the token is correct in memU settings
+- Verify the token is correct in Project 2501 settings
 - Check if the bot is connected (green indicator)
 - Ensure the bot has permissions in the channel
 

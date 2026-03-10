@@ -1,6 +1,6 @@
 # Telegram Bot Setup Guide
 
-This guide explains how to create a Telegram bot and configure it for use with memU.
+This guide explains how to create a Telegram bot and configure it for use with Project 2501.
 
 ## Step 1: Create a Bot with BotFather
 
@@ -59,9 +59,9 @@ Select your bot, then choose **Disable**.
 
 > **Note:** This is only needed if you want the bot to respond to all messages in group chats.
 
-## Step 4: Add Bot Token to memU
+## Step 4: Add Bot Token to Project 2501
 
-1. Open memU
+1. Open Project 2501
 2. Go to **Settings** → **Telegram**
 3. Paste your **Bot Token**
 4. Click **Connect**
@@ -79,7 +79,7 @@ Select your bot, then choose **Disable**.
 
 ### Bot not responding?
 - Verify the token is correct
-- Check if the bot is connected in memU (green status indicator)
+- Check if the bot is connected in Project 2501 (green status indicator)
 - Ensure you've bound your account with `/bind`
 
 ### Can't receive messages in groups?
@@ -87,14 +87,14 @@ Select your bot, then choose **Disable**.
 - Add the bot to the group as an admin
 
 ### Connection issues with proxy?
-- Configure proxy settings in memU Settings → Proxy
+- Configure proxy settings in Project 2501 Settings → Proxy
 - Telegram bots support SOCKS5 and HTTP proxies
 
 ## Bot Commands Reference
 
 | Command | Description |
 |---------|-------------|
-| `/bind <code>` | Bind your Telegram account to memU |
+| `/bind <code>` | Bind your Telegram account to Project 2501 |
 | `/unbind` | Unbind your account |
 | `/help` | Show available commands |
 

@@ -32,7 +32,7 @@ async function loadModeConfig(mode: string): Promise<ModeConfig> {
 }
 
 async function main(): Promise<void> {
-  const mode = process.env.APP_MODE || 'memu'
+  const mode = process.env.APP_MODE || '2501'
   
   console.log(`[Prepare] Preparing build resources for mode: ${mode}`)
   

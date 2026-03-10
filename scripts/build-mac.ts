@@ -32,7 +32,7 @@ function parseModeArg(): string {
   const modeIdx = args.indexOf('--mode')
   if (modeIdx !== -1 && args[modeIdx + 1]) return args[modeIdx + 1]
   const positional = args.find((a) => !a.startsWith('--'))
-  return positional || process.env.APP_MODE || 'memu'
+  return positional || process.env.APP_MODE || '2501'
 }
 
 async function main(): Promise<void> {

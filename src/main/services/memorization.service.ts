@@ -36,10 +36,10 @@ class MemorizationService {
   private async getMemuConfig() {
     const settings = await loadSettings()
     return {
-      baseUrl: settings.memuBaseUrl,
-      apiKey: settings.memuApiKey,
-      userId: settings.memuUserId,
-      agentId: settings.memuAgentId,
+      baseUrl: settings.2501BaseUrl,
+      apiKey: settings.2501ApiKey,
+      userId: settings.2501UserId,
+      agentId: settings.2501AgentId,
     }
   }
 
@@ -47,7 +47,7 @@ class MemorizationService {
 
   private async isApiKeyConfigured(): Promise<boolean> {
     const settings = await loadSettings()
-    return !!(settings.memuApiKey && settings.memuApiKey.trim())
+    return !!(settings.2501ApiKey && settings.2501ApiKey.trim())
   }
 
   async start(): Promise<boolean> {
@@ -55,7 +55,7 @@ class MemorizationService {
 
     const hasKey = await this.isApiKeyConfigured()
     if (!hasKey) {
-      console.log('[Memorization] memuApiKey not configured, messages will be queued locally until key is set')
+      console.log('[Memorization] 2501ApiKey not configured, messages will be queued locally until key is set')
     }
 
     // Recover from previous run (only if API key is available)
@@ -177,13 +177,13 @@ class MemorizationService {
     messageCount: number
   ): Promise<'success' | 'failure' | 'pending' | 'error'> {
     try {
-      const memuConfig = await this.getMemuConfig()
+      const 2501Config = await this.getMemuConfig()
       const response = await fetch(
-        `${memuConfig.baseUrl}/api/v3/memory/memorize/status/${taskId}`,
+        `${2501Config.baseUrl}/api/v3/memory/memorize/status/${taskId}`,
         {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${memuConfig.apiKey}`,
+            Authorization: `Bearer ${2501Config.apiKey}`,
             'Content-Type': 'application/json',
           },
         }
@@ -256,12 +256,12 @@ class MemorizationService {
   private async runMemorization(): Promise<void> {
     try {
       if (!(await this.isApiKeyConfigured())) {
-        console.log('[Memorization] memuApiKey not configured, skipping memorize POST (messages remain queued)')
+        console.log('[Memorization] 2501ApiKey not configured, skipping memorize POST (messages remain queued)')
         this.isMemorizing = false
         return
       }
 
-      const memuConfig = await this.getMemuConfig()
+      const 2501Config = await this.getMemuConfig()
       const allMessages = await memorizationStorage.getMessages()
 
       if (allMessages.length < MEMORIZE_MIN_MESSAGE_COUNT) {
@@ -283,16 +283,16 @@ class MemorizationService {
       )
 
       const response = await fetch(
-        `${memuConfig.baseUrl}/api/v3/memory/memorize`,
+        `${2501Config.baseUrl}/api/v3/memory/memorize`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${memuConfig.apiKey}`,
+            Authorization: `Bearer ${2501Config.apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            user_id: memuConfig.userId,
-            agent_id: memuConfig.agentId,
+            user_id: 2501Config.userId,
+            agent_id: 2501Config.agentId,
             conversation: formattedMessages,
           }),
         }

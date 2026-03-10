@@ -13,7 +13,7 @@ const resources = {
 }
 
 // Get saved language from localStorage
-const savedLanguage = localStorage.getItem('memu-language')
+const savedLanguage = localStorage.getItem('2501-language')
 
 i18n
   .use(LanguageDetector)
@@ -27,7 +27,7 @@ i18n
     },
     detection: {
       order: ['localStorage', 'navigator'],
-      lookupLocalStorage: 'memu-language',
+      lookupLocalStorage: '2501-language',
       caches: ['localStorage']
     }
   })
@@ -45,7 +45,7 @@ export default i18n
 // Helper to change language
 export const changeLanguage = (lng: string): void => {
   i18n.changeLanguage(lng)
-  localStorage.setItem('memu-language', lng)
+  localStorage.setItem('2501-language', lng)
   // Sync to main process settings
   if (window.settings?.save) {
     window.settings.save({ language: lng })

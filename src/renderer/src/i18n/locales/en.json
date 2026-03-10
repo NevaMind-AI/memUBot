@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "memU bot",
+    "name": "Project 2501 bot",
     "tagline": "Always on. Always proactive.",
     "startup": {
       "initializing": "Starting up...",
@@ -217,7 +217,7 @@
         "appSecretHint": "App Secret from Feishu Open Platform"
       }
     },
-    "memu": {
+    "2501": {
       "title": "MemU Memory Service",
       "hint": "Get API Key from MemU platform",
       "apiKey": "API Key",
@@ -434,9 +434,9 @@
       "title": "About",
       "description": "Application information",
       "version": "Version",
-      "memu": {
-        "tagline": "Your AI teammate powered by memU — always on, always ready.",
-        "feature1": "Built on memU: Persistent memory across sessions for contextual understanding",
+      "2501": {
+        "tagline": "Your AI teammate powered by Project 2501 — always on, always ready.",
+        "feature1": "Built on Project 2501: Persistent memory across sessions for contextual understanding",
         "feature2": "24/7 Availability: Works around the clock, never misses a message",
         "feature3": "Proactive Assistant: Anticipates needs and takes initiative",
         "feature4": "Collaborative Workflow: Seamlessly coworks with you across platforms"

@@ -28,13 +28,13 @@ async function run(command: string, args: string[], cwd: string): Promise<void> 
 }
 
 function parseModeArg(): string {
-  // Support: tsx build-win.ts --mode memu  OR  tsx build-win.ts memu
+  // Support: tsx build-win.ts --mode 2501  OR  tsx build-win.ts 2501
   const args = process.argv.slice(2)
   const modeIdx = args.indexOf('--mode')
   if (modeIdx !== -1 && args[modeIdx + 1]) return args[modeIdx + 1]
   // First non-flag argument
   const positional = args.find((a) => !a.startsWith('--'))
-  return positional || process.env.APP_MODE || 'memu'
+  return positional || process.env.APP_MODE || '2501'
 }
 
 async function main(): Promise<void> {

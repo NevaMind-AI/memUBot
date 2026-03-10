@@ -274,7 +274,7 @@ class McpService {
       protocolVersion: '2024-11-05',
       capabilities: {},
       clientInfo: {
-        name: 'memu-bot',
+        name: '2501-bot',
         version: '1.0.0'
       }
     })

@@ -1,6 +1,6 @@
 # Slack Bot Setup Guide
 
-This guide explains how to create a Slack bot and configure it for use with memU.
+This guide explains how to create a Slack bot and configure it for use with Project 2501.
 
 ## Step 1: Create a Slack App
 
@@ -8,7 +8,7 @@ This guide explains how to create a Slack bot and configure it for use with memU
 2. Click **Create New App**
 3. Choose **From scratch**
 4. Enter:
-   - **App Name**: e.g., "memU Assistant"
+   - **App Name**: e.g., "Project 2501 Assistant"
    - **Workspace**: Select your workspace
 5. Click **Create App**
 
@@ -83,7 +83,7 @@ This step is **required** for users to send direct messages to the bot.
 2. Click **Create New Command**
 3. Create the `/bind` command:
    - **Command**: `/bind`
-   - **Short Description**: Bind your account to memU
+   - **Short Description**: Bind your account to Project 2501
    - **Usage Hint**: `[security_code]`
 4. Click **Save**
 
@@ -100,9 +100,9 @@ This step is **required** for users to send direct messages to the bot.
 2. Scroll to **App Credentials**
 3. Copy the **Signing Secret**
 
-## Step 9: Configure in memU
+## Step 9: Configure in Project 2501
 
-1. Open memU
+1. Open Project 2501
 2. Go to **Settings** → **Slack**
 3. Enter the following:
    - **Bot Token**: The `xoxb-` token from Step 7
@@ -185,7 +185,7 @@ To open a DM with the bot:
 - **Socket Mode**: Recommended for development and self-hosted bots. No public URL needed.
 - **Request URL**: For production apps with public endpoints. Requires HTTPS URL.
 
-memU uses Socket Mode, so no public URL is required.
+Project 2501 uses Socket Mode, so no public URL is required.
 
 ## Rate Limits
 

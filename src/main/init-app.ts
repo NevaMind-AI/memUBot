@@ -4,7 +4,7 @@
  * This sets up the app name and userData path based on MAIN_VITE_APP_MODE.
  * 
  * Why this is needed:
- * - package.json has "name": "memu-bot" which Electron uses as default app.name
+ * - package.json has "name": "2501-bot" which Electron uses as default app.name
  * - Many services are instantiated at module load time (singleton pattern)
  * - These services call app.getPath('userData') in their constructors
  * - Without this early initialization, they would use the wrong path
@@ -42,7 +42,7 @@ process.on('uncaughtException', (err: NodeJS.ErrnoException) => {
   }
 })
 
-const appName = 'memu-bot'
+const appName = '2501-bot'
 
 // Set app name
 app.setName(appName)

@@ -319,7 +319,7 @@ export class TelegramBotService {
         chatId,
         '🔐 Please provide a security code:\n\n' +
           '`/bind <6-digit-code>`\n\n' +
-          'Get the code from the memU bot app (Settings → Security).',
+          'Get the code from the Project 2501 bot app (Settings → Security).',
         { parse_mode: 'Markdown' }
       )
       return
@@ -423,7 +423,7 @@ export class TelegramBotService {
       chatId,
       '🔒 This bot is private.\n\n' +
         'To use this bot, you need to bind your account first.\n' +
-        'Use `/bind <security-code>` with a code from the memU bot app.',
+        'Use `/bind <security-code>` with a code from the Project 2501 bot app.',
       { parse_mode: 'Markdown' }
     )
   }

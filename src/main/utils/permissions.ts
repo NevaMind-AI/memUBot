@@ -112,7 +112,7 @@ async function requestFullDiskAccess(): Promise<boolean> {
   fdaDialogShown = true
   
   // Show dialog to guide user
-  const appName = app.getName() || 'memU bot'
+  const appName = app.getName() || 'Project 2501 bot'
   const result = await dialog.showMessageBox({
     type: 'info',
     title: 'Full Disk Access Required',

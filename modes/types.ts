@@ -27,4 +27,4 @@ export interface ModeConfig {
 /**
  * Default mode name
  */
-export const DEFAULT_MODE = 'memu'
+export const DEFAULT_MODE = '2501'

@@ -38,9 +38,9 @@ const contextMessageWindowSize = 20
 /**
  * Memu tools definitions for memory retrieval
  */
-const memuTools: Anthropic.Tool[] = [
+const 2501Tools: Anthropic.Tool[] = [
   {
-    name: 'memu_memory',
+    name: '2501_memory',
     description: 'Retrieve memory based on a query. Use this to recall past conversations, facts, or context about the user.',
     input_schema: {
       type: 'object' as const,
@@ -54,7 +54,7 @@ const memuTools: Anthropic.Tool[] = [
     }
   },
   {
-    name: 'memu_todos',
+    name: '2501_todos',
     description: 'Retrieve todos for the user. Returns a list of pending tasks and their summaries.',
     input_schema: {
       type: 'object' as const,
@@ -125,7 +125,7 @@ class ProactiveService {
   private unsubscribeFromInfra: (() => void)[] = []
 
   /**
-   * Get memu configuration from settings
+   * Get 2501 configuration from settings
    */
   private async getMemuConfig(): Promise<{
     baseUrl: string
@@ -137,12 +137,12 @@ class ProactiveService {
   }> {
     const settings = await loadSettings()
     return {
-      baseUrl: settings.memuBaseUrl,
-      apiKey: settings.memuApiKey,
-      userId: settings.memuUserId,
-      agentId: settings.memuAgentId,
-      proactiveUserId: settings.memuProactiveUserId,
-      proactiveAgentId: settings.memuProactiveAgentId,
+      baseUrl: settings.2501BaseUrl,
+      apiKey: settings.2501ApiKey,
+      userId: settings.2501UserId,
+      agentId: settings.2501AgentId,
+      proactiveUserId: settings.2501ProactiveUserId,
+      proactiveAgentId: settings.2501ProactiveAgentId,
     }
   }
 
@@ -170,7 +170,7 @@ class ProactiveService {
 
   /**
    * Get available tools for proactive service
-   * Includes: base tools, platform tools (macOS), MCP tools, and memu tools
+   * Includes: base tools, platform tools (macOS), MCP tools, and 2501 tools
    * Note: Messaging platform tools (telegram, discord, etc.) are NOT enabled
    */
   private getTools(): Anthropic.Tool[] {
@@ -178,25 +178,25 @@ class ProactiveService {
     const platformTools = getMacOSTools() // Returns empty array on non-macOS
     const mcpTools = mcpService.getTools()
     
-    return [...baseTools, ...platformTools, ...mcpTools, ...memuTools]
+    return [...baseTools, ...platformTools, ...mcpTools, ...2501Tools]
   }
 
   /**
-   * Execute memu_memory tool
+   * Execute 2501_memory tool
    * This tool use main user/agent ids to retrieve memory from the main service.
    */
   private async executeMemuMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
-      const memuConfig = await this.getMemuConfig()
-      const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/retrieve`, {
+      const 2501Config = await this.getMemuConfig()
+      const response = await fetch(`${2501Config.baseUrl}/api/v3/memory/retrieve`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${memuConfig.apiKey}`,
+          'Authorization': `Bearer ${2501Config.apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: memuConfig.userId,
-          agent_id: memuConfig.agentId,
+          user_id: 2501Config.userId,
+          agent_id: 2501Config.agentId,
           query
         })
       })
@@ -208,21 +208,21 @@ class ProactiveService {
   }
 
   /**
-   * Execute memu_todos tool to get todos
+   * Execute 2501_todos tool to get todos
    * This tool use proactive user/agent ids to retrieve todos from the proactive service.
    */
   private async executeMemuTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
-      const memuConfig = await this.getMemuConfig()
-      const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/categories`, {
+      const 2501Config = await this.getMemuConfig()
+      const response = await fetch(`${2501Config.baseUrl}/api/v3/memory/categories`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${memuConfig.apiKey}`,
+          'Authorization': `Bearer ${2501Config.apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: memuConfig.proactiveUserId,
-          agent_id: memuConfig.proactiveAgentId
+          user_id: 2501Config.proactiveUserId,
+          agent_id: 2501Config.proactiveAgentId
         })
       })
       const result = await response.json() as { categories: Array<{ name: string; summary: string }> }
@@ -295,7 +295,7 @@ class ProactiveService {
 
   /**
    * Start the background polling loop
-   * Will not start if memuApiKey is not configured
+   * Will not start if 2501ApiKey is not configured
    */
   async start(intervalMs: number = DEFAULT_INTERVAL_MS): Promise<boolean> {
     if (this.isRunning) {
@@ -303,12 +303,12 @@ class ProactiveService {
       return true
     }
 
-    // Check if memuApiKey is configured
+    // Check if 2501ApiKey is configured
     // const settings = await loadSettings()
-    // const memuApiKey = settings.memuApiKey
-    // if (!memuApiKey || memuApiKey.trim() === '') {
-    //   console.log('[Proactive] memuApiKey not configured, service will not start')
-    //   console.log('[Proactive] Please configure memuApiKey in settings and call start() again')
+    // const 2501ApiKey = settings.2501ApiKey
+    // if (!2501ApiKey || 2501ApiKey.trim() === '') {
+    //   console.log('[Proactive] 2501ApiKey not configured, service will not start')
+    //   console.log('[Proactive] Please configure 2501ApiKey in settings and call start() again')
     //   return false
     // }
 
@@ -694,7 +694,7 @@ class ProactiveService {
 
   /**
    * Execute a single tool
-   * Supports: computer use tools, macOS tools, MCP tools, and memu tools
+   * Supports: computer use tools, macOS tools, MCP tools, and 2501 tools
    * Note: Messaging platform tools (telegram, discord, etc.) are NOT supported
    */
   private async executeTool(
@@ -737,12 +737,12 @@ class ProactiveService {
 
     // Memu tools
     switch (name) {
-      case 'memu_memory': {
+      case '2501_memory': {
         const args = input as { query: string }
         return await this.executeMemuMemory(args.query)
       }
 
-      case 'memu_todos': {
+      case '2501_todos': {
         return await this.executeMemuTodos()
       }
 

@@ -1,6 +1,6 @@
-# Contributing to memU Bot
+# Contributing to Project 2501 Bot
 
-Thank you for your interest in contributing to memU Bot! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to Project 2501 Bot! This document provides guidelines and information for contributors.
 
 ## 🌟 Ways to Contribute
 
@@ -12,7 +12,7 @@ We welcome all types of contributions:
 - 🔧 **Code Contributions** - Add features, fix bugs, optimize performance
 - 🧪 **Testing** - Write tests, improve coverage, test edge cases
 - 🎨 **UI/UX** - Enhance user experience and interface design
-- 🌐 **Translations** - Help make memU Bot accessible globally
+- 🌐 **Translations** - Help make Project 2501 Bot accessible globally
 - 📢 **Community** - Help others in discussions and support channels
 
 ## 🚀 Quick Start for Contributors
@@ -28,24 +28,24 @@ We welcome all types of contributions:
 ```bash
 # 1. Fork the repository on GitHub
 # 2. Clone your fork locally
-git clone https://github.com/YOUR_USERNAME/memUBot.git
-cd memUBot
+git clone https://github.com/YOUR_USERNAME/Project 2501Bot.git
+cd Project 2501Bot
 
 # 3. Install dependencies
 npm install
 
 # 4. Start development mode
-npm run dev:memu
+npm run dev:2501
 ```
 
 ### Available Commands
 
 ```bash
 npm install                  # Install dependencies
-npm run dev:memu            # Start development mode
+npm run dev:2501            # Start development mode
 npm run typecheck           # Run TypeScript type checking
-npm run build:memu:mac      # Build for macOS
-npm run build:memu:win      # Build for Windows
+npm run build:2501:mac      # Build for macOS
+npm run build:2501:win      # Build for Windows
 ```
 
 ## 🔧 Development Guidelines
@@ -68,7 +68,7 @@ npm run build:memu:win      # Build for Windows
 npm run typecheck
 
 # Test the application
-npm run dev:memu
+npm run dev:2501
 ```
 
 ## 📝 Submitting Changes
@@ -81,7 +81,7 @@ npm run dev:memu
 ### Creating Issues
 
 When reporting bugs, please include:
-- **Environment details** (Node.js version, OS, memU Bot version)
+- **Environment details** (Node.js version, OS, Project 2501 Bot version)
 - **Reproduction steps** with minimal code example
 - **Expected vs actual behavior**
 - **Error messages** or stack traces
@@ -110,7 +110,7 @@ For feature requests, please describe:
 3. **Test your changes**
    ```bash
    npm run typecheck
-   npm run dev:memu
+   npm run dev:2501
    ```
 
 4. **Submit pull request**
@@ -182,7 +182,7 @@ refactor(core): restructure memory storage logic
 
 ## 📄 License and Attribution
 
-By contributing to memU Bot, you agree that:
+By contributing to Project 2501 Bot, you agree that:
 - Your contributions will be licensed under the **GNU Affero General Public License v3.0**
 - You have the right to contribute the code/content
 - Your contribution doesn't violate any third-party rights
@@ -201,7 +201,7 @@ By contributing to memU Bot, you agree that:
 |---------|----------|
 | 💬 [Discord](https://discord.gg/fFE4gfMvKf) | Real-time chat, quick questions |
 | 🗣️ [GitHub Discussions](https://github.com/orgs/NevaMind-AI/discussions) | Feature discussions, Q&A |
-| 🐛 [GitHub Issues](https://github.com/NevaMind-AI/memUBot/issues) | Bug reports, feature requests |
+| 🐛 [GitHub Issues](https://github.com/NevaMind-AI/Project 2501Bot/issues) | Bug reports, feature requests |
 | 📧 [Email](mailto:info@nevamind.ai) | Private inquiries |
 
 ## 🎉 Recognition
@@ -209,6 +209,6 @@ By contributing to memU Bot, you agree that:
 Contributors are recognized in:
 - README.md contributors section
 - Release notes for significant contributions
-- Our [Contributors](https://github.com/NevaMind-AI/memUBot/graphs/contributors) page
+- Our [Contributors](https://github.com/NevaMind-AI/Project 2501Bot/graphs/contributors) page
 
-Thank you for helping make memU Bot better! 🚀
+Thank you for helping make Project 2501 Bot better! 🚀

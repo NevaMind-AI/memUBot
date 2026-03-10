@@ -24,7 +24,7 @@ import { autoUpdateService } from './services/auto-update.service'
 initializeShellEnv()
 
 // Parse proactive mode from environment variable
-// Usage: WITH_PROACTIVE=1 npm run dev:memu  (or use dev:memu:proactive script)
+// Usage: WITH_PROACTIVE=1 npm run dev:2501  (or use dev:2501:proactive script)
 const withProactive = process.env.WITH_PROACTIVE === '1' || process.argv.includes('--with-proactive')
 
 let mainWindow: BrowserWindow | null = null
@@ -252,7 +252,7 @@ async function initializeServicesAsync(): Promise<void> {
     if (memStarted) {
       console.log('[App] Memorization service started')
     } else {
-      console.log('[App] Memorization service not started (memuApiKey not configured)')
+      console.log('[App] Memorization service not started (2501ApiKey not configured)')
     }
   } catch (error) {
     console.error('[App] Failed to start memorization service:', error)
@@ -264,7 +264,7 @@ async function initializeServicesAsync(): Promise<void> {
       if (started) {
         console.log('[App] Proactive service started')
       } else {
-        console.log('[App] Proactive service not started (memuApiKey not configured)')
+        console.log('[App] Proactive service not started (2501ApiKey not configured)')
       }
     } catch (error) {
       console.error('[App] Failed to start proactive service:', error)

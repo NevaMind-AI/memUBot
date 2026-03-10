@@ -196,7 +196,7 @@ export class FeishuBotService {
     if (parts.length < 2) {
       await this.sendText(
         chatId,
-        '🔐 Please provide a security code:\n\n`/bind <6-digit-code>`\n\nGet the code from the memU bot app (Settings → Security).',
+        '🔐 Please provide a security code:\n\n`/bind <6-digit-code>`\n\nGet the code from the Project 2501 bot app (Settings → Security).',
         { storeInHistory: false }
       )
       return
@@ -311,7 +311,7 @@ export class FeishuBotService {
   private async sendUnauthorizedMessage(chatId: string): Promise<void> {
     await this.sendText(
       chatId,
-      '🔒 This bot is private.\n\nTo use this bot, you need to bind your account first.\nUse `/bind <security-code>` with a code from the memU bot app.',
+      '🔒 This bot is private.\n\nTo use this bot, you need to bind your account first.\nUse `/bind <security-code>` with a code from the Project 2501 bot app.',
       { storeInHistory: false }
     )
   }

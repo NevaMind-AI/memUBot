@@ -1,6 +1,6 @@
-# memU Documentation
+# Project 2501 Documentation
 
-Welcome to the memU documentation. This guide will help you set up and configure bots for various messaging platforms.
+Welcome to the Project 2501 documentation. This guide will help you set up and configure bots for various messaging platforms.
 
 ## Bot Setup Guides
 
@@ -14,7 +14,7 @@ Welcome to the memU documentation. This guide will help you set up and configure
 
 1. **Choose a platform** and follow its setup guide
 2. **Create a bot** on the platform's developer portal
-3. **Configure credentials** in memU Settings
+3. **Configure credentials** in Project 2501 Settings
 4. **Bind your account** using the `/bind` command
 
 ## Platform Comparison
@@ -31,10 +31,10 @@ Welcome to the memU documentation. This guide will help you set up and configure
 ## Common Concepts
 
 ### Security Code
-The security code is used to bind your messaging account to memU. Set it in **Settings** → **Security**.
+The security code is used to bind your messaging account to Project 2501. Set it in **Settings** → **Security**.
 
 ### Binding
-Binding links your messaging account to memU, allowing the bot to respond to your messages. Use `/bind YOUR_CODE` in any chat with the bot.
+Binding links your messaging account to Project 2501, allowing the bot to respond to your messages. Use `/bind YOUR_CODE` in any chat with the bot.
 
 ### Proxy Support
 All platforms support SOCKS5 and HTTP proxies. Configure in **Settings** → **Proxy**.
@@ -45,7 +45,7 @@ If you encounter issues:
 1. Check the platform-specific troubleshooting section
 2. Verify all credentials are correct
 3. Ensure required permissions/scopes are enabled
-4. Check memU logs for error messages
+4. Check Project 2501 logs for error messages
 
 ## Security Best Practices
 

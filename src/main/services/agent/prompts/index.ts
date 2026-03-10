@@ -4,7 +4,7 @@
  * This module provides system prompts for the AI agent.
  */
 
-import { MEMU_BOT_INTRO } from './memu'
+import { PROJECT_2501_BOT_INTRO } from './2501'
 import {
   BASE_GUIDELINES,
   BASE_TOOLS,
@@ -26,7 +26,7 @@ export { VISUAL_DEMO_PROMPT } from './shared'
 function buildPlatformPrompt(platform: keyof typeof PLATFORM_CONFIGS): string {
   const config = PLATFORM_CONFIGS[platform]
   
-  return `${MEMU_BOT_INTRO}
+  return `${PROJECT_2501_BOT_INTRO}
 
 You have access to:
 ${BASE_TOOLS}
@@ -60,7 +60,7 @@ export const getSystemPrompt = (platform: string): string => {
 /**
  * Get default system prompt
  */
-export const getDefaultSystemPrompt = (): string => `${MEMU_BOT_INTRO}
+export const getDefaultSystemPrompt = (): string => `${PROJECT_2501_BOT_INTRO}
 
 You have access to:
 ${BASE_TOOLS}

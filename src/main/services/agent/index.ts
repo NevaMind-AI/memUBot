@@ -10,7 +10,7 @@
  *   - index.ts: Entry point and prompt builders
  *   - types.ts: Prompt-related type definitions
  *   - shared.ts: Shared prompt components
- *   - memu.ts: memu-bot specific prompts
+ *   - 2501.ts: 2501-bot specific prompts
  * - utils.ts: Utility functions (estimateTokens, createClient, etc.)
  * - tools.ts: Tool selection for platforms
  * - tool-executor.ts: Tool execution logic

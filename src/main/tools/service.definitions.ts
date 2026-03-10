@@ -14,12 +14,12 @@ After calling this tool, you MUST write the service code to the returned service
 The service code MUST follow this pattern:
 1. Import http/https for making requests
 2. Define the monitoring/task logic
-3. When triggered, call the invoke API at MEMU_API_URL with context and data
+3. When triggered, call the invoke API at PROJECT_2501_API_URL with context and data
 4. The invoke API will evaluate and decide whether to notify the user
 
 Environment variables available to the service:
-- MEMU_SERVICE_ID: The service ID
-- MEMU_API_URL: The local API URL (http://127.0.0.1:31415)`,
+- PROJECT_2501_SERVICE_ID: The service ID
+- PROJECT_2501_API_URL: The local API URL (http://127.0.0.1:31415)`,
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -134,7 +134,7 @@ Environment variables available to the service:
     name: 'service_dry_run',
     description: `Run a service in dry-run mode to verify it works before starting it for real.
 
-The service is executed with MEMU_DRY_RUN=true environment variable. The service code
+The service is executed with PROJECT_2501_DRY_RUN=true environment variable. The service code
 MUST detect this and: run the main data-fetching/processing logic once, print the results
 (including fetched data and local filter decisions), then exit.
 

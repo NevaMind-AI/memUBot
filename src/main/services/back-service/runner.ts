@@ -101,8 +101,8 @@ export async function startProcess(
       shell: true,
       env: {
         ...process.env,
-        MEMU_SERVICE_ID: serviceId,
-        MEMU_API_URL: 'http://127.0.0.1:31415'
+        PROJECT_2501_SERVICE_ID: serviceId,
+        PROJECT_2501_API_URL: 'http://127.0.0.1:31415'
       }
     })
 
@@ -301,7 +301,7 @@ export async function stopAll(): Promise<void> {
 }
 
 /**
- * Dry-run a service: execute once with MEMU_DRY_RUN=true and capture output.
+ * Dry-run a service: execute once with PROJECT_2501_DRY_RUN=true and capture output.
  */
 export async function dryRun(
   serviceId: string,
@@ -327,9 +327,9 @@ export async function dryRun(
       shell: true,
       env: {
         ...process.env,
-        MEMU_SERVICE_ID: serviceId,
-        MEMU_API_URL: 'http://127.0.0.1:31415',
-        MEMU_DRY_RUN: 'true'
+        PROJECT_2501_SERVICE_ID: serviceId,
+        PROJECT_2501_API_URL: 'http://127.0.0.1:31415',
+        PROJECT_2501_DRY_RUN: 'true'
       }
     })
 

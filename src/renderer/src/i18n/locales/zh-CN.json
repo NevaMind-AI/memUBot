@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "memU bot",
+    "name": "Project 2501 bot",
     "tagline": "永不下线，主动出击",
     "startup": {
       "initializing": "正在启动...",
@@ -217,7 +217,7 @@
         "appSecretHint": "飞书开放平台的应用密钥"
       }
     },
-    "memu": {
+    "2501": {
       "title": "MemU API",
       "hint": "从 MemU 平台获取",
       "apiKey": "API Key",
@@ -432,9 +432,9 @@
       "title": "关于",
       "description": "应用信息",
       "version": "版本",
-      "memu": {
-        "tagline": "基于 memU 的 AI 队友 — 全天候待命，随时响应。",
-        "feature1": "基于 memU：跨会话持久记忆，深度理解上下文",
+      "2501": {
+        "tagline": "基于 Project 2501 的 AI 队友 — 全天候待命，随时响应。",
+        "feature1": "基于 Project 2501：跨会话持久记忆，深度理解上下文",
         "feature2": "7×24 小时：全天候工作，不错过任何消息",
         "feature3": "主动助手：预判需求，主动出击",
         "feature4": "协同工作：跨平台无缝协作"

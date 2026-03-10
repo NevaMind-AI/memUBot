@@ -112,7 +112,7 @@ export class MemuApiClient {
     // Add CSRF token to headers and cookies
     if (requiresCsrf && this.csrfToken) {
       requestHeaders['X-CSRF-Token'] = this.csrfToken
-      requestHeaders['Cookie'] = `memu_csrf_token=${this.csrfToken}`
+      requestHeaders['Cookie'] = `2501_csrf_token=${this.csrfToken}`
     }
 
     // Add content type for requests with body
@@ -162,7 +162,7 @@ export class MemuApiClient {
 
     if (requiresCsrf && this.csrfToken) {
       requestHeaders['X-CSRF-Token'] = this.csrfToken
-      requestHeaders['Cookie'] = `memu_csrf_token=${this.csrfToken}`
+      requestHeaders['Cookie'] = `2501_csrf_token=${this.csrfToken}`
     }
 
     // NOTE: Do NOT set Content-Type — fetch sets it automatically with the boundary
@@ -195,7 +195,7 @@ export class MemuApiClient {
 // Default Instance
 // ============================================
 
-export const DEFAULT_BASE_URL = 'https://api.memu.so'
+export const DEFAULT_BASE_URL = 'https://api.2501.so'
 
 let defaultClient: MemuApiClient | null = null
 

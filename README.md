@@ -1,23 +1,23 @@
 <p align="center">
-  <img src="assets/memubot-logo.png" alt="memUBot Logo" width="200"/>
+  <img src="assets/2501bot-logo.png" alt="Project 2501Bot Logo" width="200"/>
 </p>
 
-<h1 align="center">memU Bot</h1>
+<h1 align="center">Project 2501 Bot</h1>
 
 <h3 align="center">The Enterprise-Ready OpenClaw.<br/>Your Proactive AI Assistant That Remembers Everything.</h3>
 
 <p align="center">
-  <a href="https://github.com/NevaMind-AI/memUBot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NevaMind-AI/memUBot" alt="License"/></a>
-  <a href="https://github.com/NevaMind-AI/memUBot/stargazers"><img src="https://img.shields.io/github/stars/NevaMind-AI/memUBot" alt="Stars"/></a>
+  <a href="https://github.com/NevaMind-AI/Project 2501Bot/blob/main/LICENSE"><img src="https://img.shields.io/github/license/NevaMind-AI/Project 2501Bot" alt="License"/></a>
+  <a href="https://github.com/NevaMind-AI/Project 2501Bot/stargazers"><img src="https://img.shields.io/github/stars/NevaMind-AI/Project 2501Bot" alt="Stars"/></a>
   <a href="https://discord.gg/fFE4gfMvKf"><img src="https://img.shields.io/badge/Discord-Join%20Us-5865F2?logo=discord&logoColor=white" alt="Discord"/></a>
-   <a href="https://x.com/memU_ai"><img src="https://img.shields.io/badge/Twitter-Follow-1DA1F2?logo=x&logoColor=white" alt="Twitter"/></a>
+   <a href="https://x.com/Project 2501_ai"><img src="https://img.shields.io/badge/Twitter-Follow-1DA1F2?logo=x&logoColor=white" alt="Twitter"/></a>
 </p>
 
 <p align="center">
-  <a href="#-why-memubot">Why memU Bot</a> •
+  <a href="#-why-2501bot">Why Project 2501 Bot</a> •
   <a href="#-memory-the-core-advantage">Memory</a> •
   <a href="#-enterprise-ready-features">Enterprise</a> •
-  <a href="#-memubot-vs-openclaw">vs OpenClaw</a> •
+  <a href="#-2501bot-vs-openclaw">vs OpenClaw</a> •
   <a href="#-quick-start">Quick Start</a> •
   <a href="#-platform-support">Platforms</a> •
   <a href="#-skills--mcp">Skills & MCP</a> •
@@ -28,22 +28,22 @@
 
 ## ⭐️ Star the repository
 
-<img width="100%" src="https://github.com/NevaMind-AI/memUBot/blob/main/assets/star%20repo.gif" />
-If you find memU Bot useful or interesting, a GitHub Star ⭐️ would be greatly appreciated.
+<img width="100%" src="https://github.com/NevaMind-AI/Project 2501Bot/blob/main/assets/star%20repo.gif" />
+If you find Project 2501 Bot useful or interesting, a GitHub Star ⭐️ would be greatly appreciated.
 
 ---
 
-## 💡 Why memU Bot?
+## 💡 Why Project 2501 Bot?
 
 OpenClaw pioneered the open-source personal AI assistant space — and we love it. But when it comes to **production deployments**, **team-scale usage**, and **enterprise security requirements**, there's a gap.
 
-**[memU](https://memu.bot/) Bot bridges that gap.** Built on the [memU](https://github.com/NevaMind-AI/memU) open-source memory framework, memU Bot is a **proactive, 24/7 AI assistant** designed from the ground up to be **enterprise-ready** — secure, stable, cost-efficient, and easy to deploy.
+**[Project 2501](https://2501.bot/) Bot bridges that gap.** Built on the [Project 2501](https://github.com/NevaMind-AI/Project 2501) open-source memory framework, Project 2501 Bot is a **proactive, 24/7 AI assistant** designed from the ground up to be **enterprise-ready** — secure, stable, cost-efficient, and easy to deploy.
 
-> 🦞 Love OpenClaw? Think of memU Bot as **OpenClaw for your whole team** — with persistent memory, proactive execution, and production-grade reliability.
+> 🦞 Love OpenClaw? Think of Project 2501 Bot as **OpenClaw for your whole team** — with persistent memory, proactive execution, and production-grade reliability.
 
 ### Key Differentiators
 
-- 🧠 **Memory-First Architecture** — Powered by [memU](https://github.com/NevaMind-AI/memU), the open-source memory layer that gives your AI agent true long-term understanding
+- 🧠 **Memory-First Architecture** — Powered by [Project 2501](https://github.com/NevaMind-AI/Project 2501), the open-source memory layer that gives your AI agent true long-term understanding
 - 🏢 **Enterprise-Ready** — Local-first, SOC2-friendly, one-click deployment, multi-platform integration
 - 🤖 **Proactive, Not Reactive** — Continuously captures intent and acts before you ask
 - 💰 **10x Cost Reduction** — Intelligent memory caching slashes token consumption dramatically
@@ -53,17 +53,17 @@ OpenClaw pioneered the open-source personal AI assistant space — and we love i
 
 ## 🧠 Memory: The Core Advantage
 
-What sets memU Bot apart from every other AI assistant is its **memory layer**, powered by the open-source **memU framework**.
+What sets Project 2501 Bot apart from every other AI assistant is its **memory layer**, powered by the open-source **Project 2501 framework**.
 
-> 📖 For a deep dive into the memory architecture, see the [memU main repository](https://github.com/NevaMind-AI/memU/blob/main/readme/README_zh.md).
+> 📖 For a deep dive into the memory architecture, see the [Project 2501 main repository](https://github.com/NevaMind-AI/Project 2501/blob/main/readme/README_zh.md).
 
 ### Beyond OpenClaw's Native Memory
 
 OpenClaw stores memory via flat Markdown files (`MEMORY.md` for long-term facts, `memory/YYYY-MM-DD.md` for daily logs) plus a basic SQLite vector store. It works — but it wasn't designed for enterprise-scale, multi-user, always-on agents.
 
-**memU replaces this entire layer** with a purpose-built memory infrastructure:
+**Project 2501 replaces this entire layer** with a purpose-built memory infrastructure:
 
-| Capability | OpenClaw Native | memU (powering memU Bot) |
+| Capability | OpenClaw Native | Project 2501 (powering Project 2501 Bot) |
 |---|---|---|
 | **Long-Term Memory** | Single `MEMORY.md` file, manually managed | Structured, auto-organized persistent memory with semantic indexing |
 | **Daily Context** | Date-stamped log files (`YYYY-MM-DD.md`) | Continuous context capture with automatic compaction and flush |
@@ -87,7 +87,7 @@ OpenClaw stores memory via flat Markdown files (`MEMORY.md` for long-term facts,
 
 ## 🏢 Enterprise-Ready Features
 
-memU Bot isn't a toy. It's built for production.
+Project 2501 Bot isn't a toy. It's built for production.
 
 ### 🔒 Security & Compliance
 
@@ -120,35 +120,35 @@ memU Bot isn't a toy. It's built for production.
 
 ---
 
-## ⚔️ memU Bot vs OpenClaw
+## ⚔️ Project 2501 Bot vs OpenClaw
 
 We respect OpenClaw and the community behind it. Here's an honest comparison:
 
-| Dimension | memU Bot | OpenClaw |
+| Dimension | Project 2501 Bot | OpenClaw |
 |---|---|---|
 | **Primary Focus** | Enterprise-ready proactive agent | Personal AI assistant |
-| **Memory System** | Enterprise memory layer ([memU](https://github.com/NevaMind-AI/memU)) with semantic search, auto-flush & shared pools | Flat Markdown files + basic SQLite vector store |
+| **Memory System** | Enterprise memory layer ([Project 2501](https://github.com/NevaMind-AI/Project 2501)) with semantic search, auto-flush & shared pools | Flat Markdown files + basic SQLite vector store |
 | **Deployment** | One-click install, < 3 min | Complex setup, multiple dependencies |
 | **Data Security** | Local-first, no cloud dependency | Cloud-dependent features, known CVEs |
 | **Token Cost** | ~1/10 of comparable usage | Standard token consumption |
 | **Proactive Actions** | 24/7 intent capture & autonomous execution | Reactive to user commands |
 | **Long-Term Memory** | Persistent with auto-flush, semantic indexing & shared pools | `MEMORY.md` + daily logs, risk of loss on context overflow |
 
-> 💡 OpenClaw is a fantastic personal assistant. memU Bot is what you deploy when your **team** needs an AI assistant that **runs 24/7**, **remembers everything**, and **meets enterprise security requirements**.
+> 💡 OpenClaw is a fantastic personal assistant. Project 2501 Bot is what you deploy when your **team** needs an AI assistant that **runs 24/7**, **remembers everything**, and **meets enterprise security requirements**.
 
 ---
 
 ## 🚀 Quick Start
 
-Getting started with memU Bot takes just a few minutes:
+Getting started with Project 2501 Bot takes just a few minutes:
 
 ### 1. Get the Installer
 
-Visit **[memu.bot](https://memu.bot)** and enter your email to receive the installer package.
+Visit **[2501.bot](https://2501.bot)** and enter your email to receive the installer package.
 
 ### 2. Configure Your Platforms
 
-Follow the **[Setup Tutorial](https://memu.bot/tutorial)** to connect memU Bot with your preferred messaging platforms (Telegram, Discord, Slack, Feishu).
+Follow the **[Setup Tutorial](https://2501.bot/tutorial)** to connect Project 2501 Bot with your preferred messaging platforms (Telegram, Discord, Slack, Feishu).
 
 ### 3. Done!
 
@@ -158,7 +158,7 @@ Your enterprise-ready AI assistant is live and ready to go.
 
 ## 📱 Platform Support
 
-memU Bot integrates with the tools your team already uses:
+Project 2501 Bot integrates with the tools your team already uses:
 
 | Platform | Status | Description |
 |---|---|---|
@@ -171,11 +171,11 @@ memU Bot integrates with the tools your team already uses:
 
 ## 🔧 Skills & MCP
 
-memU Bot is extensible through **Skills** and **MCP** (Model Context Protocol) integrations.
+Project 2501 Bot is extensible through **Skills** and **MCP** (Model Context Protocol) integrations.
 
 ### Skills
 
-Skills are custom automation modules that extend memU Bot's capabilities. No coding required — configure them directly in the **memU Bot application**:
+Skills are custom automation modules that extend Project 2501 Bot's capabilities. No coding required — configure them directly in the **Project 2501 Bot application**:
 
 - **Scheduled Tasks** — Set up recurring automations (e.g., daily summaries, weekly reports)
 - **Event-Driven Actions** — Trigger skills based on messages, keywords, or platform events
@@ -183,7 +183,7 @@ Skills are custom automation modules that extend memU Bot's capabilities. No cod
 
 ### MCP Integration
 
-memU Bot supports the [Model Context Protocol](https://modelcontextprotocol.io/) standard, allowing seamless connection with:
+Project 2501 Bot supports the [Model Context Protocol](https://modelcontextprotocol.io/) standard, allowing seamless connection with:
 
 - File systems, databases, and APIs
 - Browser automation tools
@@ -196,7 +196,7 @@ memU Bot supports the [Model Context Protocol](https://modelcontextprotocol.io/)
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                   memU Bot                        │
+│                   Project 2501 Bot                        │
 ├─────────────┬───────────────┬───────────────────┤
 │  Platform   │   Agent Core  │   Skills Engine   │
 │  Adapters   │               │                   │
@@ -208,7 +208,7 @@ memU Bot supports the [Model Context Protocol](https://modelcontextprotocol.io/)
 │ │ Email   │ │       │       │         │         │
 │ │ CLI     │ │       ▼       │         │         │
 │ └─────────┘ │ ┌───────────┐ │         │         │
-│      │      │ │   memU    │◄┼─────────┘         │
+│      │      │ │   Project 2501    │◄┼─────────┘         │
 │      │      │ │  Memory   │ │                   │
 │      │      │ │  Layer    │ │                   │
 │      └──────┼─┤           │ │                   │
@@ -297,8 +297,8 @@ Issues and PRs are welcome! 🤖
 
 ## 🔗 Links
 
-- 🧠 **[memU — The Open-Source Memory Framework](https://github.com/NevaMind-AI/memU)** — The memory layer powering memU Bot
-- 🌐 **[memU Bot Website](https://memu.bot/)** — Official website and documentation
+- 🧠 **[Project 2501 — The Open-Source Memory Framework](https://github.com/NevaMind-AI/Project 2501)** — The memory layer powering Project 2501 Bot
+- 🌐 **[Project 2501 Bot Website](https://2501.bot/)** — Official website and documentation
 - 💬 **[Discord Community](https://discord.gg/fFE4gfMvKf)** — Join the conversation
 - 🦞 **[OpenClaw](https://github.com/openclaw/openclaw)** — The project that inspired us
 - 📧 **Contact** — [info@nevamind.ai](mailto:info@nevamind.ai)
@@ -306,7 +306,7 @@ Issues and PRs are welcome! 🤖
 ---
 
 <p align="center">
-  <b>memUBot</b> — Enterprise-Ready AI. Proactive by Design. Memory by <a href="https://github.com/NevaMind-AI/memU">memU</a>. 🧠
+  <b>Project 2501Bot</b> — Enterprise-Ready AI. Proactive by Design. Memory by <a href="https://github.com/NevaMind-AI/Project 2501">Project 2501</a>. 🧠
 </p>
 <p align="center">
   Built with ❤️ by <a href="https://github.com/NevaMind-AI">NevaMind AI</a>.
