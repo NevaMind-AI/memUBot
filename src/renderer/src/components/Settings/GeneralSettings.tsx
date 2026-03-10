@@ -67,7 +67,7 @@ export function GeneralSettings(): JSX.Element {
     settings.memuUserId !== originalSettings.memuUserId ||
     settings.memuAgentId !== originalSettings.memuAgentId ||
     settings.language !== originalSettings.language ||
-    settings.tavilyApiKey !== originalSettings.tavilyApiKey
+    settings.braveApiKey !== originalSettings.braveApiKey
 
   const handleDiscard = () => {
     setSettings({ ...originalSettings })
@@ -104,7 +104,7 @@ export function GeneralSettings(): JSX.Element {
         // Other settings
         memuApiKey: settings.memuApiKey,
         language: settings.language,
-        tavilyApiKey: settings.tavilyApiKey
+        braveApiKey: settings.braveApiKey
       })
       if (result.success) {
         setOriginalSettings({ ...originalSettings, ...settings })
@@ -381,7 +381,7 @@ export function GeneralSettings(): JSX.Element {
           </div>
         </div>
 
-        {/* Tavily Search API */}
+        {/* Brave Search API */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-emerald-500/30 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center gap-2">
@@ -389,23 +389,23 @@ export function GeneralSettings(): JSX.Element {
                 <Search className="w-3 h-3 text-white" />
               </div>
               <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
-                {t('settings.tavily.title')}
+                {t('settings.brave.title')}
               </h4>
             </div>
             <a 
-              href="https://tavily.com" 
+              href="https://brave.com" 
               target="_blank" 
               rel="noopener noreferrer"
               className="text-[11px] text-emerald-500 hover:underline mt-1 inline-block"
             >
-              {t('settings.tavily.hint')} →
+              {t('settings.brave.hint')} →
             </a>
           </div>
           <input
             type="password"
             placeholder="tvly-..."
-            value={settings.tavilyApiKey || ''}
-            onChange={(e) => setSettings({ ...settings, tavilyApiKey: e.target.value })}
+            value={settings.braveApiKey || ''}
+            onChange={(e) => setSettings({ ...settings, braveApiKey: e.target.value })}
             className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/10 transition-all"
           />
         </div>

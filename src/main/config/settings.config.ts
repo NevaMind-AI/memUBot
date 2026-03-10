@@ -142,7 +142,7 @@ export interface AppSettings {
   showAgentActivity: boolean
 
   // Search settings
-  tavilyApiKey: string
+  braveApiKey: string
 
   // Power settings
   preventSleep: boolean
@@ -233,7 +233,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   showAgentActivity: false,
 
   // Search settings
-  tavilyApiKey: '',
+  braveApiKey: '',
 
   // Power settings
   preventSleep: true

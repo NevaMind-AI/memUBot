@@ -586,9 +586,9 @@ interface SearchResult {
 }
 
 /**
- * Search using Tavily API directly (streaming via https)
+ * Search using Brave API directly (streaming via https)
  */
-export function searchTavily(apiKey: string, query: string, maxResults: number): Promise<SearchResult[]> {
+export function searchBrave(apiKey: string, query: string, maxResults: number): Promise<SearchResult[]> {
   return new Promise((resolve, reject) => {
     const requestBody = JSON.stringify({
       api_key: apiKey,
@@ -600,7 +600,7 @@ export function searchTavily(apiKey: string, query: string, maxResults: number):
     })
 
     const options = {
-      hostname: 'api.tavily.com',
+      hostname: 'api.brave.com',
       port: 443,
       path: '/search',
       method: 'POST',
@@ -647,7 +647,7 @@ export function searchTavily(apiKey: string, query: string, maxResults: number):
     request.on('error', reject)
     request.on('timeout', () => {
       request.destroy()
-      reject(new Error('Tavily search request timeout'))
+      reject(new Error('Brave search request timeout'))
     })
 
     request.write(requestBody)
@@ -656,7 +656,7 @@ export function searchTavily(apiKey: string, query: string, maxResults: number):
 }
 
 /**
- * Execute web search using Tavily API
+ * Execute web search using Brave API
  */
 export async function executeWebSearchTool(input: {
   query: string
@@ -664,12 +664,12 @@ export async function executeWebSearchTool(input: {
 }): Promise<{ success: boolean; data?: unknown; error?: string }> {
   const { loadSettings } = await import('../../config/settings.config')
   const settings = await loadSettings()
-  const apiKey = settings.tavilyApiKey
+  const apiKey = settings.braveApiKey
 
   if (!apiKey) {
     return {
       success: false,
-      error: 'Tavily API key not configured. Please add your Tavily API key in Settings to enable web search.'
+      error: 'Brave API key not configured. Please add your Brave API key in Settings to enable web search.'
     }
   }
 
@@ -677,9 +677,9 @@ export async function executeWebSearchTool(input: {
     const query = input.query
     const maxResults = Math.min(input.max_results || 5, 10)
 
-    console.log('[WebSearch] Searching with Tavily:', query)
+    console.log('[WebSearch] Searching with Brave:', query)
 
-    const results = await searchTavily(apiKey, query, maxResults)
+    const results = await searchBrave(apiKey, query, maxResults)
 
     if (results.length === 0) {
       return {
@@ -692,7 +692,7 @@ export async function executeWebSearchTool(input: {
       }
     }
 
-    console.log(`[WebSearch] Found ${results.length} results from Tavily`)
+    console.log(`[WebSearch] Found ${results.length} results from Brave`)
 
     return {
       success: true,
@@ -703,7 +703,7 @@ export async function executeWebSearchTool(input: {
       }
     }
   } catch (error) {
-    console.error('[WebSearch] Tavily error:', error)
+    console.error('[WebSearch] Brave error:', error)
     return { success: false, error: error instanceof Error ? error.message : String(error) }
   }
 }

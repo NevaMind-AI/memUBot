@@ -75,7 +75,7 @@ export interface AppSettings {
   feishuAppSecret: string
   feishuAutoConnect: boolean
   language: string
-  tavilyApiKey: string
+  braveApiKey: string
 }
 
 // Portal target ID — used by SettingsView containers

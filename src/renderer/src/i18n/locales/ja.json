@@ -224,9 +224,9 @@
       "userId": "User ID",
       "agentId": "Agent ID"
     },
-    "tavily": {
-      "title": "Tavily 検索 API",
-      "hint": "tavily.com から API Key を取得（月 1000 回無料）"
+    "brave": {
+      "title": "Brave 検索 API",
+      "hint": "brave.com から API Key を取得（月 1000 回無料）"
     },
     "security": {
       "title": "セキュリティ",

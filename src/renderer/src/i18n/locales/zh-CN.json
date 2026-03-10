@@ -224,9 +224,9 @@
       "userId": "User ID",
       "agentId": "Agent ID"
     },
-    "tavily": {
-      "title": "Tavily 搜索 API",
-      "hint": "从 tavily.com 获取（每月 1000 次免费搜索）"
+    "brave": {
+      "title": "Brave 搜索 API",
+      "hint": "从 brave.com 获取（每月 1000 次免费搜索）"
     },
     "security": {
       "title": "安全",

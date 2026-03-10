@@ -164,10 +164,10 @@ Available commands:
   }
 }
 
-// Web search tool - powered by Tavily AI search
+// Web search tool - powered by Brave AI search
 export const webSearchTool: Anthropic.Tool = {
   name: 'web_search',
-  description: `Search the web using Tavily AI-powered search. This is a reliable search tool that returns comprehensive results with full content excerpts (not just snippets).
+  description: `Search the web using Brave AI-powered search. This is a reliable search tool that returns comprehensive results with full content excerpts (not just snippets).
 
 Returns search results with:
 - Title and URL

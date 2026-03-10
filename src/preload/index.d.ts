@@ -125,7 +125,7 @@ interface AppSettings {
   experimentalVisualMode: boolean
   experimentalComputerUse: boolean
   showAgentActivity: boolean
-  tavilyApiKey: string
+  braveApiKey: string
 }
 
 // Agent API interface
