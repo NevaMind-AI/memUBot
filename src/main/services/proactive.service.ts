@@ -137,12 +137,12 @@ class ProactiveService {
   }> {
     const settings = await loadSettings()
     return {
-      baseUrl: settings.2501BaseUrl,
-      apiKey: settings.2501ApiKey,
-      userId: settings.2501UserId,
-      agentId: settings.2501AgentId,
-      proactiveUserId: settings.2501ProactiveUserId,
-      proactiveAgentId: settings.2501ProactiveAgentId,
+      baseUrl: settings['2501BaseUrl'],
+      apiKey: settings['2501ApiKey'],
+      userId: settings['2501UserId'],
+      agentId: settings['2501AgentId'],
+      proactiveUserId: settings['2501ProactiveUserId'],
+      proactiveAgentId: settings['2501ProactiveAgentId'],
     }
   }
 
@@ -305,7 +305,7 @@ class ProactiveService {
 
     // Check if 2501ApiKey is configured
     // const settings = await loadSettings()
-    // const 2501ApiKey = settings.2501ApiKey
+    // const 2501ApiKey = settings['2501ApiKey']
     // if (!2501ApiKey || 2501ApiKey.trim() === '') {
     //   console.log('[Proactive] 2501ApiKey not configured, service will not start')
     //   console.log('[Proactive] Please configure 2501ApiKey in settings and call start() again')

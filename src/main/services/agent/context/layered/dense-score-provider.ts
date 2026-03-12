@@ -46,8 +46,8 @@ async function getMemuConfig(): Promise<MemuConfig> {
   const settings = await loadSettings()
 
   return {
-    baseUrl: settings.2501BaseUrl,
-    apiKey: settings.2501ApiKey
+    baseUrl: settings['2501BaseUrl'],
+    apiKey: settings['2501ApiKey']
   }
 }
 

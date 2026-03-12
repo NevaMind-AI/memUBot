@@ -36,10 +36,10 @@ class MemorizationService {
   private async getMemuConfig() {
     const settings = await loadSettings()
     return {
-      baseUrl: settings.2501BaseUrl,
-      apiKey: settings.2501ApiKey,
-      userId: settings.2501UserId,
-      agentId: settings.2501AgentId,
+      baseUrl: settings['2501BaseUrl'],
+      apiKey: settings['2501ApiKey'],
+      userId: settings['2501UserId'],
+      agentId: settings['2501AgentId'],
     }
   }
 
@@ -47,7 +47,7 @@ class MemorizationService {
 
   private async isApiKeyConfigured(): Promise<boolean> {
     const settings = await loadSettings()
-    return !!(settings.2501ApiKey && settings.2501ApiKey.trim())
+    return !!(settings['2501ApiKey'] && settings['2501ApiKey'].trim())
   }
 
   async start(): Promise<boolean> {
