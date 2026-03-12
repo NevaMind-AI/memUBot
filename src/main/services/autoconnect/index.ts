@@ -3,10 +3,10 @@
  * Connects configured messaging platforms on app startup
  */
 import type { IAutoConnectService } from './types'
-import { 2501AutoConnectService } from './2501.impl'
+import { autoConnectService2501 } from './2501.impl'
 
 // Export the service instance
-export const autoConnectService: IAutoConnectService = 2501AutoConnectService
+export const autoConnectService: IAutoConnectService = autoConnectService2501
 
 // Re-export types
 export type { IAutoConnectService } from './types'
