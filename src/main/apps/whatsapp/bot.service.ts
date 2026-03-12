@@ -271,4 +271,4 @@ export class WhatsAppBotService {
 }
 
 // Export singleton instance
-export const whatsAppBotService = new WhatsAppBotService()
+export const whatsappBotService = new WhatsAppBotService()
