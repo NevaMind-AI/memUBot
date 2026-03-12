@@ -38,6 +38,13 @@ export class WhatsAppBotService {
   }
 
   /**
+   * Get current chat ID
+   */
+  getCurrentChatId(): string | null {
+    return this.currentChatId
+  }
+
+  /**
    * Connect to WhatsApp
    * Generates QR code for authentication
    */
@@ -197,19 +204,87 @@ export class WhatsAppBotService {
   }
 
   /**
-   * Send a message
+   * Send a text message
    */
-  async sendMessage(chatId: string, text: string): Promise<void> {
+  async sendText(chatId: string, text: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.socket) {
-      throw new Error('WhatsApp not connected')
+      return { success: false, error: 'WhatsApp not connected' }
     }
     
     try {
       const result = await this.socket.sendMessage(chatId, { text })
       console.log('[WhatsApp] Message sent:', result.key.id)
+      return { success: true, messageId: result.key.id }
     } catch (error) {
       console.error('[WhatsApp] Error sending message:', error)
-      throw error
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send an image message
+   */
+  async sendImage(chatId: string, image: string, caption?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.socket) {
+      return { success: false, error: 'WhatsApp not connected' }
+    }
+    
+    try {
+      const result = await this.socket.sendMessage(chatId, {
+        image: { url: image },
+        caption: caption
+      })
+      console.log('[WhatsApp] Image sent:', result.key.id)
+      return { success: true, messageId: result.key.id }
+    } catch (error) {
+      console.error('[WhatsApp] Error sending image:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a document message
+   */
+  async sendDocument(chatId: string, document: string, filename?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.socket) {
+      return { success: false, error: 'WhatsApp not connected' }
+    }
+    
+    try {
+      const result = await this.socket.sendMessage(chatId, {
+        document: { url: document },
+        fileName: filename || 'document',
+        mimetype: 'application/octet-stream'
+      })
+      console.log('[WhatsApp] Document sent:', result.key.id)
+      return { success: true, messageId: result.key.id }
+    } catch (error) {
+      console.error('[WhatsApp] Error sending document:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Send a location message
+   */
+  async sendLocation(chatId: string, latitude: number, longitude: number, description?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.socket) {
+      return { success: false, error: 'WhatsApp not connected' }
+    }
+    
+    try {
+      const result = await this.socket.sendMessage(chatId, {
+        location: {
+          degreesLatitude: latitude,
+          degreesLongitude: longitude,
+          name: description
+        }
+      })
+      console.log('[WhatsApp] Location sent:', result.key.id)
+      return { success: true, messageId: result.key.id }
+    } catch (error) {
+      console.error('[WhatsApp] Error sending location:', error)
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
     }
   }
 
@@ -224,6 +299,9 @@ export class WhatsAppBotService {
                    ''
       
       console.log('[WhatsApp] Message from:', from, 'body:', body)
+      
+      // Set current chat ID
+      this.currentChatId = from
       
       // Store message
       const storedMessage: StoredWhatsAppMessage = {
@@ -247,7 +325,7 @@ export class WhatsAppBotService {
         })
 
         if (response) {
-          await this.sendMessage(from, response)
+          await this.sendText(from, response)
         }
       }
     } catch (error) {
