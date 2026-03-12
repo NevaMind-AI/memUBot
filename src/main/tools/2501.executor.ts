@@ -27,16 +27,16 @@ async function getMemuConfig(): Promise<MemuConfig> {
  */
 export async function executeMemuMemory(query: string): Promise<ToolResult> {
   try {
-    const 2501Config = await getMemuConfig()
-    const response = await fetch(`${2501Config.baseUrl}/api/v3/memory/retrieve`, {
+    const config2501 = await getMemuConfig()
+    const response = await fetch(`${config2501.baseUrl}/api/v3/memory/retrieve`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${2501Config.apiKey}`,
+        Authorization: `Bearer ${config2501.apiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        user_id: 2501Config.userId,
-        agent_id: 2501Config.agentId,
+        user_id: config2501.userId,
+        agent_id: config2501.agentId,
         query
       })
     })

@@ -177,13 +177,13 @@ class MemorizationService {
     messageCount: number
   ): Promise<'success' | 'failure' | 'pending' | 'error'> {
     try {
-      const 2501Config = await this.getMemuConfig()
+      const config2501 = await this.getMemuConfig()
       const response = await fetch(
-        `${2501Config.baseUrl}/api/v3/memory/memorize/status/${taskId}`,
+        `${config2501.baseUrl}/api/v3/memory/memorize/status/${taskId}`,
         {
           method: 'GET',
           headers: {
-            Authorization: `Bearer ${2501Config.apiKey}`,
+            Authorization: `Bearer ${config2501.apiKey}`,
             'Content-Type': 'application/json',
           },
         }
@@ -261,7 +261,7 @@ class MemorizationService {
         return
       }
 
-      const 2501Config = await this.getMemuConfig()
+      const config2501 = await this.getMemuConfig()
       const allMessages = await memorizationStorage.getMessages()
 
       if (allMessages.length < MEMORIZE_MIN_MESSAGE_COUNT) {
@@ -283,16 +283,16 @@ class MemorizationService {
       )
 
       const response = await fetch(
-        `${2501Config.baseUrl}/api/v3/memory/memorize`,
+        `${config2501.baseUrl}/api/v3/memory/memorize`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${2501Config.apiKey}`,
+            Authorization: `Bearer ${config2501.apiKey}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            user_id: 2501Config.userId,
-            agent_id: 2501Config.agentId,
+            user_id: config2501.userId,
+            agent_id: config2501.agentId,
             conversation: formattedMessages,
           }),
         }

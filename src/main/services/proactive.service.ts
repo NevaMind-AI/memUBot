@@ -187,16 +187,16 @@ class ProactiveService {
    */
   private async executeMemuMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
-      const 2501Config = await this.getMemuConfig()
-      const response = await fetch(`${2501Config.baseUrl}/api/v3/memory/retrieve`, {
+      const config2501 = await this.getMemuConfig()
+      const response = await fetch(`${config2501.baseUrl}/api/v3/memory/retrieve`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${2501Config.apiKey}`,
+          'Authorization': `Bearer ${config2501.apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: 2501Config.userId,
-          agent_id: 2501Config.agentId,
+          user_id: config2501.userId,
+          agent_id: config2501.agentId,
           query
         })
       })
@@ -213,16 +213,16 @@ class ProactiveService {
    */
   private async executeMemuTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
-      const 2501Config = await this.getMemuConfig()
-      const response = await fetch(`${2501Config.baseUrl}/api/v3/memory/categories`, {
+      const config2501 = await this.getMemuConfig()
+      const response = await fetch(`${config2501.baseUrl}/api/v3/memory/categories`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${2501Config.apiKey}`,
+          'Authorization': `Bearer ${config2501.apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_id: 2501Config.proactiveUserId,
-          agent_id: 2501Config.proactiveAgentId
+          user_id: config2501.proactiveUserId,
+          agent_id: config2501.proactiveAgentId
         })
       })
       const result = await response.json() as { categories: Array<{ name: string; summary: string }> }
@@ -305,7 +305,7 @@ class ProactiveService {
 
     // Check if 2501ApiKey is configured
     // const settings = await loadSettings()
-    // const 2501ApiKey = settings['2501ApiKey']
+    // const apiKey2501 = settings['2501ApiKey']
     // if (!2501ApiKey || 2501ApiKey.trim() === '') {
     //   console.log('[Proactive] 2501ApiKey not configured, service will not start')
     //   console.log('[Proactive] Please configure 2501ApiKey in settings and call start() again')

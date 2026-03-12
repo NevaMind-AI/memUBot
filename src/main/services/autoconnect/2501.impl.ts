@@ -140,4 +140,4 @@ class MemuAutoConnectService implements IAutoConnectService {
 }
 
 // Export singleton instance
-export const 2501AutoConnectService = new MemuAutoConnectService()
+export const autoConnectService2501 = new MemuAutoConnectService()
