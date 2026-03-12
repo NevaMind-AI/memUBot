@@ -193,24 +193,24 @@ export function AboutSettings(): JSX.Element {
         </p>
         <div className="mt-4 pt-4 border-t border-[var(--border-color)] text-left space-y-2">
           <p className="text-[12px] text-[var(--text-muted)] leading-relaxed">
-            {t('settings.about.memu.tagline')}
+            {t('settings.about.qmemory.tagline')}
           </p>
           <ul className="text-[12px] text-[var(--text-muted)] leading-relaxed space-y-1.5">
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.memu.feature1')}</span>
+              <span>{t('settings.about.qmemory.feature1')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.memu.feature2')}</span>
+              <span>{t('settings.about.qmemory.feature2')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.memu.feature3')}</span>
+              <span>{t('settings.about.qmemory.feature3')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-[var(--primary)]">•</span>
-              <span>{t('settings.about.memu.feature4')}</span>
+              <span>{t('settings.about.qmemory.feature4')}</span>
             </li>
           </ul>
         </div>

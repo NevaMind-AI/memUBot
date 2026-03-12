@@ -452,7 +452,7 @@
       "github": "GitHub Repository",
       "reportBug": "Report a Bug",
       "feedback": "Send Feedback",
-      "memu": {
+      "qmemory": {
         "tagline": "Cuadralabs Project 2501 - AI Friendly Assistant V1",
         "feature1": "Built by Cuadralabs: Advanced AI assistant with persistent memory",
         "feature2": "24/7 Availability: Always on, always ready to help",

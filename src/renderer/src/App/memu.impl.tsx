@@ -20,7 +20,7 @@ import { appIcon } from '../assets'
 type NavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 type AppNavItem = Exclude<NavItem, 'settings'>
 
-const LAST_APP_TAB_KEY = 'memu-last-app-tab'
+const LAST_APP_TAB_KEY = 'qmemory-last-app-tab'
 
 // Get saved tab or default to telegram
 function getSavedAppTab(): AppNavItem {
