@@ -9,6 +9,11 @@ import { appEvents } from '../../events'
 import type { BotStatus, AppMessage } from '../types'
 import type { StoredWhatsAppMessage, WhatsAppConnectionStatus, WhatsAppMessage } from './types'
 
+// Baileys imports
+import makeWASocket, { DisconnectReason, useMultiFileAuthState, fetchLatestBaileysVersion } from '@whiskeysockets/baileys'
+import type { WASocket, ConnectionState, WAMessage, proto } from '@whiskeysockets/baileys'
+import pino from 'pino'
+
 /**
  * WhatsAppBotService manages WhatsApp connection and message handling
  * Uses Baileys library for WhatsApp Web protocol
@@ -23,6 +28,14 @@ export class WhatsAppBotService {
   }
   private currentChatId: string | null = null
   private qrCode: string | null = null
+  private socket: WASocket | null = null
+  private logger: pino.Logger
+
+  constructor() {
+    this.logger = pino({
+      level: 'silent' // Set to 'debug' for more logs
+    })
+  }
 
   /**
    * Connect to WhatsApp
@@ -40,18 +53,96 @@ export class WhatsAppBotService {
         state: 'connecting'
       }
 
-      // TODO: Implement Baileys client initialization
-      // This requires installing @whiskeysockets/baileys
-      // For now, we emit a placeholder status
-      
-      this.status = {
-        platform: 'whatsapp',
-        isConnected: false,
-        error: 'WhatsApp requires Baileys library. Run: npm install @whiskeysockets/baileys'
-      }
+      // Get auth state from storage
+      const authState = await useMultiFileAuthState(whatsappStorage.getSessionPath())
 
-      appEvents.emitWhatsAppStatusChanged(this.status)
-      console.log('[WhatsApp] Connection requires Baileys library installation')
+      // Get latest Baileys version
+      const { version } = await fetchLatestBaileysVersion()
+      console.log('[WhatsApp] Using Baileys version:', version)
+
+      // Create socket
+      this.socket = makeWASocket({
+        version,
+        logger: this.logger,
+        auth: authState.state,
+        printQRInTerminal: false,
+        browser: ['2501-Bot', 'Chrome', '1.0.0'],
+        connectTimeoutMs: 60000,
+        keepAliveIntervalMs: 25000,
+        markOnlineOnConnect: true,
+        syncFullHistory: false,
+        generateHighQualityLinkPreview: true,
+      })
+
+      // Handle connection updates
+      this.socket.ev.on('connection.update', async (update: Partial<ConnectionState>) => {
+        const { connection, lastDisconnect, qr } = update
+
+        if (qr) {
+          // QR code received
+          this.qrCode = qr
+          this.connectionStatus = {
+            state: 'qr',
+            qrCode: qr
+          }
+          console.log('[WhatsApp] QR code generated')
+          appEvents.emitWhatsAppStatusChanged({
+            platform: 'whatsapp',
+            isConnected: false,
+            qrCode: qr
+          })
+        }
+
+        if (connection === 'close') {
+          // Connection closed
+          const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+          console.log('[WhatsApp] Connection closed. Should reconnect:', shouldReconnect)
+          
+          this.status = {
+            platform: 'whatsapp',
+            isConnected: false,
+            error: lastDisconnect?.error?.message
+          }
+          this.connectionStatus = {
+            state: 'disconnected',
+            error: lastDisconnect?.error?.message
+          }
+          appEvents.emitWhatsAppStatusChanged(this.status)
+
+          if (shouldReconnect) {
+            console.log('[WhatsApp] Reconnecting...')
+            await this.connect()
+          }
+        } else if (connection === 'open') {
+          // Connection established
+          this.status = {
+            platform: 'whatsapp',
+            isConnected: true
+          }
+          this.connectionStatus = {
+            state: 'connected'
+          }
+          this.qrCode = null
+          console.log('[WhatsApp] Connected successfully')
+          appEvents.emitWhatsAppStatusChanged(this.status)
+        }
+      })
+
+      // Handle incoming messages
+      this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
+        console.log('[WhatsApp] Received messages:', messages.length, 'type:', type)
+        
+        for (const message of messages) {
+          if (message.key.fromMe) continue // Skip own messages
+          
+          await this.handleIncomingMessage(message)
+        }
+      })
+
+      // Save auth state on update
+      this.socket.ev.on('creds.update', authState.saveState)
+
+      console.log('[WhatsApp] Socket created, waiting for connection...')
     } catch (error) {
       console.error('[WhatsApp] Connection error:', error)
       this.status = {
@@ -68,6 +159,10 @@ export class WhatsAppBotService {
    * Disconnect from WhatsApp
    */
   async disconnect(): Promise<void> {
+    if (this.socket) {
+      await this.socket.end()
+      this.socket = null
+    }
     this.status = {
       platform: 'whatsapp',
       isConnected: false
@@ -105,59 +200,59 @@ export class WhatsAppBotService {
    * Send a message
    */
   async sendMessage(chatId: string, text: string): Promise<void> {
-    if (!this.status.isConnected) {
+    if (!this.socket) {
       throw new Error('WhatsApp not connected')
     }
-    // TODO: Implement message sending with Baileys
-    console.log('[WhatsApp] Sending message to', chatId, ':', text)
+    
+    try {
+      const result = await this.socket.sendMessage(chatId, { text })
+      console.log('[WhatsApp] Message sent:', result.key.id)
+    } catch (error) {
+      console.error('[WhatsApp] Error sending message:', error)
+      throw error
+    }
   }
 
   /**
    * Handle incoming message
    */
-  private async handleIncomingMessage(message: WhatsAppMessage): Promise<void> {
+  private async handleIncomingMessage(message: proto.IWebMessageInfo): Promise<void> {
     try {
-      console.log('[WhatsApp] Received message:', message)
+      const from = message.key.remoteJid || ''
+      const body = message.message?.conversation || 
+                   message.message?.extendedTextMessage?.text || 
+                   ''
+      
+      console.log('[WhatsApp] Message from:', from, 'body:', body)
       
       // Store message
-      await this.storeMessage(message)
+      const storedMessage: StoredWhatsAppMessage = {
+        id: message.key.id || '',
+        from: from,
+        to: 'me',
+        body: body,
+        timestamp: message.messageTimestamp || Date.now(),
+        fromMe: message.key.fromMe || false,
+        hasMedia: false
+      }
+      await whatsappStorage.storeMessage(storedMessage)
       
       // Process with agent
-      if (message.fromMe) {
-        return // Skip own messages
-      }
+      if (body && !message.key.fromMe) {
+        const response = await agentService.processMessage({
+          platform: 'whatsapp',
+          chatId: from,
+          text: body,
+          userId: from
+        })
 
-      const response = await agentService.processMessage({
-        platform: 'whatsapp',
-        chatId: message.from,
-        text: message.body,
-        userId: message.from
-      })
-
-      if (response) {
-        await this.sendMessage(message.from, response)
+        if (response) {
+          await this.sendMessage(from, response)
+        }
       }
     } catch (error) {
       console.error('[WhatsApp] Error handling message:', error)
     }
-  }
-
-  /**
-   * Store message
-   */
-  private async storeMessage(message: WhatsAppMessage): Promise<void> {
-    const storedMessage: StoredWhatsAppMessage = {
-      id: message.id,
-      from: message.from,
-      to: message.to,
-      body: message.body,
-      timestamp: message.timestamp,
-      fromMe: message.fromMe,
-      hasMedia: message.hasMedia,
-      mediaUrl: message.mediaUrl,
-      mediaType: message.mediaType
-    }
-    await whatsappStorage.storeMessage(storedMessage)
   }
 
   /**
