@@ -253,7 +253,7 @@ async function initializeServicesAsync(): Promise<void> {
     if (memStarted) {
       console.log('[App] Memorization service started')
     } else {
-      console.log('[App] Memorization service not started (qmemoryApiKey not configured)')
+      console.log('[App] Memorization service not started (memuApiKey not configured)')
     }
   } catch (error) {
     console.error('[App] Failed to start qmemory.service:', error)
@@ -265,7 +265,7 @@ async function initializeServicesAsync(): Promise<void> {
       if (started) {
         console.log('[App] Proactive service started')
       } else {
-        console.log('[App] Proactive service not started (qmemoryApiKey not configured)')
+        console.log('[App] Proactive service not started (memuApiKey not configured)')
       }
     } catch (error) {
       console.error('[App] Failed to start proactive service:', error)

@@ -124,16 +124,16 @@ export function setupSettingsHandlers(): void {
       try {
         // Get current settings to detect changes
         const previousSettings = await loadSettings()
-        const previousQmemoryApiKey = previousSettings['qmemoryApiKey']
+        const previousQmemoryApiKey = previousSettings['memuApiKey']
         
         await saveSettings(updates)
         
-        // Check if qmemoryApiKey was set (from empty to non-empty)
-        const newQmemoryApiKey = updates['qmemoryApiKey']
+        // Check if memuApiKey was set (from empty to non-empty)
+        const newQmemoryApiKey = updates['memuApiKey']
         if (newQmemoryApiKey && newQmemoryApiKey.trim() !== '' && 
             (!previousQmemoryApiKey || previousQmemoryApiKey.trim() === '')) {
-          // qmemoryApiKey was just configured, try to start proactive service
-          // console.log('[Settings] qmemoryApiKey was set, attempting to start proactive service')
+          // memuApiKey was just configured, try to start proactive service
+          // console.log('[Settings] memuApiKey was set, attempting to start proactive service')
           // try {
           //   const { proactiveService } = await import('../services/proactive.service')
           //   if (!proactiveService.isActive()) {

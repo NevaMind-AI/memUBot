@@ -20,10 +20,10 @@ type Platform = 'telegram' | 'discord' | 'slack' | 'feishu' | 'whatsapp'
 
 // Platform tutorial links
 const platformTutorialLinks: Partial<Record<Platform, string>> = {
-  telegram: 'https://qmemory.bot/tutorial/telegram',
-  discord: 'https://qmemory.bot/tutorial/discord',
-  feishu: 'https://qmemory.bot/tutorial/feishu',
-  whatsapp: 'https://qmemory.bot/tutorial/whatsapp'
+  telegram: 'https://memu.bot/tutorial/telegram',
+  discord: 'https://memu.bot/tutorial/discord',
+  feishu: 'https://memu.bot/tutorial/feishu',
+  whatsapp: 'https://memu.bot/tutorial/whatsapp'
 }
 
 // Bot avatar component - supports Telegram, Discord, Slack, Feishu, and WhatsApp themes

@@ -428,7 +428,7 @@
       "github": "GitHub \u30ea\u30dd\u30b8\u30c8\u30ea",
       "reportBug": "\u30d0\u30b0\u3092\u5831\u544a",
       "feedback": "\u30d5\u30a3\u30fc\u30c9\u30d0\u30c3\u30af\u3092\u9001\u4fe1",
-      "qmemory": {
+      "memu": {
         "tagline": "Cuadralabs Project 2501 - AI Friendly Assistant V1",
         "feature1": "Cuadralabs\u88fd: \u6c38\u7d9a\u7684\u306a\u30e1\u30e2\u30ea\u3092\u6301\u3064\u9ad8\u5ea6\u306aAI\u30a2\u30b7\u30b9\u30bf\u30f3\u30c8",
         "feature2": "24/7\u53ef\u7528\u6027: \u5e38\u306b\u30aa\u30f3\u3001\u5e38\u306b\u6e96\u5099\u5b8c\u4e86",
