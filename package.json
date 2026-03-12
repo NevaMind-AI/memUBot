@@ -37,7 +37,6 @@
     "node-telegram-bot-api": "^0.67.0",
     "openai": "^6.25.0",
     "pino": "^10.3.1",
-    "qrcode-terminal": "^0.12.0",
     "react-i18next": "^16.5.4",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",

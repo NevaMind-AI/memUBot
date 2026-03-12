@@ -93,6 +93,18 @@ export class WhatsAppBotService {
             qrCode: qr
           }
           console.log('[WhatsApp] QR code generated')
+          
+          // Display QR code in terminal for user-friendly access
+          console.log('\n===========================================')
+          console.log('   WhatsApp QR Code - Scan with your phone')
+          console.log('===========================================\n')
+          console.log('QR Code (copy this string):')
+          console.log(qr)
+          console.log('\n===========================================')
+          console.log('   Open WhatsApp > Settings > Linked Devices')
+          console.log('   Point your phone at this QR code to link')
+          console.log('===========================================\n')
+          
           appEvents.emitWhatsAppStatusChanged({
             platform: 'whatsapp',
             isConnected: false,
@@ -107,21 +119,28 @@ export class WhatsAppBotService {
           
           this.status = {
             platform: 'whatsapp',
-            isConnected: false,
-            error: lastDisconnect?.error?.message
+            isConnected: false
           }
           this.connectionStatus = {
-            state: 'disconnected',
-            error: lastDisconnect?.error?.message
+            state: 'disconnected'
           }
-          appEvents.emitWhatsAppStatusChanged(this.status)
-
+          this.qrCode = null
+          
+          appEvents.emitWhatsAppStatusChanged({
+            platform: 'whatsapp',
+            isConnected: false
+          })
+          
           if (shouldReconnect) {
             console.log('[WhatsApp] Reconnecting...')
             await this.connect()
           }
-        } else if (connection === 'open') {
-          // Connection established
+        }
+
+        if (connection === 'open') {
+          // Connection successful
+          console.log('[WhatsApp] Connected successfully!')
+          
           this.status = {
             platform: 'whatsapp',
             isConnected: true
@@ -130,34 +149,49 @@ export class WhatsAppBotService {
             state: 'connected'
           }
           this.qrCode = null
-          console.log('[WhatsApp] Connected successfully')
-          appEvents.emitWhatsAppStatusChanged(this.status)
+          
+          appEvents.emitWhatsAppStatusChanged({
+            platform: 'whatsapp',
+            isConnected: true
+          })
         }
       })
 
       // Handle incoming messages
-      this.socket.ev.on('messages.upsert', async ({ messages, type }) => {
-        console.log('[WhatsApp] Received messages:', messages.length, 'type:', type)
-        
+      this.socket.ev.on('messages.upsert', async ({ messages }: { messages: WAMessage[] }) => {
         for (const message of messages) {
           if (message.key.fromMe) continue // Skip own messages
           
-          await this.handleIncomingMessage(message)
+          try {
+            const chatId = message.key.remoteJid || ''
+            const text = message.message?.conversation || message.message?.extendedTextMessage?.text || ''
+            
+            if (chatId && text) {
+              console.log('[WhatsApp] Message from', chatId, ':', text)
+              
+              // Store message
+              await whatsappStorage.addMessage({
+                id: message.key.id || '',
+                chatId,
+                text,
+                fromMe: false,
+                timestamp: Date.now()
+              })
+              
+              // Process with agent
+              await this.processMessage(chatId, text)
+            }
+          } catch (error) {
+            console.error('[WhatsApp] Error processing message:', error)
+          }
         }
       })
 
-      // Save auth state on update
-      this.socket.ev.on('creds.update', authState.saveState)
-
-      console.log('[WhatsApp] Socket created, waiting for connection...')
     } catch (error) {
       console.error('[WhatsApp] Connection error:', error)
-      this.status = {
-        platform: 'whatsapp',
-        isConnected: false,
-        error: error instanceof Error ? error.message : String(error)
+      this.connectionStatus = {
+        state: 'disconnected'
       }
-      appEvents.emitWhatsAppStatusChanged(this.status)
       throw error
     }
   }
@@ -167,23 +201,34 @@ export class WhatsAppBotService {
    */
   async disconnect(): Promise<void> {
     if (this.socket) {
-      await this.socket.end()
+      await this.socket.end(undefined)
       this.socket = null
+      this.status = {
+        platform: 'whatsapp',
+        isConnected: false
+      }
+      this.connectionStatus = {
+        state: 'disconnected'
+      }
+      this.qrCode = null
+      console.log('[WhatsApp] Disconnected')
+      
+      appEvents.emitWhatsAppStatusChanged({
+        platform: 'whatsapp',
+        isConnected: false
+      })
     }
-    this.status = {
-      platform: 'whatsapp',
-      isConnected: false
-    }
-    this.connectionStatus = {
-      state: 'disconnected'
-    }
-    this.qrCode = null
-    appEvents.emitWhatsAppStatusChanged(this.status)
-    console.log('[WhatsApp] Disconnected')
   }
 
   /**
-   * Get current QR code for authentication
+   * Get connection status
+   */
+  getStatus(): BotStatus {
+    return this.status
+  }
+
+  /**
+   * Get QR code
    */
   getQRCode(): string | null {
     return this.qrCode
@@ -197,154 +242,106 @@ export class WhatsAppBotService {
   }
 
   /**
-   * Get bot status
+   * Send text message
    */
-  getStatus(): BotStatus {
-    return this.status
-  }
-
-  /**
-   * Send a text message
-   */
-  async sendText(chatId: string, text: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendText(chatId: string, text: string): Promise<void> {
     if (!this.socket) {
-      return { success: false, error: 'WhatsApp not connected' }
+      throw new Error('WhatsApp not connected')
     }
     
-    try {
-      const result = await this.socket.sendMessage(chatId, { text })
-      console.log('[WhatsApp] Message sent:', result.key.id)
-      return { success: true, messageId: result.key.id }
-    } catch (error) {
-      console.error('[WhatsApp] Error sending message:', error)
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
+    await this.socket.sendMessage(chatId, { text })
+    
+    // Store message
+    await whatsappStorage.addMessage({
+      id: Date.now().toString(),
+      chatId,
+      text,
+      fromMe: true,
+      timestamp: Date.now()
+    })
   }
 
   /**
-   * Send an image message
+   * Send image message
    */
-  async sendImage(chatId: string, image: string, caption?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendImage(chatId: string, image: Buffer | string, caption?: string): Promise<void> {
     if (!this.socket) {
-      return { success: false, error: 'WhatsApp not connected' }
+      throw new Error('WhatsApp not connected')
     }
     
-    try {
-      const result = await this.socket.sendMessage(chatId, {
-        image: { url: image },
-        caption: caption
-      })
-      console.log('[WhatsApp] Image sent:', result.key.id)
-      return { success: true, messageId: result.key.id }
-    } catch (error) {
-      console.error('[WhatsApp] Error sending image:', error)
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
+    const imageBuffer = typeof image === 'string' ? Buffer.from(image, 'base64') : image
+    
+    await this.socket.sendMessage(chatId, {
+      image: imageBuffer,
+      caption: caption
+    })
   }
 
   /**
-   * Send a document message
+   * Send document message
    */
-  async sendDocument(chatId: string, document: string, filename?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendDocument(chatId: string, document: Buffer | string, filename: string): Promise<void> {
     if (!this.socket) {
-      return { success: false, error: 'WhatsApp not connected' }
+      throw new Error('WhatsApp not connected')
     }
     
-    try {
-      const result = await this.socket.sendMessage(chatId, {
-        document: { url: document },
-        fileName: filename || 'document',
-        mimetype: 'application/octet-stream'
-      })
-      console.log('[WhatsApp] Document sent:', result.key.id)
-      return { success: true, messageId: result.key.id }
-    } catch (error) {
-      console.error('[WhatsApp] Error sending document:', error)
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
+    const documentBuffer = typeof document === 'string' ? Buffer.from(document, 'base64') : document
+    
+    await this.socket.sendMessage(chatId, {
+      document: documentBuffer,
+      mimetype: 'application/octet-stream',
+      fileName: filename
+    })
   }
 
   /**
-   * Send a location message
+   * Send location message
    */
-  async sendLocation(chatId: string, latitude: number, longitude: number, description?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  async sendLocation(chatId: string, latitude: number, longitude: number, description?: string): Promise<void> {
     if (!this.socket) {
-      return { success: false, error: 'WhatsApp not connected' }
+      throw new Error('WhatsApp not connected')
     }
     
-    try {
-      const result = await this.socket.sendMessage(chatId, {
-        location: {
-          degreesLatitude: latitude,
-          degreesLongitude: longitude,
-          name: description
-        }
-      })
-      console.log('[WhatsApp] Location sent:', result.key.id)
-      return { success: true, messageId: result.key.id }
-    } catch (error) {
-      console.error('[WhatsApp] Error sending location:', error)
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
-  }
-
-  /**
-   * Handle incoming message
-   */
-  private async handleIncomingMessage(message: proto.IWebMessageInfo): Promise<void> {
-    try {
-      const from = message.key.remoteJid || ''
-      const body = message.message?.conversation || 
-                   message.message?.extendedTextMessage?.text || 
-                   ''
-      
-      console.log('[WhatsApp] Message from:', from, 'body:', body)
-      
-      // Set current chat ID
-      this.currentChatId = from
-      
-      // Store message
-      const storedMessage: StoredWhatsAppMessage = {
-        id: message.key.id || '',
-        from: from,
-        to: 'me',
-        body: body,
-        timestamp: message.messageTimestamp || Date.now(),
-        fromMe: message.key.fromMe || false,
-        hasMedia: false
+    await this.socket.sendMessage(chatId, {
+      location: {
+        degreesLatitude: latitude,
+        degreesLongitude: longitude
       }
-      await whatsappStorage.storeMessage(storedMessage)
-      
-      // Process with agent
-      if (body && !message.key.fromMe) {
-        const response = await agentService.processMessage({
-          platform: 'whatsapp',
-          chatId: from,
-          text: body,
-          userId: from
-        })
-
-        if (response) {
-          await this.sendText(from, response)
-        }
-      }
-    } catch (error) {
-      console.error('[WhatsApp] Error handling message:', error)
-    }
+    })
   }
 
   /**
-   * Get message history
+   * Get messages for a chat
    */
   async getMessages(chatId: string, limit: number = 50): Promise<StoredWhatsAppMessage[]> {
     return await whatsappStorage.getMessages(chatId, limit)
   }
 
   /**
-   * Clear message history
+   * Clear messages for a chat
    */
-  async clearMessages(chatId?: string): Promise<void> {
+  async clearMessages(chatId: string): Promise<void> {
     await whatsappStorage.clearMessages(chatId)
+  }
+
+  /**
+   * Process message with agent
+   */
+  private async processMessage(chatId: string, text: string): Promise<void> {
+    try {
+      // Set current chat ID
+      this.currentChatId = chatId
+      
+      // Process with agent
+      const response = await agentService.processMessage(text, 'whatsapp')
+      
+      // Send response
+      if (response) {
+        await this.sendText(chatId, response)
+      }
+    } catch (error) {
+      console.error('[WhatsApp] Error processing message with agent:', error)
+    }
   }
 }
 
