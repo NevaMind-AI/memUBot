@@ -347,12 +347,12 @@ export function GeneralSettings(): JSX.Element {
           )}
         </div>
 
-        {/* Memu Settings */}
+        {/* Qmemory Settings */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[var(--primary)]/30 shadow-sm">
           <div className="mb-3">
             <div className="flex items-center gap-2">
               <div className="w-5 h-5 rounded-md flex items-center justify-center p-0.5">
-                <img src={logoSvg} alt="memU" className="w-full h-full" />
+                <img src={logoSvg} alt="Project 2501" className="w-full h-full" />
               </div>
               <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
                 {t('settings.qmemory.title')}

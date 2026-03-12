@@ -2,7 +2,7 @@
  * Sidebar component types
  */
 
-// Memu navigation items (all platforms)
+// Qmemory navigation items (all platforms)
 export type QmemoryNavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 
 // Union type for all possible nav items

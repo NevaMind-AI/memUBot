@@ -1,5 +1,5 @@
 /**
- * Sidebar - Memu Implementation
+ * Sidebar - Qmemory Implementation
  * Shows all messaging platforms (Telegram, Discord, Slack, WhatsApp, Feishu)
  */
 import { Settings, Sun, Moon, Monitor } from 'lucide-react'

@@ -1,7 +1,7 @@
 /**
  * App Component
  */
-import { QmemoryApp } from './memu.impl'
+import { QmemoryApp } from './qmemory.impl'
 
 const App = QmemoryApp
 
