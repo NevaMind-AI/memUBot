@@ -4,7 +4,7 @@ import type Anthropic from '@anthropic-ai/sdk'
  * Memu tool definitions for memory retrieval
  * Used by the agent to recall facts, past events, or context about the user.
  */
-export const 2501Tools: Anthropic.Tool[] = [
+export const tools2501: Anthropic.Tool[] = [
   {
     name: '2501_memory',
     description: 'Retrieve memory based on a query. Use this to recall facts, past events, or context about the user.',

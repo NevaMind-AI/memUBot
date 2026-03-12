@@ -178,7 +178,7 @@ class ProactiveService {
     const platformTools = getMacOSTools() // Returns empty array on non-macOS
     const mcpTools = mcpService.getTools()
     
-    return [...baseTools, ...platformTools, ...mcpTools, ...2501Tools]
+    return [...baseTools, ...platformTools, ...mcpTools, ...tools2501]
   }
 
   /**
