@@ -33,6 +33,7 @@ jobs:
         if: github.event_name == 'pull_request' || github.ref != 'refs/tags/v*'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:2501:mac
 
       - name: Build macOS DMG (Signed & Notarized)
@@ -42,6 +43,7 @@ jobs:
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm run build:2501:mac
 
       - name: Upload DMG artifacts
