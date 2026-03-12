@@ -104,10 +104,10 @@ interface AppSettings {
   maxArchives: number
   maxRecentMessages: number
   archiveChunkSize: number
-  2501BaseUrl: string
-  2501ApiKey: string
-  2501UserId: string
-  2501AgentId: string
+  "2501BaseUrl": string
+  "2501ApiKey": string
+  "2501UserId": string
+  "2501AgentId": string
   telegramBotToken: string
   telegramAutoConnect: boolean
   discordBotToken: string
