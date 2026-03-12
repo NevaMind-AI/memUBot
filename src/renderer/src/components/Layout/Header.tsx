@@ -3,7 +3,7 @@ import { Power, Loader2, Circle, Users, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from '../Toast'
 import { BoundUsersModal, LLMStatusIndicator } from '../Shared'
-import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
+import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon, WhatsAppIcon } from '../Icons/AppIcons'
 
 interface HeaderProps {
   title: string
@@ -12,19 +12,21 @@ interface HeaderProps {
   showDiscordStatus?: boolean
   showSlackStatus?: boolean
   showFeishuStatus?: boolean
+  showWhatsAppStatus?: boolean
   onShowActivity?: () => void
 }
 
-type Platform = 'telegram' | 'discord' | 'slack' | 'feishu'
+type Platform = 'telegram' | 'discord' | 'slack' | 'feishu' | 'whatsapp'
 
 // Platform tutorial links
 const platformTutorialLinks: Partial<Record<Platform, string>> = {
   telegram: 'https://memu.bot/tutorial/telegram',
   discord: 'https://memu.bot/tutorial/discord',
-  feishu: 'https://memu.bot/tutorial/feishu'
+  feishu: 'https://memu.bot/tutorial/feishu',
+  whatsapp: 'https://memu.bot/tutorial/whatsapp'
 }
 
-// Bot avatar component - supports Telegram, Discord, and Slack themes
+// Bot avatar component - supports Telegram, Discord, Slack, Feishu, and WhatsApp themes
 function BotAvatar({
   isConnected,
   avatarUrl,
@@ -38,7 +40,8 @@ function BotAvatar({
     telegram: { from: '#7DCBF7', to: '#2596D1', border: '#7DCBF7' },
     discord: { from: '#5865F2', to: '#7289DA', border: '#5865F2' },
     slack: { from: '#4A154B', to: '#611F69', border: '#4A154B' },
-    feishu: { from: '#3370FF', to: '#5B8FF9', border: '#3370FF' }
+    feishu: { from: '#3370FF', to: '#5B8FF9', border: '#3370FF' },
+    whatsapp: { from: '#25D366', to: '#128C7E', border: '#25D366' }
   }
   const colors = colorMap[platform]
 
@@ -59,7 +62,8 @@ function BotAvatar({
     telegram: TelegramIcon,
     discord: DiscordIcon,
     slack: SlackIcon,
-    feishu: FeishuIcon
+    feishu: FeishuIcon,
+    whatsapp: WhatsAppIcon
   }
   const PlatformIcon = iconMap[platform]
 
@@ -90,12 +94,13 @@ interface BotStatus {
   error?: string
 }
 
-export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus, onShowActivity }: HeaderProps): JSX.Element {
+export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus, showSlackStatus, showFeishuStatus, showWhatsAppStatus, onShowActivity }: HeaderProps): JSX.Element {
   const { t } = useTranslation()
   const [telegramStatus, setTelegramStatus] = useState<BotStatus | null>(null)
   const [discordStatus, setDiscordStatus] = useState<BotStatus | null>(null)
   const [slackStatus, setSlackStatus] = useState<BotStatus | null>(null)
   const [feishuStatus, setFeishuStatus] = useState<BotStatus | null>(null)
+  const [whatsappStatus, setWhatsappStatus] = useState<BotStatus | null>(null)
   const [connecting, setConnecting] = useState(false)
   const [showBoundUsers, setShowBoundUsers] = useState(false)
 
@@ -108,6 +113,8 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     ? 'slack'
     : showFeishuStatus
     ? 'feishu'
+    : showWhatsAppStatus
+    ? 'whatsapp'
     : null
 
   // Current platform status
@@ -119,6 +126,8 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     ? slackStatus
     : showFeishuStatus
     ? feishuStatus
+    : showWhatsAppStatus
+    ? whatsappStatus
     : null
 
   // Platform colors
@@ -126,7 +135,8 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     telegram: { from: '#7DCBF7', to: '#2596D1', shadow: '#2596D1' },
     discord: { from: '#5865F2', to: '#7289DA', shadow: '#5865F2' },
     slack: { from: '#4A154B', to: '#611F69', shadow: '#4A154B' },
-    feishu: { from: '#3370FF', to: '#5B8FF9', shadow: '#3370FF' }
+    feishu: { from: '#3370FF', to: '#5B8FF9', shadow: '#3370FF' },
+    whatsapp: { from: '#25D366', to: '#128C7E', shadow: '#25D366' }
   }
   const platformColors = platform ? platformColorMap[platform] : platformColorMap.telegram
 
@@ -174,6 +184,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }, [showFeishuStatus])
 
+  // Subscribe to WhatsApp status
+  useEffect(() => {
+    if (showWhatsAppStatus) {
+      checkWhatsAppStatus()
+      const unsubscribe = window.whatsapp.onStatusChanged((newStatus: BotStatus) => {
+        setWhatsappStatus(newStatus)
+      })
+      return () => unsubscribe()
+    }
+  }, [showWhatsAppStatus])
+
   const checkTelegramStatus = async () => {
     try {
       const result = await window.telegram.getStatus()
@@ -218,6 +239,17 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
     }
   }
 
+  const checkWhatsAppStatus = async () => {
+    try {
+      const result = await window.whatsapp.getStatus()
+      if (result.success && result.data) {
+        setWhatsappStatus(result.data)
+      }
+    } catch (error) {
+      console.error('Failed to get WhatsApp status:', error)
+    }
+  }
+
   const handleConnect = async () => {
     setConnecting(true)
     try {
@@ -257,6 +289,15 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
           toast.success(`Feishu ${t('common.connected').toLowerCase()}`)
         }
         await checkFeishuStatus()
+      } else if (showWhatsAppStatus) {
+        const result = await window.whatsapp.connect()
+        if (!result.success) {
+          setWhatsappStatus({ platform: 'whatsapp', isConnected: false, error: result.error })
+          toast.error(result.error || t('errors.connectionFailed'))
+        } else {
+          toast.success(`WhatsApp ${t('common.connected').toLowerCase()}`)
+        }
+        await checkWhatsAppStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
@@ -283,6 +324,10 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
         await window.feishu.disconnect()
         toast.info(`Feishu ${t('common.disconnected').toLowerCase()}`)
         await checkFeishuStatus()
+      } else if (showWhatsAppStatus) {
+        await window.whatsapp.disconnect()
+        toast.info(`WhatsApp ${t('common.disconnected').toLowerCase()}`)
+        await checkWhatsAppStatus()
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : t('errors.connectionFailed')
@@ -292,7 +337,7 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
   }
 
   const isConnected = status?.isConnected
-  const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus || showFeishuStatus
+  const showStatus = showTelegramStatus || showDiscordStatus || showSlackStatus || showFeishuStatus || showWhatsAppStatus
 
   // Get display info based on connection status
   const platformName = platform ? t(`nav.${platform}`) : ''
@@ -414,6 +459,11 @@ export function Header({ title, subtitle, showTelegramStatus, showDiscordStatus,
       {/* Bound Users Modal - Feishu */}
       {showFeishuStatus && (
         <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="feishu" />
+      )}
+
+      {/* Bound Users Modal - WhatsApp */}
+      {showWhatsAppStatus && (
+        <BoundUsersModal isOpen={showBoundUsers} onClose={() => setShowBoundUsers(false)} platform="whatsapp" />
       )}
     </header>
   )
