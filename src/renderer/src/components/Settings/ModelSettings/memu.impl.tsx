@@ -93,7 +93,7 @@ export function MemuModelSettings(): JSX.Element {
           </div>
           <Slider
             min={1024}
-            max={16384}
+            max={51200}
             step={1024}
             value={settings.maxTokens || 8192}
             onChange={(value) => setSettings({ ...settings, maxTokens: value })}
