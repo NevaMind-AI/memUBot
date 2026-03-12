@@ -38,7 +38,7 @@ const contextMessageWindowSize = 20
 /**
  * Memu tools definitions for memory retrieval
  */
-const 2501Tools: Anthropic.Tool[] = [
+const tools2501: Anthropic.Tool[] = [
   {
     name: '2501_memory',
     description: 'Retrieve memory based on a query. Use this to recall past conversations, facts, or context about the user.',
