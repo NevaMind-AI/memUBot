@@ -60,7 +60,6 @@
     "optional": "optional",
     "required": "required",
     "viewAll": "View All",
-    "refresh": "Refresh",
     "retry": "Retry",
     "back": "Back",
     "next": "Next",
@@ -109,10 +108,6 @@
       "registerError": "Registration failed, please try again",
       "passwordMismatch": "Passwords do not match",
       "passwordTooShort": "Password must be at least 6 characters",
-      "forgotPassword": "Forgot password?",
-      "enterEmailFirst": "Please enter your email address first",
-      "resetEmailSent": "Password reset email sent, please check your inbox",
-      "resetEmailError": "Failed to send reset email, please try again",
       "forgotPassword": "Forgot password?",
       "enterEmailFirst": "Please enter your email address first",
       "resetEmailSent": "Password reset email sent, please check your inbox",
@@ -208,7 +203,7 @@
         "channelSecret": "Channel Secret"
       },
       "feishu": {
-        "title": "Feishu (飞书)",
+        "title": "Feishu (\u98de\u4e66)",
         "appId": "App ID",
         "appIdPlaceholder": "cli_xxxxxxxx",
         "appIdHint": "App ID from Feishu Open Platform",
@@ -435,7 +430,7 @@
       "description": "Application information",
       "version": "Version",
       "2501": {
-        "tagline": "Your AI teammate powered by Project 2501 — always on, always ready.",
+        "tagline": "Your AI teammate powered by Project 2501 \u2014 always on, always ready.",
         "feature1": "Built on Project 2501: Persistent memory across sessions for contextual understanding",
         "feature2": "24/7 Availability: Works around the clock, never misses a message",
         "feature3": "Proactive Assistant: Anticipates needs and takes initiative",
@@ -453,7 +448,14 @@
       "licenses": "Open Source Licenses",
       "github": "GitHub Repository",
       "reportBug": "Report a Bug",
-      "feedback": "Send Feedback"
+      "feedback": "Send Feedback",
+      "memu": {
+        "tagline": "Cuadralabs Project 2501 - AI Friendly Assistant V1",
+        "feature1": "Built by Cuadralabs: Advanced AI assistant with persistent memory",
+        "feature2": "24/7 Availability: Always on, always ready to help",
+        "feature3": "Proactive Intelligence: Anticipates needs and takes initiative",
+        "feature4": "Multi-Platform: Works across Telegram, Discord, Slack, and more"
+      }
     },
     "saved": "Settings saved",
     "saveError": "Failed to save settings",
@@ -543,10 +545,10 @@
     "close": "Close",
     "accessCount": "{{count}} account(s) can access this bot",
     "bindHint": {
-      "telegram": "Send /bind <code> to the bot. Get code from Settings → Security.",
-      "discord": "Mention the bot with @bot /bind <code>. Get code from Settings → Security.",
-      "slack": "Use /bind <code> command or send @bot /bind <code>. Get code from Settings → Security.",
-      "feishu": "Send /bind <code> command to the bot in Feishu. Get code from Settings → Security."
+      "telegram": "Send /bind <code> to the bot. Get code from Settings \u2192 Security.",
+      "discord": "Mention the bot with @bot /bind <code>. Get code from Settings \u2192 Security.",
+      "slack": "Use /bind <code> command or send @bot /bind <code>. Get code from Settings \u2192 Security.",
+      "feishu": "Send /bind <code> command to the bot in Feishu. Get code from Settings \u2192 Security."
     }
   },
   "time": {
@@ -582,7 +584,7 @@
     }
   },
   "agent": {
-    "busySamePlatform": "⏳ Still processing your previous message. Please wait a moment.",
-    "busyCrossPlatform": "⏳ Currently processing a message from {{platform}}. Please wait a moment."
+    "busySamePlatform": "\u23f3 Still processing your previous message. Please wait a moment.",
+    "busyCrossPlatform": "\u23f3 Currently processing a message from {{platform}}. Please wait a moment."
   }
 }
