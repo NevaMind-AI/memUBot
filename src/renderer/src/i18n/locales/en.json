@@ -194,6 +194,9 @@
         "appTokenHint": "App-Level Token for Socket Mode"
       },
       "whatsapp": {
+        "connectedHint": "WhatsApp is connected and ready to use.",
+        "qrHint": "Click Connect to generate a QR code for WhatsApp authentication.",
+        "scanQR": "Scan this QR code with WhatsApp on your phone"
         "title": "WhatsApp",
         "hint": "WhatsApp uses QR code authentication"
       },

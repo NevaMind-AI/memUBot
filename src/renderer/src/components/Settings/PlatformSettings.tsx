@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../Icons/AppIcons'
-import { 
-  AppSettings, 
-  UnsavedChangesBar, 
-  MessageDisplay, 
-  LoadingSpinner 
+import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon, WhatsAppIcon } from '../Icons/AppIcons'
+import {
+  AppSettings,
+  UnsavedChangesBar,
+  MessageDisplay,
+  LoadingSpinner
 } from './shared'
 
 export function PlatformSettings(): JSX.Element {
@@ -15,9 +15,12 @@ export function PlatformSettings(): JSX.Element {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [whatsappStatus, setWhatsappStatus] = useState<{ isConnected: boolean; qrCode?: string }>({ isConnected: false })
+  const [whatsappConnecting, setWhatsappConnecting] = useState(false)
 
   useEffect(() => {
     loadSettings()
+    loadWhatsAppStatus()
   }, [])
 
   const loadSettings = async () => {
@@ -32,6 +35,69 @@ export function PlatformSettings(): JSX.Element {
       console.error('Failed to load settings:', error)
     }
     setLoading(false)
+  }
+
+  const loadWhatsAppStatus = async () => {
+    try {
+      const result = await window.whatsapp.status()
+      if (result.success && result.data) {
+        setWhatsappStatus({
+          isConnected: result.data.isConnected,
+          qrCode: result.data.qrCode
+        })
+      }
+    } catch (error) {
+      console.error('Failed to load WhatsApp status:', error)
+    }
+  }
+
+  const handleWhatsAppConnect = async () => {
+    setWhatsappConnecting(true)
+    try {
+      const result = await window.whatsapp.connect()
+      if (result.success) {
+        // Poll for QR code
+        const pollInterval = setInterval(async () => {
+          const statusResult = await window.whatsapp.status()
+          if (statusResult.success && statusResult.data) {
+            setWhatsappStatus({
+              isConnected: statusResult.data.isConnected,
+              qrCode: statusResult.data.qrCode
+            })
+            if (statusResult.data.isConnected) {
+              clearInterval(pollInterval)
+              setWhatsappConnecting(false)
+            }
+          }
+        }, 1000)
+        
+        // Stop polling after 60 seconds
+        setTimeout(() => {
+          clearInterval(pollInterval)
+          setWhatsappConnecting(false)
+        }, 60000)
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to connect to WhatsApp' })
+        setWhatsappConnecting(false)
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to connect to WhatsApp' })
+      setWhatsappConnecting(false)
+    }
+  }
+
+  const handleWhatsAppDisconnect = async () => {
+    try {
+      const result = await window.whatsapp.disconnect()
+      if (result.success) {
+        setWhatsappStatus({ isConnected: false })
+        setMessage({ type: 'success', text: 'WhatsApp disconnected' })
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to disconnect' })
+      }
+    } catch (error) {
+      setMessage({ type: 'error', text: 'Failed to disconnect' })
+    }
   }
 
   const hasChanges =
@@ -92,6 +158,64 @@ export function PlatformSettings(): JSX.Element {
       </div>
 
       <div className="space-y-3">
+        {/* WhatsApp Authentication */}
+        <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#25D366]/30 shadow-sm">
+          <div className="mb-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-5 h-5 rounded-md bg-gradient-to-br from-[#25D366] to-[#128C7E] flex items-center justify-center">
+                  <WhatsAppIcon className="w-3 h-3 text-white" />
+                </div>
+                <h4 className="text-[13px] font-medium text-[var(--text-primary)]">
+                  WhatsApp
+                </h4>
+              </div>
+              {/* Connection Status */}
+              <div className="flex items-center gap-2">
+                {whatsappStatus.isConnected ? (
+                  <>
+                    <span className="text-[10px] text-green-500">{t('settings.platforms.connected')}</span>
+                    <button
+                      onClick={handleWhatsAppDisconnect}
+                      className="px-3 py-1.5 text-[11px] rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors"
+                    >
+                      {t('settings.platforms.disconnect')}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={handleWhatsAppConnect}
+                    disabled={whatsappConnecting}
+                    className="px-3 py-1.5 text-[11px] rounded-lg bg-[#25D366]/10 text-[#25D366] hover:bg-[#25D366]/20 transition-colors disabled:opacity-50"
+                  >
+                    {whatsappConnecting ? t('settings.platforms.connecting') : t('settings.platforms.connect')}
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="text-[11px] text-[var(--text-muted)] mt-1">
+              {whatsappStatus.isConnected 
+                ? t('settings.platforms.whatsapp.connectedHint')
+                : t('settings.platforms.whatsapp.qrHint')}
+            </p>
+          </div>
+          {/* QR Code Display */}
+          {whatsappStatus.qrCode && !whatsappStatus.isConnected && (
+            <div className="mt-3 p-4 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)]">
+              <div className="text-center">
+                <p className="text-[11px] text-[var(--text-muted)] mb-2">
+                  {t('settings.platforms.whatsapp.scanQR')}
+                </p>
+                <div className="inline-block p-3 bg-white rounded-lg">
+                  <code className="text-[10px] text-gray-800 break-all max-w-[200px]">
+                    {whatsappStatus.qrCode.substring(0, 50)}...
+                  </code>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Telegram Token */}
         <div className="p-4 rounded-2xl bg-[var(--glass-bg)] backdrop-blur-xl border border-[#0088cc]/30 shadow-sm">
           <div className="mb-3">
