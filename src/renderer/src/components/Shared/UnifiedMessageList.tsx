@@ -1,4 +1,5 @@
 import { Loader2 } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 import { useMessageList, BaseMessage, MessageApi } from '../../hooks/useMessageList'
 import { MessageBubble, ThemeColors, MessageAttachment } from './MessageBubble'
 import { ComponentType, SVGProps } from 'react'
@@ -63,7 +64,9 @@ export function UnifiedMessageList({
     userAvatars,
     containerRef,
     messagesEndRef,
-    handleScroll
+    handleScroll,
+    qrCode,
+    connectionState
   } = useMessageList({
     api,
     pageSize,
@@ -92,6 +95,21 @@ export function UnifiedMessageList({
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-[var(--text-muted)]">Loading messages...</div>
+      </div>
+    )
+  }
+
+  // QR code state for WhatsApp
+  if (connectionState === 'qr_ready' && qrCode) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center gap-4">
+        <div className="text-[var(--text-muted)]">Scan QR code with WhatsApp</div>
+        <div className="bg-white p-4 rounded-lg">
+          <QRCodeSVG value={qrCode} size={256} />
+        </div>
+        <div className="text-sm text-[var(--text-muted)]">
+          Open WhatsApp → Settings → Linked Devices → Link a Device
+        </div>
       </div>
     )
   }

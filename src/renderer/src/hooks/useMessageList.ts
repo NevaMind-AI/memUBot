@@ -19,6 +19,8 @@ export interface BotStatus {
   username?: string
   botName?: string
   avatarUrl?: string
+  qrCode?: string
+  state?: string
 }
 
 // Map of senderId -> avatarUrl
@@ -48,6 +50,8 @@ interface UseMessageListReturn {
   containerRef: React.RefObject<HTMLDivElement>
   messagesEndRef: React.RefObject<HTMLDivElement>
   handleScroll: () => void
+  qrCode: string | null
+  connectionState: string | null
 }
 
 const DEFAULT_PAGE_SIZE = 20
@@ -62,6 +66,8 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
   const [hasMore, setHasMore] = useState(true)
   const [botAvatarUrl, setBotAvatarUrl] = useState<string | null>(null)
   const [userAvatars, setUserAvatars] = useState<UserAvatarMap>({})
+  const [qrCode, setQrCode] = useState<string | null>(null)
+  const [connectionState, setConnectionState] = useState<string | null>(null)
   
   const containerRef = useRef<HTMLDivElement>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -151,6 +157,8 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
       const result = await api.getStatus()
       if (result.success && result.data) {
         setBotAvatarUrl(result.data.avatarUrl || null)
+        setQrCode(result.data.qrCode || null)
+        setConnectionState(result.data.state || null)
       }
     } catch (error) {
       console.error('Failed to load bot status:', error)
@@ -217,6 +225,8 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
 
     const unsubscribeStatus = api.onStatusChanged((status: BotStatus) => {
       setBotAvatarUrl(status.avatarUrl || null)
+      setQrCode(status.qrCode || null)
+      setConnectionState(status.state || null)
     })
 
     // Subscribe to messages refresh event (triggered after chat history deletion)
@@ -262,6 +272,8 @@ export function useMessageList({ api, pageSize = DEFAULT_PAGE_SIZE, platform }: 
     userAvatars,
     containerRef,
     messagesEndRef,
-    handleScroll
+    handleScroll,
+    qrCode,
+    connectionState
   }
 }
