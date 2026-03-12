@@ -16,7 +16,7 @@ import { AboutSettings } from '../AboutSettings'
 
 type SettingsTab = 'general' | 'platforms' | 'security' | 'model' | 'skills' | 'services' | 'mcp' | 'data' | 'power' | 'experimental' | 'about'
 
-export function MemuSettingsView(): JSX.Element {
+export function QmemorySettingsView(): JSX.Element {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<SettingsTab>('general')
 

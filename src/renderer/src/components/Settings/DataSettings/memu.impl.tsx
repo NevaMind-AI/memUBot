@@ -15,7 +15,7 @@ interface StorageInfo {
   folders: StorageFolder[]
 }
 
-export function MemuDataSettings(): JSX.Element {
+export function QmemoryDataSettings(): JSX.Element {
   const { t } = useTranslation()
   const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null)
   const [loading, setLoading] = useState(true)

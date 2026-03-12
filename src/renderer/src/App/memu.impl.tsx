@@ -38,7 +38,7 @@ interface StartupStatus {
   progress: number
 }
 
-export function MemuApp(): JSX.Element {
+export function QmemoryApp(): JSX.Element {
   const { t } = useTranslation()
   const [activeNav, setActiveNav] = useState<NavItem>(getSavedAppTab)
   const themeMode = useThemeStore((state) => state.mode)

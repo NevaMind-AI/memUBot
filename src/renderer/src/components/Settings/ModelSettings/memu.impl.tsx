@@ -8,7 +8,7 @@ import {
   LoadingSpinner 
 } from '../shared'
 
-export function MemuModelSettings(): JSX.Element {
+export function QmemoryModelSettings(): JSX.Element {
   const { t } = useTranslation()
   const [settings, setSettings] = useState<Partial<AppSettings>>({})
   const [originalSettings, setOriginalSettings] = useState<Partial<AppSettings>>({})

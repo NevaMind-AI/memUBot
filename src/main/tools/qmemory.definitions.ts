@@ -1,7 +1,7 @@
 import type Anthropic from '@anthropic-ai/sdk'
 
 /**
- * Memu tool definitions for memory retrieval
+ * Qmemory tool definitions for memory retrieval
  * Used by the agent to recall facts, past events, or context about the user.
  */
 export const tools2501: Anthropic.Tool[] = [

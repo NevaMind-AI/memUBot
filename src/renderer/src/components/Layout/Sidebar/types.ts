@@ -3,15 +3,15 @@
  */
 
 // Memu navigation items (all platforms)
-export type MemuNavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
+export type QmemoryNavItem = 'telegram' | 'discord' | 'whatsapp' | 'slack' | 'line' | 'feishu' | 'settings'
 
 // Union type for all possible nav items
-export type NavItem = MemuNavItem
+export type NavItem = QmemoryNavItem
 
 // Sidebar props
-export interface MemuSidebarProps {
-  activeNav: MemuNavItem
-  onNavChange: (nav: MemuNavItem) => void
+export interface QmemorySidebarProps {
+  activeNav: QmemoryNavItem
+  onNavChange: (nav: QmemoryNavItem) => void
 }
 
 // Generic props for the exported Sidebar
