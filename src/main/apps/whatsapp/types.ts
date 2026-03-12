@@ -1,40 +1,49 @@
 /**
- * WhatsApp-specific types
+ * WhatsApp Types
+ * Type definitions for WhatsApp bot service
  */
 
-// Attachment type for stored messages
-export interface StoredAttachment {
+export interface WhatsAppMessage {
   id: string
-  name: string
-  url?: string
-  mimetype?: string
-  data?: string // Base64 encoded for local storage
-  size: number
+  from: string
+  to: string
+  body: string
+  timestamp: number
+  fromMe: boolean
+  hasMedia?: boolean
+  mediaUrl?: string
+  mediaType?: string
 }
 
-// Stored message format
-export interface StoredWhatsAppMessage {
-  messageId: string
-  chatId: string
-  fromId: string
-  fromName: string
-  fromPushName?: string
-  text?: string
-  attachments?: StoredAttachment[]
-  date: number // Unix timestamp in seconds
-  replyToMessageId?: string
-  isFromBot: boolean
+export interface StoredWhatsAppMessage extends WhatsAppMessage {
+  id: string
+  from: string
+  to: string
+  body: string
+  timestamp: number
+  fromMe: boolean
+  hasMedia?: boolean
+  mediaUrl?: string
+  mediaType?: string
 }
 
-// WhatsApp chat info
+export interface WhatsAppConnectionStatus {
+  state: 'disconnected' | 'connecting' | 'connected' | 'qr'
+  qrCode?: string
+  error?: string
+}
+
 export interface WhatsAppChat {
   id: string
   name: string
   isGroup: boolean
+  unreadCount: number
+  lastMessage?: WhatsAppMessage
 }
 
-// WhatsApp connection status
-export interface WhatsAppConnectionStatus {
-  state: 'disconnected' | 'connecting' | 'qr_ready' | 'connected' | 'authenticated'
-  qrCode?: string
+export interface WhatsAppContact {
+  id: string
+  name: string
+  number: string
+  isMe: boolean
 }

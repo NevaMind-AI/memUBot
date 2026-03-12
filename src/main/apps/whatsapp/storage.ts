@@ -1,156 +1,117 @@
+import { app } from 'electron'
 import * as fs from 'fs/promises'
 import * as path from 'path'
-import { app } from 'electron'
 import type { StoredWhatsAppMessage } from './types'
 
-const STORAGE_DIR = 'whatsapp-data'
-const MESSAGES_FILE = 'messages.json'
-
 /**
- * WhatsApp message storage
- * Single-user mode: stores all messages in a flat list
+ * WhatsApp Storage
+ * Handles persistent storage for WhatsApp messages and session data
  */
 class WhatsAppStorage {
-  private storagePath: string
-  private messages: StoredWhatsAppMessage[] = []
-  private initialized = false
+  private dataDir: string
+  private sessionDir: string
+  private messagesDir: string
 
   constructor() {
-    this.storagePath = path.join(app.getPath('userData'), STORAGE_DIR)
+    this.dataDir = path.join(app.getPath('userData'), 'whatsapp-data')
+    this.sessionDir = path.join(this.dataDir, 'session')
+    this.messagesDir = path.join(this.dataDir, 'messages')
   }
 
   /**
-   * Initialize storage and load data
+   * Initialize storage directories
    */
   async initialize(): Promise<void> {
-    if (this.initialized) return
-    await fs.mkdir(this.storagePath, { recursive: true })
-    await this.loadData()
-    this.initialized = true
+    await fs.mkdir(this.dataDir, { recursive: true })
+    await fs.mkdir(this.sessionDir, { recursive: true })
+    await fs.mkdir(this.messagesDir, { recursive: true })
+    console.log('[WhatsAppStorage] Initialized at:', this.dataDir)
   }
 
   /**
-   * Ensure storage is initialized before operations
+   * Get session directory path
    */
-  private async ensureInitialized(): Promise<void> {
-    if (!this.initialized) {
-      await this.initialize()
-    }
-  }
-
-  /**
-   * Load data from disk
-   */
-  private async loadData(): Promise<void> {
-    try {
-      const messagesPath = path.join(this.storagePath, MESSAGES_FILE)
-      const content = await fs.readFile(messagesPath, 'utf-8')
-      const data = JSON.parse(content)
-
-      if (Array.isArray(data)) {
-        this.messages = data as StoredWhatsAppMessage[]
-        console.log('[WhatsApp Storage] Loaded', this.messages.length, 'messages')
-      } else {
-        console.log('[WhatsApp Storage] Invalid data format, starting fresh')
-        this.messages = []
-      }
-    } catch {
-      this.messages = []
-      console.log('[WhatsApp Storage] No existing messages found')
-    }
-  }
-
-  /**
-   * Save data to disk
-   */
-  private async saveData(): Promise<void> {
-    const messagesPath = path.join(this.storagePath, MESSAGES_FILE)
-    await fs.writeFile(messagesPath, JSON.stringify(this.messages, null, 2), 'utf-8')
+  getSessionPath(): string {
+    return this.sessionDir
   }
 
   /**
    * Store a message
    */
   async storeMessage(message: StoredWhatsAppMessage): Promise<void> {
-    await this.ensureInitialized()
+    const chatDir = path.join(this.messagesDir, message.from)
+    await fs.mkdir(chatDir, { recursive: true })
+    
+    const messageFile = path.join(chatDir, `${message.id}.json`)
+    await fs.writeFile(messageFile, JSON.stringify(message, null, 2))
+  }
 
-    const exists = this.messages.some((m) => m.messageId === message.messageId)
-    if (!exists) {
-      this.messages.push(message)
-      await this.saveData()
+  /**
+   * Get messages for a chat
+   */
+  async getMessages(chatId: string, limit: number = 50): Promise<StoredWhatsAppMessage[]> {
+    const chatDir = path.join(this.messagesDir, chatId)
+    
+    try {
+      const files = await fs.readdir(chatDir)
+      const messageFiles = files
+        .filter(f => f.endsWith('.json'))
+        .sort((a, b) => b.localeCompare(a)) // Sort by timestamp (newest first)
+        .slice(0, limit)
+
+      const messages: StoredWhatsAppMessage[] = []
+      for (const file of messageFiles) {
+        const content = await fs.readFile(path.join(chatDir, file), 'utf-8')
+        messages.push(JSON.parse(content))
+      }
+
+      return messages
+    } catch {
+      return []
     }
   }
 
   /**
-   * Get all messages (sorted by date ascending)
+   * Clear messages for a chat or all messages
    */
-  async getMessages(limit?: number): Promise<StoredWhatsAppMessage[]> {
-    await this.ensureInitialized()
-    const sorted = [...this.messages].sort((a, b) => a.date - b.date)
-    return limit ? sorted.slice(-limit) : sorted
+  async clearMessages(chatId?: string): Promise<void> {
+    if (chatId) {
+      const chatDir = path.join(this.messagesDir, chatId)
+      await fs.rm(chatDir, { recursive: true, force: true })
+    } else {
+      await fs.rm(this.messagesDir, { recursive: true, force: true })
+      await fs.mkdir(this.messagesDir, { recursive: true })
+    }
   }
 
   /**
-   * Clear all messages
+   * Save session data
    */
-  async clearMessages(): Promise<void> {
-    await this.ensureInitialized()
-    this.messages = []
-    await this.saveData()
+  async saveSession(data: Record<string, unknown>): Promise<void> {
+    const sessionFile = path.join(this.sessionDir, 'session.json')
+    await fs.writeFile(sessionFile, JSON.stringify(data, null, 2))
   }
 
   /**
-   * Get message count
+   * Load session data
    */
-  async getMessageCount(): Promise<number> {
-    await this.ensureInitialized()
-    return this.messages.length
+  async loadSession(): Promise<Record<string, unknown> | null> {
+    const sessionFile = path.join(this.sessionDir, 'session.json')
+    try {
+      const content = await fs.readFile(sessionFile, 'utf-8')
+      return JSON.parse(content)
+    } catch {
+      return null
+    }
   }
 
   /**
-   * Get storage path for session data
+   * Clear session data
    */
-  getSessionPath(): string {
-    return path.join(this.storagePath, 'session')
-  }
-
-  /**
-   * Delete messages by count (most recent N messages)
-   * @param count Number of messages to delete from the end
-   * @returns Number of messages actually deleted
-   */
-  async deleteRecentMessages(count: number): Promise<number> {
-    await this.ensureInitialized()
-    const sorted = [...this.messages].sort((a, b) => a.date - b.date)
-    const toDelete = count > sorted.length ? sorted.length : count
-    
-    if (toDelete <= 0) return 0
-    
-    const idsToDelete = new Set(sorted.slice(-toDelete).map(m => m.messageId))
-    this.messages = this.messages.filter(m => !idsToDelete.has(m.messageId))
-    await this.saveData()
-    
-    return toDelete
-  }
-
-  /**
-   * Delete messages within a time range
-   * @param startDate Start date (inclusive)
-   * @param endDate End date (inclusive)
-   * @returns Number of messages deleted
-   */
-  async deleteMessagesByTimeRange(startDate: Date, endDate: Date): Promise<number> {
-    await this.ensureInitialized()
-    const startTimestamp = Math.floor(startDate.getTime() / 1000)
-    const endTimestamp = Math.floor(endDate.getTime() / 1000)
-    
-    const originalCount = this.messages.length
-    this.messages = this.messages.filter(m => m.date < startTimestamp || m.date > endTimestamp)
-    await this.saveData()
-    
-    return originalCount - this.messages.length
+  async clearSession(): Promise<void> {
+    await fs.rm(this.sessionDir, { recursive: true, force: true })
+    await fs.mkdir(this.sessionDir, { recursive: true })
   }
 }
 
-// Export singleton instance
 export const whatsappStorage = new WhatsAppStorage()
