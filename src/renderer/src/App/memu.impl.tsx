@@ -159,7 +159,7 @@ export function MemuApp(): JSX.Element {
         }
       default:
         return {
-          title: 'memU bot',
+          title: '2501-Bot',
           showTelegramStatus: false,
           showDiscordStatus: false,
           showSlackStatus: false,
