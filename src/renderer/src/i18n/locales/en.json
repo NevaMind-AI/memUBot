@@ -218,8 +218,8 @@
       }
     },
     "2501": {
-      "title": "MemU Memory Service",
-      "hint": "Get API Key from MemU platform",
+      "title": "2501 Memory Service",
+      "hint": "Get API Key from 2501 platform",
       "apiKey": "API Key",
       "userId": "User ID",
       "agentId": "Agent ID"

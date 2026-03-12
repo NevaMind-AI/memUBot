@@ -10,7 +10,7 @@ interface LogEntry {
 
 export function AboutSettings(): JSX.Element {
   const { t } = useTranslation()
-  const appName = 'memU bot'
+  const appName = '2501-Bot'
   const [clickCount, setClickCount] = useState(0)
   const [showLogs, setShowLogs] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])

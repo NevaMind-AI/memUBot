@@ -218,8 +218,8 @@
       }
     },
     "2501": {
-      "title": "MemU メモリサービス",
-      "hint": "MemU プラットフォームから API Key を取得",
+      "title": "2501 メモリサービス",
+      "hint": "2501 プラットフォームから API Key を取得",
       "apiKey": "API Key",
       "userId": "User ID",
       "agentId": "Agent ID"

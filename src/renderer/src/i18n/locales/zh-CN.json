@@ -218,8 +218,8 @@
       }
     },
     "2501": {
-      "title": "MemU API",
-      "hint": "从 MemU 平台获取",
+      "title": "2501 API",
+      "hint": "从 2501 平台获取",
       "apiKey": "API Key",
       "userId": "User ID",
       "agentId": "Agent ID"
