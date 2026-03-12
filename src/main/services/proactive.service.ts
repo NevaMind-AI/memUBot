@@ -36,7 +36,7 @@ const USER_INPUT_MAX_WAIT_MS = 10 * 60 * 1000
 const contextMessageWindowSize = 20
 
 /**
- * Memu tools definitions for memory retrieval
+ * Qmemory tools definitions for memory retrieval
  */
 const tools2501: Anthropic.Tool[] = [
   {
@@ -127,7 +127,7 @@ class ProactiveService {
   /**
    * Get 2501 configuration from settings
    */
-  private async getMemuConfig(): Promise<{
+  private async getQmemoryConfig(): Promise<{
     baseUrl: string
     apiKey: string
     userId: string
@@ -185,9 +185,9 @@ class ProactiveService {
    * Execute 2501_memory tool
    * This tool use main user/agent ids to retrieve memory from the main service.
    */
-  private async executeMemuMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  private async executeQmemoryMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
-      const config2501 = await this.getMemuConfig()
+      const config2501 = await this.getQmemoryConfig()
       const response = await fetch(`${config2501.baseUrl}/api/v3/memory/retrieve`, {
         method: 'POST',
         headers: {
@@ -211,9 +211,9 @@ class ProactiveService {
    * Execute 2501_todos tool to get todos
    * This tool use proactive user/agent ids to retrieve todos from the proactive service.
    */
-  private async executeMemuTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  private async executeQmemoryTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
-      const config2501 = await this.getMemuConfig()
+      const config2501 = await this.getQmemoryConfig()
       const response = await fetch(`${config2501.baseUrl}/api/v3/memory/categories`, {
         method: 'POST',
         headers: {
@@ -735,15 +735,15 @@ class ProactiveService {
       }
     }
 
-    // Memu tools
+    // Qmemory tools
     switch (name) {
       case '2501_memory': {
         const args = input as { query: string }
-        return await this.executeMemuMemory(args.query)
+        return await this.executeQmemoryMemory(args.query)
       }
 
       case '2501_todos': {
-        return await this.executeMemuTodos()
+        return await this.executeQmemoryTodos()
       }
 
       case 'wait_user_confirm': {

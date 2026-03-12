@@ -1,6 +1,6 @@
 type ToolResult = { success: boolean; data?: unknown; error?: string }
 
-export interface MemuConfig {
+export interface QmemoryConfig {
   baseUrl: string
   apiKey: string
   userId: string
@@ -8,9 +8,9 @@ export interface MemuConfig {
 }
 
 /**
- * Get Memu API config from settings.
+ * Get Qmemory API config from settings.
  */
-async function getMemuConfig(): Promise<MemuConfig> {
+async function getQmemoryConfig(): Promise<QmemoryConfig> {
   const { loadSettings } = await import('../config/settings.config')
   const settings = await loadSettings()
 
@@ -23,11 +23,11 @@ async function getMemuConfig(): Promise<MemuConfig> {
 }
 
 /**
- * Execute 2501_memory: retrieve memory by query from the Memu API.
+ * Execute 2501_memory: retrieve memory by query from the Qmemory API.
  */
-export async function executeMemuMemory(query: string): Promise<ToolResult> {
+export async function executeQmemoryMemory(query: string): Promise<ToolResult> {
   try {
-    const config2501 = await getMemuConfig()
+    const config2501 = await getQmemoryConfig()
     const response = await fetch(`${config2501.baseUrl}/api/v3/memory/retrieve`, {
       method: 'POST',
       headers: {
@@ -48,15 +48,15 @@ export async function executeMemuMemory(query: string): Promise<ToolResult> {
 }
 
 /**
- * Execute a Memu tool by name
+ * Execute a Qmemory tool by name
  */
-export async function executeMemuTool(name: string, input: unknown): Promise<ToolResult> {
+export async function executeQmemoryTool(name: string, input: unknown): Promise<ToolResult> {
   switch (name) {
     case '2501_memory': {
       const { query } = input as { query: string }
-      return await executeMemuMemory(query)
+      return await executeQmemoryMemory(query)
     }
     default:
-      return { success: false, error: `Unknown Memu tool: ${name}` }
+      return { success: false, error: `Unknown Qmemory tool: ${name}` }
   }
 }

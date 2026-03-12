@@ -33,7 +33,7 @@ class QMemoryService {
 
   // ==================== Config ====================
 
-  private async getMemuConfig() {
+  private async getQmemoryConfig() {
     const settings = await loadSettings()
     return {
       baseUrl: settings['qmemoryBaseUrl'],
@@ -177,7 +177,7 @@ class QMemoryService {
     messageCount: number
   ): Promise<'success' | 'failure' | 'pending' | 'error'> {
     try {
-      const config2501 = await this.getMemuConfig()
+      const config2501 = await this.getQmemoryConfig()
       const response = await fetch(
         `${config2501.baseUrl}/api/v3/memory/memorize/status/${taskId}`,
         {
@@ -261,7 +261,7 @@ class QMemoryService {
         return
       }
 
-      const config2501 = await this.getMemuConfig()
+      const config2501 = await this.getQmemoryConfig()
       const allMessages = await qmemoryStorage.getMessages()
 
       if (allMessages.length < MEMORIZE_MIN_MESSAGE_COUNT) {

@@ -4,7 +4,7 @@ export { LayeredContextIndexer } from './indexer'
 export { LayeredContextRetriever } from './retriever'
 export { LayeredSummaryGenerator } from './summarizer'
 export { FileSystemLayeredContextStorage } from './storage'
-export { MemuDenseScoreProvider } from './dense-score-provider'
+export { QmemoryDenseScoreProvider } from './dense-score-provider'
 export { getLayeredContextConfig, DEFAULT_LAYERED_CONTEXT_CONFIG } from './config'
 export {
   buildTopicReference,

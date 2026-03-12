@@ -1,5 +1,5 @@
 /**
- * AutoConnect Service - Memu Implementation
+ * AutoConnect Service - Qmemory Implementation
  * Connects to messaging platforms (Telegram, Discord, Slack, Feishu)
  */
 import { loadSettings } from '../../config/settings.config'
@@ -9,12 +9,12 @@ import { slackBotService } from '../../apps/slack/bot.service'
 import { feishuBotService } from '../../apps/feishu/bot.service'
 import type { IAutoConnectService } from './types'
 
-class MemuAutoConnectService implements IAutoConnectService {
+class QmemoryAutoConnectService implements IAutoConnectService {
   /**
    * Check and connect to all configured platforms
    */
   async connectConfiguredPlatforms(): Promise<void> {
-    console.log('[AutoConnect:Memu] Checking configured platforms...')
+    console.log('[AutoConnect:Qmemory] Checking configured platforms...')
     
     const settings = await loadSettings()
     const connectPromises: Promise<void>[] = []
@@ -22,28 +22,28 @@ class MemuAutoConnectService implements IAutoConnectService {
     // Check Telegram
     if (settings.telegramBotToken && settings.telegramBotToken.trim() !== '') {
       if (settings.telegramAutoConnect !== false) {
-        console.log('[AutoConnect:Memu] Telegram is configured, connecting...')
+        console.log('[AutoConnect:Qmemory] Telegram is configured, connecting...')
         connectPromises.push(
           this.connectTelegram().catch((err) => {
-            console.error('[AutoConnect:Memu] Failed to connect Telegram:', err)
+            console.error('[AutoConnect:Qmemory] Failed to connect Telegram:', err)
           })
         )
       } else {
-        console.log('[AutoConnect:Memu] Telegram is configured but auto-connect is disabled')
+        console.log('[AutoConnect:Qmemory] Telegram is configured but auto-connect is disabled')
       }
     }
 
     // Check Discord
     if (settings.discordBotToken && settings.discordBotToken.trim() !== '') {
       if (settings.discordAutoConnect !== false) {
-        console.log('[AutoConnect:Memu] Discord is configured, connecting...')
+        console.log('[AutoConnect:Qmemory] Discord is configured, connecting...')
         connectPromises.push(
           this.connectDiscord().catch((err) => {
-            console.error('[AutoConnect:Memu] Failed to connect Discord:', err)
+            console.error('[AutoConnect:Qmemory] Failed to connect Discord:', err)
           })
         )
       } else {
-        console.log('[AutoConnect:Memu] Discord is configured but auto-connect is disabled')
+        console.log('[AutoConnect:Qmemory] Discord is configured but auto-connect is disabled')
       }
     }
 
@@ -53,14 +53,14 @@ class MemuAutoConnectService implements IAutoConnectService {
       settings.slackAppToken && settings.slackAppToken.trim() !== ''
     ) {
       if (settings.slackAutoConnect !== false) {
-        console.log('[AutoConnect:Memu] Slack is configured, connecting...')
+        console.log('[AutoConnect:Qmemory] Slack is configured, connecting...')
         connectPromises.push(
           this.connectSlack().catch((err) => {
-            console.error('[AutoConnect:Memu] Failed to connect Slack:', err)
+            console.error('[AutoConnect:Qmemory] Failed to connect Slack:', err)
           })
         )
       } else {
-        console.log('[AutoConnect:Memu] Slack is configured but auto-connect is disabled')
+        console.log('[AutoConnect:Qmemory] Slack is configured but auto-connect is disabled')
       }
     }
 
@@ -70,23 +70,23 @@ class MemuAutoConnectService implements IAutoConnectService {
       settings.feishuAppSecret && settings.feishuAppSecret.trim() !== ''
     ) {
       if (settings.feishuAutoConnect !== false) {
-        console.log('[AutoConnect:Memu] Feishu is configured, connecting...')
+        console.log('[AutoConnect:Qmemory] Feishu is configured, connecting...')
         connectPromises.push(
           this.connectFeishu().catch((err) => {
-            console.error('[AutoConnect:Memu] Failed to connect Feishu:', err)
+            console.error('[AutoConnect:Qmemory] Failed to connect Feishu:', err)
           })
         )
       } else {
-        console.log('[AutoConnect:Memu] Feishu is configured but auto-connect is disabled')
+        console.log('[AutoConnect:Qmemory] Feishu is configured but auto-connect is disabled')
       }
     }
 
     // Wait for all connections to complete (or fail)
     if (connectPromises.length > 0) {
       await Promise.all(connectPromises)
-      console.log('[AutoConnect:Memu] All configured platforms connection attempts completed')
+      console.log('[AutoConnect:Qmemory] All configured platforms connection attempts completed')
     } else {
-      console.log('[AutoConnect:Memu] No platforms configured')
+      console.log('[AutoConnect:Qmemory] No platforms configured')
     }
   }
 
@@ -96,7 +96,7 @@ class MemuAutoConnectService implements IAutoConnectService {
   private async connectTelegram(): Promise<void> {
     try {
       await telegramBotService.connect()
-      console.log('[AutoConnect:Memu] Telegram connected successfully')
+      console.log('[AutoConnect:Qmemory] Telegram connected successfully')
     } catch (error) {
       throw new Error(`Telegram connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -108,7 +108,7 @@ class MemuAutoConnectService implements IAutoConnectService {
   private async connectDiscord(): Promise<void> {
     try {
       await discordBotService.connect()
-      console.log('[AutoConnect:Memu] Discord connected successfully')
+      console.log('[AutoConnect:Qmemory] Discord connected successfully')
     } catch (error) {
       throw new Error(`Discord connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -120,7 +120,7 @@ class MemuAutoConnectService implements IAutoConnectService {
   private async connectSlack(): Promise<void> {
     try {
       await slackBotService.connect()
-      console.log('[AutoConnect:Memu] Slack connected successfully')
+      console.log('[AutoConnect:Qmemory] Slack connected successfully')
     } catch (error) {
       throw new Error(`Slack connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -132,7 +132,7 @@ class MemuAutoConnectService implements IAutoConnectService {
   private async connectFeishu(): Promise<void> {
     try {
       await feishuBotService.connect()
-      console.log('[AutoConnect:Memu] Feishu connected successfully')
+      console.log('[AutoConnect:Qmemory] Feishu connected successfully')
     } catch (error) {
       throw new Error(`Feishu connection failed: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -140,4 +140,4 @@ class MemuAutoConnectService implements IAutoConnectService {
 }
 
 // Export singleton instance
-export const autoConnectService2501 = new MemuAutoConnectService()
+export const autoConnectService2501 = new QmemoryAutoConnectService()
