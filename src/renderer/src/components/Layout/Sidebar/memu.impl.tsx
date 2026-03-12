@@ -1,12 +1,12 @@
 /**
  * Sidebar - Memu Implementation
- * Shows all messaging platforms (Telegram, Discord, Slack, Feishu)
+ * Shows all messaging platforms (Telegram, Discord, Slack, WhatsApp, Feishu)
  */
 import { Settings, Sun, Moon, Monitor } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useThemeStore, type ThemeMode } from '../../../stores/themeStore'
 import { appIcon } from '../../../assets'
-import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../../Icons/AppIcons'
+import { TelegramIcon, DiscordIcon, SlackIcon, WhatsAppIcon, FeishuIcon } from '../../Icons/AppIcons'
 import type { MemuSidebarProps, MemuNavItem } from './types'
 
 export function MemuSidebar({ activeNav, onNavChange }: MemuSidebarProps): JSX.Element {
@@ -78,6 +78,19 @@ export function MemuSidebar({ activeNav, onNavChange }: MemuSidebarProps): JSX.E
           }`}
         >
           <SlackIcon className="w-[18px] h-[18px]" />
+        </button>
+
+        {/* WhatsApp */}
+        <button
+          onClick={() => onNavChange('whatsapp')}
+          title={t('nav.whatsapp')}
+          className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-200 ${
+            activeNav === 'whatsapp'
+              ? 'bg-gradient-to-br from-[#25D366] to-[#128C7E] text-white shadow-lg shadow-[#25D366]/25'
+              : 'bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-[#25D366] hover:bg-[var(--bg-card-solid)] hover:shadow-md'
+          }`}
+        >
+          <WhatsAppIcon className="w-[18px] h-[18px]" />
         </button>
 
         {/* Feishu */}

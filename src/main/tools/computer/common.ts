@@ -621,6 +621,28 @@ export function searchBrave(apiKey: string, query: string, maxResults: number): 
       response.on('end', () => {
         try {
           const body = Buffer.concat(chunks).toString('utf-8')
+          
+          // Check for empty response
+          if (!body || body.trim() === '') {
+            reject(new Error('Brave API returned empty response. Please check your API key and try again.'))
+            return
+          }
+          
+          // Check for HTTP error status
+          if (response.statusCode && response.statusCode >= 400) {
+            let errorMsg = `Brave API error (${response.statusCode})`
+            try {
+              const errorData = JSON.parse(body)
+              if (errorData.error || errorData.message) {
+                errorMsg = `Brave API error: ${errorData.error || errorData.message}`
+              }
+            } catch {
+              // Use generic error message
+            }
+            reject(new Error(errorMsg))
+            return
+          }
+          
           const data = JSON.parse(body)
 
           if (data.error) {
@@ -637,17 +659,27 @@ export function searchBrave(apiKey: string, query: string, maxResults: number): 
 
           resolve(results)
         } catch (error) {
-          reject(error instanceof Error ? error : new Error(String(error)))
+          const errorMessage = error instanceof Error ? error.message : String(error)
+          if (errorMessage.includes('Unexpected end of JSON input') || errorMessage.includes('JSON')) {
+            reject(new Error('Brave API returned malformed response. This may be due to an invalid API key, rate limiting, or network issues. Please verify your Brave API key in Settings.'))
+          } else {
+            reject(error instanceof Error ? error : new Error(String(error)))
+          }
         }
       })
 
-      response.on('error', reject)
+      response.on('error', (error) => {
+        reject(new Error(`Brave API network error: ${error.message}`))
+      })
     })
 
-    request.on('error', reject)
+    request.on('error', (error) => {
+      reject(new Error(`Brave API request failed: ${error.message}`))
+    })
+    
     request.on('timeout', () => {
       request.destroy()
-      reject(new Error('Brave search request timeout'))
+      reject(new Error('Brave API request timeout. Please try again or check your network connection.'))
     })
 
     request.write(requestBody)
@@ -669,7 +701,7 @@ export async function executeWebSearchTool(input: {
   if (!apiKey) {
     return {
       success: false,
-      error: 'Brave API key not configured. Please add your Brave API key in Settings to enable web search.'
+      error: 'Brave API key not configured. Please add your Brave API key in Settings to enable web search.\n\nTo get a Brave API key:\n1. Go to https://brave.com/search/api/\n2. Sign up for a free account\n3. Generate an API key\n4. Add the key in Settings > General > Brave API Key'
     }
   }
 
