@@ -8,6 +8,7 @@ export interface WhatsAppMessage {
   from: string
   to: string
   body: string
+  text?: string
   timestamp: number
   fromMe: boolean
   hasMedia?: boolean
@@ -15,13 +16,15 @@ export interface WhatsAppMessage {
   mediaType?: string
 }
 
-export interface StoredWhatsAppMessage extends WhatsAppMessage {
+export interface StoredWhatsAppMessage {
   id: string
-  from: string
-  to: string
-  body: string
+  from?: string
+  to?: string
+  body?: string
+  text?: string
   timestamp: number
   fromMe: boolean
+  chatId?: string
   hasMedia?: boolean
   mediaUrl?: string
   mediaType?: string

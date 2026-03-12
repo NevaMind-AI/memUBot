@@ -137,10 +137,10 @@ class ProactiveService {
   }> {
     const settings = await loadSettings()
     return {
-      baseUrl: settings['2501BaseUrl'],
-      apiKey: settings['2501ApiKey'],
-      userId: settings['2501UserId'],
-      agentId: settings['2501AgentId'],
+      baseUrl: settings['qmemoryBaseUrl'],
+      apiKey: settings['qmemoryApiKey'],
+      userId: settings['qmemoryUserId'],
+      agentId: settings['qmemoryAgentId'],
       proactiveUserId: settings['2501ProactiveUserId'],
       proactiveAgentId: settings['2501ProactiveAgentId'],
     }
@@ -295,7 +295,7 @@ class ProactiveService {
 
   /**
    * Start the background polling loop
-   * Will not start if 2501ApiKey is not configured
+   * Will not start if qmemoryApiKey is not configured
    */
   async start(intervalMs: number = DEFAULT_INTERVAL_MS): Promise<boolean> {
     if (this.isRunning) {
@@ -303,12 +303,12 @@ class ProactiveService {
       return true
     }
 
-    // Check if 2501ApiKey is configured
+    // Check if qmemoryApiKey is configured
     // const settings = await loadSettings()
-    // const apiKey2501 = settings['2501ApiKey']
-    // if (!2501ApiKey || 2501ApiKey.trim() === '') {
-    //   console.log('[Proactive] 2501ApiKey not configured, service will not start')
-    //   console.log('[Proactive] Please configure 2501ApiKey in settings and call start() again')
+    // const apiKey2501 = settings['qmemoryApiKey']
+    // if (!qmemoryApiKey || qmemoryApiKey.trim() === '') {
+    //   console.log('[Proactive] qmemoryApiKey not configured, service will not start')
+    //   console.log('[Proactive] Please configure qmemoryApiKey in settings and call start() again')
     //   return false
     // }
 

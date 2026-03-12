@@ -47,6 +47,13 @@ class WhatsAppStorage {
   }
 
   /**
+   * Add a message (alias for storeMessage)
+   */
+  async addMessage(message: StoredWhatsAppMessage): Promise<void> {
+    return this.storeMessage(message)
+  }
+
+  /**
    * Get messages for a chat
    */
   async getMessages(chatId: string, limit: number = 50): Promise<StoredWhatsAppMessage[]> {
@@ -68,6 +75,38 @@ class WhatsAppStorage {
       return messages
     } catch {
       return []
+    }
+  }
+
+  /**
+   * Get message count for a chat
+   */
+  async getMessageCount(chatId: string): Promise<number> {
+    const messages = await this.getMessages(chatId)
+    return messages.length
+  }
+
+  /**
+   * Delete recent messages from a chat
+   */
+  async deleteRecentMessages(chatId: string, count: number): Promise<void> {
+    const messages = await this.getMessages(chatId, count)
+    for (const message of messages) {
+      const messageFile = path.join(this.messagesDir, chatId, `${message.id}.json`)
+      await fs.unlink(messageFile).catch(() => {})
+    }
+  }
+
+  /**
+   * Delete messages by time range
+   */
+  async deleteMessagesByTimeRange(chatId: string, startTime: number, endTime: number): Promise<void> {
+    const messages = await this.getMessages(chatId)
+    for (const message of messages) {
+      if (message.timestamp >= startTime && message.timestamp <= endTime) {
+        const messageFile = path.join(this.messagesDir, chatId, `${message.id}.json`)
+        await fs.unlink(messageFile).catch(() => {})
+      }
     }
   }
 

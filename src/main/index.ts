@@ -11,7 +11,7 @@ import { mcpService } from './services/mcp.service'
 import { autoConnectService } from './services/autoconnect'
 import { loggerService } from './services/logger.service'
 import { proactiveService } from './services/proactive.service'
-import { memorizationService } from './services/memorization.service'
+import { qmemoryService } from './services/qmemory.service'
 import { localApiService, serviceManager } from './services/back-service'
 import { pathToFileURL } from 'url'
 import { initializeShellEnv } from './utils/shell-env'
@@ -246,16 +246,17 @@ async function initializeServicesAsync(): Promise<void> {
     progress: 80
   })
 
-  // Start memorization service (always, independent of proactive flag)
+  // Start qmemory.service (always, independent of proactive flag)
   try {
-    const memStarted = await memorizationService.start()
+    // QMemory service disabled for testing
+    const memStarted = false /* await qmemoryService.start() */
     if (memStarted) {
       console.log('[App] Memorization service started')
     } else {
-      console.log('[App] Memorization service not started (2501ApiKey not configured)')
+      console.log('[App] Memorization service not started (qmemoryApiKey not configured)')
     }
   } catch (error) {
-    console.error('[App] Failed to start memorization service:', error)
+    console.error('[App] Failed to start qmemory.service:', error)
   }
 
   if (withProactive) {
@@ -264,7 +265,7 @@ async function initializeServicesAsync(): Promise<void> {
       if (started) {
         console.log('[App] Proactive service started')
       } else {
-        console.log('[App] Proactive service not started (2501ApiKey not configured)')
+        console.log('[App] Proactive service not started (qmemoryApiKey not configured)')
       }
     } catch (error) {
       console.error('[App] Failed to start proactive service:', error)
@@ -344,8 +345,8 @@ app.on('will-quit', async () => {
   // Stop power save blocker
   powerService.stop()
 
-  // Stop memorization service
-  memorizationService.stop()
+  // Stop qmemory.service
+  qmemoryService.stop()
 
   // Stop proactive service
   proactiveService.stop()

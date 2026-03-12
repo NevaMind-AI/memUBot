@@ -5,9 +5,9 @@ import {
   type OutgoingMessageEvent,
 } from './infra.service'
 import {
-  memorizationStorage,
+  qmemoryStorage,
   type StoredUnmemorizedMessage,
-} from './memorization.storage'
+} from './qmemory.storage'
 
 const CHAT_MEMORIZE_MESSAGE_THRESHOLD = 20
 const CHAT_MEMORIZE_TIME_THRESHOLD_MS = 60 * 60 * 1000 // 60 minutes
@@ -26,7 +26,7 @@ interface MemorizeStatusResponse {
   detail_info: string
 }
 
-class MemorizationService {
+class QMemoryService {
   private unsubscribers: (() => void)[] = []
   private isMemorizing = false
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
@@ -36,10 +36,10 @@ class MemorizationService {
   private async getMemuConfig() {
     const settings = await loadSettings()
     return {
-      baseUrl: settings['2501BaseUrl'],
-      apiKey: settings['2501ApiKey'],
-      userId: settings['2501UserId'],
-      agentId: settings['2501AgentId'],
+      baseUrl: settings['qmemoryBaseUrl'],
+      apiKey: settings['qmemoryApiKey'],
+      userId: settings['qmemoryUserId'],
+      agentId: settings['qmemoryAgentId'],
     }
   }
 
@@ -47,15 +47,15 @@ class MemorizationService {
 
   private async isApiKeyConfigured(): Promise<boolean> {
     const settings = await loadSettings()
-    return !!(settings['2501ApiKey'] && settings['2501ApiKey'].trim())
+    return !!(settings['qmemoryApiKey'] && settings['qmemoryApiKey'].trim())
   }
 
   async start(): Promise<boolean> {
-    await memorizationStorage.initialize()
+    await qmemoryStorage.initialize()
 
     const hasKey = await this.isApiKeyConfigured()
     if (!hasKey) {
-      console.log('[Memorization] 2501ApiKey not configured, messages will be queued locally until key is set')
+      console.log('[Memorization] qmemoryApiKey not configured, messages will be queued locally until key is set')
     }
 
     // Recover from previous run (only if API key is available)
@@ -109,7 +109,7 @@ class MemorizationService {
       timestamp: event.timestamp,
     }
 
-    memorizationStorage.appendMessage(stored).then(() => {
+    qmemoryStorage.appendMessage(stored).then(() => {
       console.log(
         `[Memorization] Queued message from ${event.platform} (queue size: ~${stored.timestamp})`
       )
@@ -126,7 +126,7 @@ class MemorizationService {
       if (this.isMemorizing) return
     }
 
-    const count = await memorizationStorage.getMessageCount()
+    const count = await qmemoryStorage.getMessageCount()
     if (count === 0) return
 
     if (count >= CHAT_MEMORIZE_MESSAGE_THRESHOLD) {
@@ -198,15 +198,15 @@ class MemorizationService {
       console.log(`[Memorization] Task ${taskId} status: ${result.status}`)
 
       if (result.status === 'SUCCESS') {
-        await memorizationStorage.removeFirstN(messageCount)
-        await memorizationStorage.clearTaskState()
-        await memorizationStorage.updateFirstMessageTimestamp()
+        await qmemoryStorage.removeFirstN(messageCount)
+        await qmemoryStorage.clearTaskState()
+        await qmemoryStorage.updateFirstMessageTimestamp()
         return 'success'
       }
 
       if (result.status === 'FAILURE') {
         console.error(`[Memorization] Task ${taskId} failed: ${result.detail_info}`)
-        await memorizationStorage.clearTaskState()
+        await qmemoryStorage.clearTaskState()
         return 'failure'
       }
 
@@ -225,7 +225,7 @@ class MemorizationService {
   private async checkActiveTask(): Promise<void> {
     if (!(await this.isApiKeyConfigured())) return
 
-    const state = await memorizationStorage.getState()
+    const state = await qmemoryStorage.getState()
     if (!state.lastTaskId) {
       this.isMemorizing = false
       return
@@ -256,13 +256,13 @@ class MemorizationService {
   private async runMemorization(): Promise<void> {
     try {
       if (!(await this.isApiKeyConfigured())) {
-        console.log('[Memorization] 2501ApiKey not configured, skipping memorize POST (messages remain queued)')
+        console.log('[Memorization] qmemoryApiKey not configured, skipping memorize POST (messages remain queued)')
         this.isMemorizing = false
         return
       }
 
       const config2501 = await this.getMemuConfig()
-      const allMessages = await memorizationStorage.getMessages()
+      const allMessages = await qmemoryStorage.getMessages()
 
       if (allMessages.length < MEMORIZE_MIN_MESSAGE_COUNT) {
         console.log('[Memorization] Not enough messages to memorize, skipping memorize POST (messages remain queued)')
@@ -322,7 +322,7 @@ class MemorizationService {
       // Status will be checked lazily in checkActiveTask on the next
       // checkAndTrigger call (i.e. when a new message arrives or the
       // debounce timer fires).
-      await memorizationStorage.setState({
+      await qmemoryStorage.setState({
         lastTaskId: taskId,
         messagesToRemoveOnSuccess: messageCount,
       })
@@ -358,7 +358,7 @@ class MemorizationService {
     }
 
     console.error(`[Memorization] Task ${taskId} timed out`)
-    await memorizationStorage.clearTaskState()
+    await qmemoryStorage.clearTaskState()
     this.isMemorizing = false
   }
 
@@ -367,7 +367,7 @@ class MemorizationService {
   private async recoverPendingTask(): Promise<void> {
     if (!(await this.isApiKeyConfigured())) return
 
-    const state = await memorizationStorage.getState()
+    const state = await qmemoryStorage.getState()
     if (!state.lastTaskId) return
 
     console.log(
@@ -387,7 +387,7 @@ class MemorizationService {
     }
 
     if (outcome === 'error') {
-      await memorizationStorage.clearTaskState()
+      await qmemoryStorage.clearTaskState()
       this.isMemorizing = false
       return
     }
@@ -404,4 +404,4 @@ class MemorizationService {
   }
 }
 
-export const memorizationService = new MemorizationService()
+export const qmemoryService = new QMemoryService()

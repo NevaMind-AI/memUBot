@@ -39,6 +39,7 @@ export interface BotStatus {
   botName?: string
   avatarUrl?: string
   error?: string
+  qrCode?: string
 }
 
 // App service interface (single-user mode)

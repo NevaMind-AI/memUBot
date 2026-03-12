@@ -3,9 +3,9 @@ import * as path from 'path'
 import { app } from 'electron'
 import type { MessagePlatform } from './infra.service'
 
-const STORAGE_DIR = 'memorization-data'
+const STORAGE_DIR = 'qmemory-data'
 const MESSAGES_FILE = 'unmemorized-messages.json'
-const STATE_FILE = 'memorization-state.json'
+const STATE_FILE = 'qmemory-state.json'
 
 export interface StoredUnmemorizedMessage {
   platform: string
@@ -26,7 +26,7 @@ const DEFAULT_STATE: MemorizationState = {
   firstMessageTimestamp: null,
 }
 
-class MemorizationStorage {
+class QMemoryStorage {
   private storagePath: string
   private messages: StoredUnmemorizedMessage[] = []
   private state: MemorizationState = { ...DEFAULT_STATE }
@@ -42,7 +42,7 @@ class MemorizationStorage {
     await this.loadMessages()
     await this.loadState()
     this.initialized = true
-    console.log('[MemorizationStorage] Initialized')
+    console.log('[QMemoryStorage] Initialized')
   }
 
   private async ensureInitialized(): Promise<void> {
@@ -60,13 +60,13 @@ class MemorizationStorage {
       const data = JSON.parse(content)
       if (Array.isArray(data)) {
         this.messages = data as StoredUnmemorizedMessage[]
-        console.log(`[MemorizationStorage] Loaded ${this.messages.length} unmemorized messages`)
+        console.log(`[QMemoryStorage] Loaded ${this.messages.length} unmemorized messages`)
       } else {
         this.messages = []
       }
     } catch {
       this.messages = []
-      console.log('[MemorizationStorage] No existing unmemorized messages found')
+      console.log('[QMemoryStorage] No existing unmemorized messages found')
     }
   }
 
@@ -95,7 +95,7 @@ class MemorizationStorage {
     await this.ensureInitialized()
     this.messages.splice(0, count)
     await this.saveMessages()
-    console.log(`[MemorizationStorage] Removed first ${count} messages, ${this.messages.length} remaining`)
+    console.log(`[QMemoryStorage] Removed first ${count} messages, ${this.messages.length} remaining`)
   }
 
   // ==================== State ====================
@@ -107,11 +107,11 @@ class MemorizationStorage {
       const data = JSON.parse(content)
       if (data && typeof data === 'object') {
         this.state = { ...DEFAULT_STATE, ...data }
-        console.log('[MemorizationStorage] Loaded state:', this.state)
+        console.log('[QMemoryStorage] Loaded state:', this.state)
       }
     } catch {
       this.state = { ...DEFAULT_STATE }
-      console.log('[MemorizationStorage] No existing state found')
+      console.log('[QMemoryStorage] No existing state found')
     }
   }
 
@@ -146,4 +146,4 @@ class MemorizationStorage {
   }
 }
 
-export const memorizationStorage = new MemorizationStorage()
+export const qmemoryStorage = new QMemoryStorage()

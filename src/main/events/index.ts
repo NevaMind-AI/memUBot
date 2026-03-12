@@ -156,6 +156,8 @@ class AppEventEmitter extends EventEmitter {
    * Emit WhatsApp status changed event
    */
   emitWhatsAppStatusChanged(status: {
+    qrCode?: string
+
     platform: string
     isConnected: boolean
     username?: string

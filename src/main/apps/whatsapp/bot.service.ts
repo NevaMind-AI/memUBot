@@ -114,7 +114,7 @@ export class WhatsAppBotService {
 
         if (connection === 'close') {
           // Connection closed
-          const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut
+          const shouldReconnect = ((lastDisconnect?.error as any)?.output?.statusCode) !== DisconnectReason.loggedOut
           console.log('[WhatsApp] Connection closed. Should reconnect:', shouldReconnect)
           
           this.status = {
@@ -170,13 +170,21 @@ export class WhatsAppBotService {
               console.log('[WhatsApp] Message from', chatId, ':', text)
               
               // Store message
-              await whatsappStorage.addMessage({
+              const messageId = Date.now().toString()
+    await whatsappStorage.addMessage({
                 id: message.key.id || '',
                 chatId,
                 text,
                 fromMe: false,
                 timestamp: Date.now()
               })
+    return { success: true, messageId }
+    
+    return { success: true, messageId }
+    
+    return { success: true, messageId }
+    
+    return { success: true, messageId }
               
               // Process with agent
               await this.processMessage(chatId, text)
@@ -244,29 +252,60 @@ export class WhatsAppBotService {
   /**
    * Send text message
    */
-  async sendText(chatId: string, text: string): Promise<void> {
+  async sendText(chatId: string, text: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.socket) {
-      throw new Error('WhatsApp not connected')
+      return { success: false, error: 'WhatsApp not connected' }
     }
     
     await this.socket.sendMessage(chatId, { text })
     
     // Store message
+    const messageId = Date.now().toString()
     await whatsappStorage.addMessage({
-      id: Date.now().toString(),
+      id: messageId,
       chatId,
       text,
       fromMe: true,
       timestamp: Date.now()
     })
+    
+    return { success: true, messageId }
+    
+    return { success: true, messageId }
+    
+    return { success: true, messageId }
+    
+    return { success: true, messageId }
   }
 
   /**
    * Send image message
    */
-  async sendImage(chatId: string, image: Buffer | string, caption?: string): Promise<void> {
+  async sendImage(chatId: string, image: Buffer | string, caption?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.socket) {
-      throw new Error('WhatsApp not connected')
+      return { success: false, error: "WhatsApp not connected" }
+    }
+    
+    try {
+      const messageId = Date.now().toString()
+      const imageBuffer = typeof image === 'string' ? Buffer.from(image, 'base64') : image
+      
+      await this.socket.sendMessage(chatId, {
+        image: imageBuffer,
+        caption: caption
+      })
+    
+    return { success: true, messageId: Date.now().toString() }
+      
+      return { success: true, messageId }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    }
+  }
+
+  async sendImage_old(chatId: string, image: Buffer | string, caption?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+    if (!this.socket) {
+      return { success: false, error: 'WhatsApp not connected }' }
     }
     
     const imageBuffer = typeof image === 'string' ? Buffer.from(image, 'base64') : image
@@ -275,39 +314,56 @@ export class WhatsAppBotService {
       image: imageBuffer,
       caption: caption
     })
+    
+    return { success: true, messageId: Date.now().toString() }
   }
 
   /**
    * Send document message
    */
-  async sendDocument(chatId: string, document: Buffer | string, filename: string): Promise<void> {
+  async sendDocument(chatId: string, document: Buffer | string, filename: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.socket) {
-      throw new Error('WhatsApp not connected')
+      return { success: false, error: "WhatsApp not connected" }
     }
     
-    const documentBuffer = typeof document === 'string' ? Buffer.from(document, 'base64') : document
-    
-    await this.socket.sendMessage(chatId, {
-      document: documentBuffer,
-      mimetype: 'application/octet-stream',
-      fileName: filename
-    })
+    try {
+      const messageId = Date.now().toString()
+      const documentBuffer = typeof document === 'string' ? Buffer.from(document, 'base64') : document
+      
+      await this.socket.sendMessage(chatId, {
+        document: documentBuffer,
+        mimetype: 'application/octet-stream',
+        fileName: filename
+      })
+      
+      return { success: true, messageId }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    }
   }
 
   /**
    * Send location message
    */
-  async sendLocation(chatId: string, latitude: number, longitude: number, description?: string): Promise<void> {
+  async sendLocation(chatId: string, latitude: number, longitude: number, description?: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
     if (!this.socket) {
-      throw new Error('WhatsApp not connected')
+      return { success: false, error: "WhatsApp not connected" }
     }
     
-    await this.socket.sendMessage(chatId, {
-      location: {
-        degreesLatitude: latitude,
-        degreesLongitude: longitude
-      }
-    })
+    try {
+      const messageId = Date.now().toString()
+      
+      await this.socket.sendMessage(chatId, {
+        location: {
+          degreesLatitude: latitude,
+          degreesLongitude: longitude
+        }
+      })
+      
+      return { success: true, messageId }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
+    }
   }
 
   /**
