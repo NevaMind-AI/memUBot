@@ -1,8 +1,8 @@
 /**
  * App Component
  */
-import { MemuApp } from './memu.impl'
+import { QmemoryApp } from './memu.impl'
 
-const App = MemuApp
+const App = QmemoryApp
 
 export default App

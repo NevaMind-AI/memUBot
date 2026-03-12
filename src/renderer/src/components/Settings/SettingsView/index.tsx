@@ -1,3 +1,3 @@
-import { MemuSettingsView } from './memu.impl'
+import { QmemorySettingsView } from './memu.impl'
 
-export const SettingsView = MemuSettingsView
+export const SettingsView = QmemorySettingsView

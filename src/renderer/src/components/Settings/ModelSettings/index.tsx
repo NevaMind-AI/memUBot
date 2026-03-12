@@ -1,3 +1,3 @@
-import { MemuModelSettings } from './memu.impl'
+import { QmemoryModelSettings } from './memu.impl'
 
-export const ModelSettings = MemuModelSettings
+export const ModelSettings = QmemoryModelSettings

@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next'
 import { useThemeStore, type ThemeMode } from '../../../stores/themeStore'
 import { appIcon } from '../../../assets'
 import { TelegramIcon, DiscordIcon, SlackIcon, WhatsAppIcon, FeishuIcon } from '../../Icons/AppIcons'
-import type { QmemorySidebarProps, MemuNavItem } from './types'
+import type { QmemorySidebarProps, QmemoryNavItem } from './types'
 
 export function QmemorySidebar({ activeNav, onNavChange }: QmemorySidebarProps): JSX.Element {
   const { t } = useTranslation()

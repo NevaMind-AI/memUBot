@@ -2,14 +2,14 @@
  * Sidebar Component
  */
 import type { ComponentType } from 'react'
-import { MemuSidebar } from './memu.impl'
-import type { MemuNavItem, MemuSidebarProps } from './types'
+import { QmemorySidebar } from './memu.impl'
+import type { QmemoryNavItem, QmemorySidebarProps } from './types'
 
 // Export the Sidebar component
-export const Sidebar = MemuSidebar as ComponentType<{
+export const Sidebar = QmemorySidebar as ComponentType<{
   activeNav: string
   onNavChange: (nav: string) => void
 }>
 
 // Re-export types
-export type { MemuNavItem, MemuSidebarProps }
+export type { QmemoryNavItem, QmemorySidebarProps }
