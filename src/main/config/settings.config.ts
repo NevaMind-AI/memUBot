@@ -99,10 +99,6 @@ export interface AppSettings {
   maxRecentMessages: number
   archiveChunkSize: number
 
-  "memuBaseUrl": string
-  "memuApiKey": string
-  "memuUserId": string
-  "memuAgentId": string
   "2501ProactiveUserId": string
   "2501ProactiveAgentId": string
 
@@ -198,10 +194,6 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxRecentMessages: 24,
   archiveChunkSize: 8,
 
-  'memuBaseUrl': 'https://api.2501.so',
-  'memuApiKey': '',
-  'memuUserId': 'bot_user',
-  'memuAgentId': 'bot_main_agent',
   '2501ProactiveUserId': 'bot_proactive_user',
   '2501ProactiveAgentId': 'bot_proactive_agent',
 

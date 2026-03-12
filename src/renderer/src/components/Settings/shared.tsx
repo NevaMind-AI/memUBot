@@ -57,10 +57,6 @@ export interface AppSettings {
   maxArchives: number
   maxRecentMessages: number
   archiveChunkSize: number
-  memuBaseUrl: string
-  memuApiKey: string
-  memuUserId: string
-  memuAgentId: string
   telegramBotToken: string
   telegramAutoConnect: boolean
   discordBotToken: string

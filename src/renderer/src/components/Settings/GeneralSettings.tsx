@@ -63,9 +63,6 @@ export function GeneralSettings(): JSX.Element {
     settings.openaiBaseUrl !== originalSettings.openaiBaseUrl ||
     settings.openaiModel !== originalSettings.openaiModel ||
     // Other settings
-    settings.memuApiKey !== originalSettings.memuApiKey ||
-    settings.memuUserId !== originalSettings.memuUserId ||
-    settings.memuAgentId !== originalSettings.memuAgentId ||
     settings.language !== originalSettings.language ||
     settings.braveApiKey !== originalSettings.braveApiKey
 
@@ -102,7 +99,6 @@ export function GeneralSettings(): JSX.Element {
         customBaseUrl: settings.customBaseUrl,
         customModel: settings.customModel,
         // Other settings
-        memuApiKey: settings.memuApiKey,
         language: settings.language,
         braveApiKey: settings.braveApiKey
       })
@@ -373,8 +369,6 @@ export function GeneralSettings(): JSX.Element {
               <input
                 type="password"
                 placeholder="mu_..."
-                value={settings.memuApiKey || ''}
-                onChange={(e) => setSettings({ ...settings, memuApiKey: e.target.value })}
                 className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-color)] text-[13px] text-[var(--text-primary)] placeholder-[var(--text-placeholder)] focus:outline-none focus:border-[var(--primary)]/50 focus:ring-2 focus:ring-[var(--primary)]/10 transition-all"
               />
             </div>

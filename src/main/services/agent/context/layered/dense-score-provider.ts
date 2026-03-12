@@ -46,8 +46,8 @@ async function getQmemoryConfig(): Promise<QmemoryConfig> {
   const settings = await loadSettings()
 
   return {
-    baseUrl: settings['memuBaseUrl'],
-    apiKey: settings['memuApiKey']
+    baseUrl: '',
+    apiKey: ''
   }
 }
 
