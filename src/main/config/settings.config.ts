@@ -99,12 +99,12 @@ export interface AppSettings {
   maxRecentMessages: number
   archiveChunkSize: number
 
-  2501BaseUrl: string
-  2501ApiKey: string
-  2501UserId: string
-  2501AgentId: string
-  2501ProactiveUserId: string
-  2501ProactiveAgentId: string
+  "2501BaseUrl": string
+  "2501ApiKey": string
+  "2501UserId": string
+  "2501AgentId": string
+  "2501ProactiveUserId": string
+  "2501ProactiveAgentId": string
 
   // Telegram settings
   telegramBotToken: string
@@ -198,12 +198,12 @@ const DEFAULT_SETTINGS: AppSettings = {
   maxRecentMessages: 24,
   archiveChunkSize: 8,
 
-  2501BaseUrl: 'https://api.2501.so',
-  2501ApiKey: '',
-  2501UserId: 'bot_user',
-  2501AgentId: 'bot_main_agent',
-  2501ProactiveUserId: 'bot_proactive_user',
-  2501ProactiveAgentId: 'bot_proactive_agent',
+  '2501BaseUrl': 'https://api.2501.so',
+  '2501ApiKey': '',
+  '2501UserId': 'bot_user',
+  '2501AgentId': 'bot_main_agent',
+  '2501ProactiveUserId': 'bot_proactive_user',
+  '2501ProactiveAgentId': 'bot_proactive_agent',
 
   telegramBotToken: '',
   telegramAutoConnect: true,
