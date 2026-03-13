@@ -7,7 +7,6 @@ import { slackTools } from '../../tools/slack.definitions'
 import { lineTools } from '../../tools/line.definitions'
 import { feishuTools } from '../../tools/feishu.definitions'
 import { serviceTools } from '../../tools/service.definitions'
-import { tools2501 } from '../../tools/qmemory.definitions'
 import { getMacOSTools } from '../../tools/macos/definitions'
 import { getVisualTools } from '../../tools/macos/visual.definitions'
 import { mcpService } from '../mcp.service'
@@ -50,19 +49,19 @@ export function getToolsForPlatform(platform: MessagePlatform, options: Experime
   
   switch (platform) {
     case 'telegram':
-      return [...baseTools, ...platformTools, ...visualTools, ...telegramTools, ...svcTools, ...tools2501, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...telegramTools, ...svcTools, ...mcpTools]
     case 'discord':
-      return [...baseTools, ...platformTools, ...visualTools, ...discordTools, ...svcTools, ...tools2501, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...discordTools, ...svcTools, ...mcpTools]
     case 'whatsapp':
-      return [...baseTools, ...platformTools, ...visualTools, ...whatsappTools, ...svcTools, ...tools2501, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...whatsappTools, ...svcTools, ...mcpTools]
     case 'slack':
-      return [...baseTools, ...platformTools, ...visualTools, ...slackTools, ...svcTools, ...tools2501, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...slackTools, ...svcTools, ...mcpTools]
     case 'line':
-      return [...baseTools, ...platformTools, ...visualTools, ...lineTools, ...svcTools, ...tools2501, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...lineTools, ...svcTools, ...mcpTools]
     case 'feishu':
-      return [...baseTools, ...platformTools, ...visualTools, ...feishuTools, ...svcTools, ...tools2501, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...feishuTools, ...svcTools, ...mcpTools]
     case 'none':
     default:
-      return [...baseTools, ...platformTools, ...visualTools, ...svcTools, ...tools2501, ...mcpTools]
+      return [...baseTools, ...platformTools, ...visualTools, ...svcTools, ...mcpTools]
   }
 }

@@ -9,7 +9,6 @@ import { executeSlackTool } from '../../tools/slack.executor'
 import { executeLineTool } from '../../tools/line.executor'
 import { executeFeishuTool } from '../../tools/feishu.executor'
 import { executeServiceTool } from '../../tools/service.executor'
-import { executeQmemoryTool } from '../../tools/qmemory.executor'
 import { mcpService } from '../mcp.service'
 import type { MessagePlatform, ToolResult } from './types'
 
@@ -116,7 +115,7 @@ export async function executeTool(
 
   // Qmemory tools (memory retrieval)
   if (name.startsWith('2501_')) {
-    return await executeQmemoryTool(name, input)
+    // TODO: Implement MCP-based memory tool calling
   }
 
   // MCP tools

@@ -40,6 +40,29 @@ const contextMessageWindowSize = 20
  */
 const tools2501: Anthropic.Tool[] = [
   {
+    name: '2501_memory',
+    description: 'Retrieve memory based on a query. Use this to recall past conversations, facts, or context about the user.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        query: {
+          type: 'string',
+          description: 'The query to search memory for'
+        }
+      },
+      required: ['query']
+    }
+  },
+  {
+    name: '2501_todos',
+    description: 'Retrieve todos for the user. Returns a list of pending tasks and their summaries.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {},
+      required: []
+    }
+  },
+  {
     name: 'wait_user_confirm',
     description: 'Wait for user input/confirmation before proceeding. Use this when you need user feedback, approval, or additional information before continuing with a task. The tool will block until the user responds.',
     input_schema: {
@@ -104,6 +127,25 @@ class ProactiveService {
   /**
    * Get 2501 configuration from settings
    */
+  private async getQmemoryConfig(): Promise<{
+    baseUrl: string
+    apiKey: string
+    userId: string
+    agentId: string
+    proactiveUserId: string
+    proactiveAgentId: string
+  }> {
+    const settings = await loadSettings()
+    return {
+      baseUrl: '',
+      apiKey: '',
+      userId: '',
+      agentId: '',
+      proactiveUserId: settings['2501ProactiveUserId'],
+      proactiveAgentId: settings['2501ProactiveAgentId'],
+    }
+  }
+
   /**
    * Check if the proactive service is waiting for user input
    */
@@ -136,7 +178,68 @@ class ProactiveService {
     const platformTools = getMacOSTools() // Returns empty array on non-macOS
     const mcpTools = mcpService.getTools()
     
-    return [...baseTools, ...platformTools, ...mcpTools]
+    return [...baseTools, ...platformTools, ...mcpTools, ...tools2501]
+  }
+
+  /**
+   * Execute 2501_memory tool
+   * This tool use main user/agent ids to retrieve memory from the main service.
+   */
+  private async executeQmemoryMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    try {
+      const config2501 = await this.getQmemoryConfig()
+      const response = await fetch(`${config2501.baseUrl}/api/v3/memory/retrieve`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config2501.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: config2501.userId,
+          agent_id: config2501.agentId,
+          query
+        })
+      })
+      const result = await response.json()
+      return { success: true, data: result }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  /**
+   * Execute 2501_todos tool to get todos
+   * This tool use proactive user/agent ids to retrieve todos from the proactive service.
+   */
+  private async executeQmemoryTodos(): Promise<{ success: boolean; data?: unknown; error?: string }> {
+    try {
+      const config2501 = await this.getQmemoryConfig()
+      const response = await fetch(`${config2501.baseUrl}/api/v3/memory/categories`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${config2501.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_id: config2501.proactiveUserId,
+          agent_id: config2501.proactiveAgentId
+        })
+      })
+      const result = await response.json() as { categories: Array<{ name: string; summary: string }> }
+      
+      // Extract todos from categories
+      let todos = ''
+      for (const category of result.categories || []) {
+        if (category.name === 'todo') {
+          todos = category.summary
+          break
+        }
+      }
+      
+      return { success: true, data: { todos } }
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) }
+    }
   }
 
   /**
@@ -629,6 +732,15 @@ class ProactiveService {
 
     // Qmemory tools
     switch (name) {
+      case '2501_memory': {
+        const args = input as { query: string }
+        return await this.executeQmemoryMemory(args.query)
+      }
+
+      case '2501_todos': {
+        return await this.executeQmemoryTodos()
+      }
+
       case 'wait_user_confirm': {
         const args = input as { prompt: string }
         return await this.executeWaitUserConfirm(args.prompt)
