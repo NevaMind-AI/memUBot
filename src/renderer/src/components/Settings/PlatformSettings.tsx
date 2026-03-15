@@ -56,13 +56,17 @@ export function PlatformSettings(): JSX.Element {
     try {
       const result = await window.whatsapp.connect()
       if (result.success) {
-        // Poll for QR code
+        // Poll for QR code and connection status
         const pollInterval = setInterval(async () => {
-          const statusResult = await window.whatsapp.status()
+          const [statusResult, qrResult] = await Promise.all([
+            window.whatsapp.status(),
+            window.whatsapp.getQr()
+          ])
           if (statusResult.success && statusResult.data) {
+            const qrCode = statusResult.data.qrCode || (qrResult.success ? qrResult.data : undefined)
             setWhatsappStatus({
               isConnected: statusResult.data.isConnected,
-              qrCode: statusResult.data.qrCode
+              qrCode
             })
             if (statusResult.data.isConnected) {
               clearInterval(pollInterval)
