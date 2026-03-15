@@ -178,14 +178,6 @@ export class WhatsAppBotService {
                 fromMe: false,
                 timestamp: Date.now()
               })
-    return { success: true, messageId }
-    
-    return { success: true, messageId }
-    
-    return { success: true, messageId }
-    
-    return { success: true, messageId }
-              
               // Process with agent
               await this.processMessage(chatId, text)
             }
@@ -232,7 +224,7 @@ export class WhatsAppBotService {
    * Get connection status
    */
   getStatus(): BotStatus {
-    return this.status
+    return { ...this.status, qrCode: this.qrCode ?? undefined }
   }
 
   /**
@@ -270,12 +262,6 @@ export class WhatsAppBotService {
     })
     
     return { success: true, messageId }
-    
-    return { success: true, messageId }
-    
-    return { success: true, messageId }
-    
-    return { success: true, messageId }
   }
 
   /**
@@ -294,9 +280,7 @@ export class WhatsAppBotService {
         image: imageBuffer,
         caption: caption
       })
-    
-    return { success: true, messageId: Date.now().toString() }
-      
+
       return { success: true, messageId }
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : "Unknown error" }
