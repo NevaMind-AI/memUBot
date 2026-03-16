@@ -120,6 +120,9 @@ class QMemoryService {
   // ==================== Trigger logic ====================
 
   private async checkAndTrigger(): Promise<void> {
+    // External API disabled — local stack handles memory via MCP
+    if (!(await this.isApiKeyConfigured())) return
+
     // If a task is in-flight, do a single status check instead of blocking
     if (this.isMemorizing) {
       await this.checkActiveTask()
