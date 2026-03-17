@@ -1,6 +1,6 @@
 /**
  * Prompts module - Entry point
- * 
+ *
  * This module provides system prompts for the AI agent.
  */
 
@@ -8,6 +8,7 @@ import { PROJECT_2501_BOT_INTRO } from './2501'
 import {
   BASE_GUIDELINES,
   BASE_TOOLS,
+  CODING_RULES,
   COMMUNICATION_GUIDELINES,
   EXPERTISE_BASE,
   PLATFORM_CONFIGS
@@ -27,6 +28,8 @@ function buildPlatformPrompt(platform: keyof typeof PLATFORM_CONFIGS): string {
   const config = PLATFORM_CONFIGS[platform]
   
   return `${PROJECT_2501_BOT_INTRO}
+
+${CODING_RULES}
 
 You have access to:
 ${BASE_TOOLS}
@@ -61,6 +64,8 @@ export const getSystemPrompt = (platform: string): string => {
  * Get default system prompt
  */
 export const getDefaultSystemPrompt = (): string => `${PROJECT_2501_BOT_INTRO}
+
+${CODING_RULES}
 
 You have access to:
 ${BASE_TOOLS}
