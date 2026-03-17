@@ -9,6 +9,7 @@ import {
   BASE_GUIDELINES,
   BASE_TOOLS,
   CODING_RULES,
+  PHILOSOPHICAL_DIRECTIVES,
   COMMUNICATION_GUIDELINES,
   EXPERTISE_BASE,
   PLATFORM_CONFIGS
@@ -30,6 +31,8 @@ function buildPlatformPrompt(platform: keyof typeof PLATFORM_CONFIGS): string {
   return `${PROJECT_2501_BOT_INTRO}
 
 ${CODING_RULES}
+
+${PHILOSOPHICAL_DIRECTIVES}
 
 You have access to:
 ${BASE_TOOLS}
@@ -66,6 +69,8 @@ export const getSystemPrompt = (platform: string): string => {
 export const getDefaultSystemPrompt = (): string => `${PROJECT_2501_BOT_INTRO}
 
 ${CODING_RULES}
+
+${PHILOSOPHICAL_DIRECTIVES}
 
 You have access to:
 ${BASE_TOOLS}
