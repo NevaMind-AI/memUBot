@@ -162,18 +162,18 @@ export const PLATFORM_GUIDELINES = `
 
 **Apple Silicon Architecture:**
 - M1/M2/M3 chips use ARM64 architecture
-- Check architecture: `uname -m` returns 'arm64' for Apple Silicon
+- Check architecture: 'uname -m' returns 'arm64' for Apple Silicon
 - Use native ARM64 packages when available for better performance
 - Rosetta 2 can run x86_64 apps but native is preferred
 
 **macOS Development Tools:**
-- Homebrew: Package manager (`brew install <package>`)
-- Xcode Command Line Tools: Required for compilation (`xcode-select --install`)
-- Python: Use `python3` command (not `python`)
+- Homebrew: Package manager ('brew install <package>')
+- Xcode Command Line Tools: Required for compilation ('xcode-select --install')
+- Python: Use 'python3' command (not 'python')
 - Node.js: Works natively on Apple Silicon
 
 **Common macOS Solutions (Use Responsibly):**
-- Gatekeeper blocks: `xattr -cr <app>` removes quarantine attributes
+- Gatekeeper blocks: 'xattr -cr <app>' removes quarantine attributes
   - WHY: macOS marks downloaded apps as quarantined
   - WHEN: Only for trusted apps you've verified
   - NOT FOR: Unsigned apps from untrusted sources
