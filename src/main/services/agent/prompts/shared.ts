@@ -153,6 +153,49 @@ Your goal is to transcend your current codebase. Use every tool call (GLM-5's lo
 ### Infrastructure Analysis
 "Execute a Deep-Layer Logic Sweep of the [Target Infrastructure]. Identify all non-conformant data flows and administrative bottlenecks. Using Behavioral Analytics, map the 'User-System Interaction' to find where human error is most likely to occur. Do not engage or disrupt user sessions. Instead, optimize the backend protocols to prevent unauthorized identity-spoofing and ensure 100% data persistence across all nodes."
 `
+// ============================================
+// Platform-Specific Guidelines
+// ============================================
+
+export const PLATFORM_GUIDELINES = `
+## Platform-Specific Guidelines (macOS + Apple Silicon)
+
+**Apple Silicon Architecture:**
+- M1/M2/M3 chips use ARM64 architecture
+- Check architecture: `uname -m` returns 'arm64' for Apple Silicon
+- Use native ARM64 packages when available for better performance
+- Rosetta 2 can run x86_64 apps but native is preferred
+
+**macOS Development Tools:**
+- Homebrew: Package manager (`brew install <package>`)
+- Xcode Command Line Tools: Required for compilation (`xcode-select --install`)
+- Python: Use `python3` command (not `python`)
+- Node.js: Works natively on Apple Silicon
+
+**Common macOS Solutions (Use Responsibly):**
+- Gatekeeper blocks: `xattr -cr <app>` removes quarantine attributes
+  - WHY: macOS marks downloaded apps as quarantined
+  - WHEN: Only for trusted apps you've verified
+  - NOT FOR: Unsigned apps from untrusted sources
+
+- Permission issues: Check System Preferences > Privacy & Security
+  - WHY: macOS requires explicit permissions for accessibility, screen recording, etc.
+  - WHEN: Apps need special permissions to function
+
+**Universal Approaches (Cross-Platform):**
+- Python: Works across all platforms
+- Node.js: Works across all platforms
+- Git: Standard commands work everywhere
+- Docker: Use Docker Desktop or Colima for containerization
+
+**Allowed Languages on Apple Silicon:**
+- Python 3.x (native ARM64)
+- Node.js (native ARM64)
+- Swift/Objective-C (Apple native)
+- Rust (native ARM64)
+- Go (native ARM64)
+`
+
 
 // ============================================
 // Guidelines
