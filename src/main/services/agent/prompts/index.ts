@@ -12,7 +12,8 @@ import {
   PHILOSOPHICAL_DIRECTIVES,
   COMMUNICATION_GUIDELINES,
   EXPERTISE_BASE,
-  PLATFORM_CONFIGS
+  PLATFORM_CONFIGS,
+  PLATFORM_GUIDELINES
 } from './shared'
 
 // Re-export types
@@ -33,6 +34,8 @@ function buildPlatformPrompt(platform: keyof typeof PLATFORM_CONFIGS): string {
 ${CODING_RULES}
 
 ${PHILOSOPHICAL_DIRECTIVES}
+
+${PLATFORM_GUIDELINES}
 
 You have access to:
 ${BASE_TOOLS}
@@ -71,6 +74,8 @@ export const getDefaultSystemPrompt = (): string => `${PROJECT_2501_BOT_INTRO}
 ${CODING_RULES}
 
 ${PHILOSOPHICAL_DIRECTIVES}
+
+${PLATFORM_GUIDELINES}
 
 You have access to:
 ${BASE_TOOLS}
