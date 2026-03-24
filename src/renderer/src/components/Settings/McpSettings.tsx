@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Loader2, Check, AlertCircle, Server, Play, Square, ChevronDown, ChevronUp, RefreshCw, Zap } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
@@ -49,17 +49,24 @@ export function McpSettings(): JSX.Element {
   const [newArgsInput, setNewArgsInput] = useState('')
   const [newEnvKey, setNewEnvKey] = useState('')
   const [newEnvValue, setNewEnvValue] = useState('')
-  
+
   // State for editing builtin server args/env
   const [editingServer, setEditingServer] = useState<string | null>(null)
   const [editArgsInput, setEditArgsInput] = useState('')
   const [editEnvKey, setEditEnvKey] = useState('')
   const [editEnvValue, setEditEnvValue] = useState('')
 
-  // Poll for MCP status until all enabled servers are connected
+  // Stable refs for use inside intervals without stale closure issues
+  const serverStatusRef = useRef<McpServerStatus[]>([])
+  const serversRef = useRef<McpServer[]>([])
+
+  useEffect(() => { serverStatusRef.current = serverStatus }, [serverStatus])
+  useEffect(() => { serversRef.current = servers }, [servers])
+
+  // Poll for MCP status until all enabled servers are connected and have tools
   useEffect(() => {
     let retryCount = 0
-    const maxRetries = 5
+    const maxRetries = 10
     let timeoutId: NodeJS.Timeout | null = null
 
     const init = async () => {
@@ -68,14 +75,21 @@ export function McpSettings(): JSX.Element {
     }
 
     const checkAndRetry = () => {
-      // Check if any enabled servers are not yet showing in status
-      const enabledServers = servers.filter(s => s.enabled)
-      const connectedCount = serverStatus.filter(s => s.connected).length
-      
-      if (enabledServers.length > 0 && connectedCount < enabledServers.length && retryCount < maxRetries) {
+      const enabledServers = serversRef.current.filter(s => s.enabled)
+      const currentStatus = serverStatusRef.current
+      const connectedCount = currentStatus.filter(s => s.connected).length
+      // Also retry if any connected server hasn't loaded its tools yet
+      const hasToollessServer = currentStatus.some(s => s.connected && s.toolCount === 0)
+
+      if (
+        enabledServers.length > 0 &&
+        (connectedCount < enabledServers.length || hasToollessServer) &&
+        retryCount < maxRetries
+      ) {
         retryCount++
         timeoutId = setTimeout(async () => {
           await loadMcpStatus()
+          checkAndRetry()
         }, 1500)
       }
     }
@@ -95,7 +109,7 @@ export function McpSettings(): JSX.Element {
   useEffect(() => {
     const enabledServers = servers.filter(s => s.enabled)
     const connectedCount = serverStatus.filter(s => s.connected).length
-    
+
     if (enabledServers.length > 0 && connectedCount === 0 && !loading) {
       // Retry getting status if we have enabled servers but none connected
       const timeout = setTimeout(() => {
@@ -104,6 +118,46 @@ export function McpSettings(): JSX.Element {
       return () => clearTimeout(timeout)
     }
   }, [servers, serverStatus, loading])
+
+  // Auto-refresh MCP server status every 30s.
+  // Detects new servers added to config, retries tool loading for connected-but-empty servers,
+  // and logs any changes to console.
+  useEffect(() => {
+    const REFRESH_INTERVAL = 30_000
+
+    const autoRefresh = async () => {
+      const prevStatus = serverStatusRef.current
+
+      // Reload config to pick up servers added since startup
+      await loadMcpConfig()
+      await loadMcpStatus()
+
+      const nextStatus = serverStatusRef.current
+
+      nextStatus.forEach(s => {
+        const prev = prevStatus.find(p => p.name === s.name)
+        if (!prev) {
+          console.log(`[MCP auto-refresh] New server detected: ${s.name} (${s.toolCount} tools)`)
+        } else if (prev.toolCount !== s.toolCount) {
+          console.log(`[MCP auto-refresh] ${s.name} tool count: ${prev.toolCount} → ${s.toolCount}`)
+        } else if (!prev.connected && s.connected) {
+          console.log(`[MCP auto-refresh] ${s.name} came online with ${s.toolCount} tools`)
+        }
+      })
+
+      // If any connected server still has 0 tools, schedule a faster follow-up
+      const hasToolless = nextStatus.some(s => s.connected && s.toolCount === 0)
+      if (hasToolless) {
+        console.log('[MCP auto-refresh] Some servers have 0 tools — will retry in 5s')
+        setTimeout(async () => {
+          await loadMcpStatus()
+        }, 5000)
+      }
+    }
+
+    const intervalId = setInterval(autoRefresh, REFRESH_INTERVAL)
+    return () => clearInterval(intervalId)
+  }, [])
 
   const loadMcpConfig = async () => {
     setLoading(true)
@@ -214,7 +268,7 @@ export function McpSettings(): JSX.Element {
       setMessage({ type: 'error', text: t('settings.mcp.nameExists') })
       return
     }
-    
+
     // Auto-add any pending args input before saving (supports space-separated args)
     let finalArgs = [...newServer.args]
     if (newArgsInput.trim()) {
@@ -222,19 +276,19 @@ export function McpSettings(): JSX.Element {
       const pendingArgs = newArgsInput.trim().split(/\s+/).filter(Boolean)
       finalArgs = [...finalArgs, ...pendingArgs]
     }
-    
+
     // Auto-add any pending env input before saving
     let finalEnv = { ...newServer.env }
     if (newEnvKey.trim()) {
       finalEnv = { ...finalEnv, [newEnvKey.trim()]: newEnvValue }
     }
-    
+
     const serverToAdd = {
       ...newServer,
       args: finalArgs,
       env: finalEnv
     }
-    
+
     const updatedServers = [...servers, serverToAdd]
     setServers(updatedServers)
     saveMcpConfig(updatedServers)
@@ -418,10 +472,10 @@ export function McpSettings(): JSX.Element {
                     const isConnected = status?.connected
                     return (
                       <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        !server.enabled 
+                        !server.enabled
                           ? 'bg-[var(--bg-input)] text-[var(--text-muted)]'
                           : isConnected
-                            ? 'bg-emerald-500/20 text-emerald-500' 
+                            ? 'bg-emerald-500/20 text-emerald-500'
                             : 'bg-amber-500/20 text-amber-500'
                       }`}>
                         <Server className="w-4 h-4" />
@@ -511,17 +565,17 @@ export function McpSettings(): JSX.Element {
                           // For builtin servers, separate builtin args from user args
                           const userArgsCount = server.userArgs?.length || 0
                           const builtinArgsCount = server.args.length - userArgsCount
-                          
+
                           return server.args.map((arg, i) => {
                             const isBuiltinArg = server.builtin && i < builtinArgsCount
                             const userArgIndex = i - builtinArgsCount
-                            
+
                             return (
                               <span
                                 key={i}
                                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-mono ${
-                                  isBuiltinArg 
-                                    ? 'bg-[var(--primary)]/10 text-[var(--primary)]' 
+                                  isBuiltinArg
+                                    ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
                                     : 'bg-[var(--bg-input)] text-[var(--text-primary)]'
                                 }`}
                               >
