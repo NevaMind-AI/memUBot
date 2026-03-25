@@ -297,3 +297,8 @@ Issues and PRs are welcome! 🤖
 <p align="center">
   Built with ❤️ by <a href="https://github.com/CuadraLabs">CuadraLabs</a>.
 </p>
+
+
+## Build Test
+
+Triggering Mac DMG build via GitHub Actions.
