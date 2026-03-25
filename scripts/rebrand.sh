@@ -1,55 +1,53 @@
 #!/bin/bash
-
 # Auto-rebranding script for 2501-Bot
-# Replaces 'agent-zero' with '2501-bot' and 'Agent Zero' with 'Project 2501'
-
-set -e
+# This script replaces Agent Zero branding with 2501-Bot branding
 
 echo "🔄 Starting auto-rebranding..."
 
 # Define replacements
 REPLACEMENTS=(
     "agent-zero:2501-bot"
-    "Agent Zero:Project Zero"
-    "agent_zero:project_zero"
-    "agent-zero:2501-bot"
-    "AgentZero:ProjectZero"
+    "Agent Zero:Project 2501"
+    "agent_zero:project_2501"
+    "AgentZero:Project2501"
     "AGENT-ZERO:2501-BOT"
-    "AGENT_ZERO:PROJECT_ZERO"
+    "AGENT_ZERO:PROJECT_2501"
 )
 
 # Find files to rebrand (excluding node_modules, .git, out, build)
-find . -type f \
-    -not -path "./node_modules/*" \
-    -not -path "./.git/*" \
-    -not -path "./out/*" \
-    -not -path "./build/*" \
-    -not -path "./dist/*" \
-    -not -name "*.lock" \
-    -not -name "package-lock.json" \
-    -not -name "yarn.lock" \
-    -not -name "pnpm-lock.yaml" \
-    \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.json" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" -o -name "*.sh" \) \
-    -print0 | while IFS= read -r -d '' file; do
-    
+FILES=$(find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.md" -o -name "*.yml" -o -name "*.html" \) \
+    ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/out/*" ! -path "*/build/*")
+
+# Apply replacements
+for file in $FILES; do
     for replacement in "${REPLACEMENTS[@]}"; do
-        old="${replacement%%:*}"
-        new="${replacement#*:}"
+        # Split replacement into search and replace
+        search="${replacement%%:*}"
+        replace="${replacement#*:}"
         
-        # Check if file contains the old string
-        if grep -q "$old" "$file" 2>/dev/null; then
-            echo "📝 Replacing '$old' with '$new' in $file"
-            sed -i "s/$old/$new/g" "$file"
-        fi
+        # Apply replacement
+        sed -i "s|$search|$replace|g" "$file"
     done
+    echo "✅ Rebranded: $file"
 done
 
-echo "✅ Auto-rebranding complete!"
-echo ""
-echo "📋 Summary of changes:"
-echo "   - agent-zero → 2501-bot"
-echo "   - Agent Zero → Project 2501"
-echo "   - agent_zero → project_2501"
-echo "   - AgentZero → Project2501"
-echo "   - AGENT-ZERO → 2501-BOT"
-echo "   - AGENT_ZERO → PROJECT_2501"
+echo "🎉 Rebranding complete!"
+
+# Special handling for package.json
+if [ -f "package.json" ]; then
+    echo "📦 Updating package.json..."
+    sed -i 's|"name": "agent-zero"|"name": "2501-bot"|g' package.json
+    sed -i 's|"productName": "Agent Zero"|"productName": "2501 Bot"|g' package.json
+    sed -i 's|"appId": "com.agent-zero"|"appId": "com.cuadralabs.2501-bot"|g' package.json
+    sed -i 's|"description": "Agent Zero"|"description": "Project 2501 - AI Assistant"|g' package.json
+fi
+
+# Special handling for README.md
+if [ -f "README.md" ]; then
+    echo "📖 Updating README.md..."
+    sed -i 's|# Agent Zero|# 2501-Bot|g' README.md
+    sed -i 's|Agent Zero|Project 2501|g' README.md
+    sed -i 's|agent-zero|2501-bot|g' README.md
+fi
+
+echo "✅ All done!"
