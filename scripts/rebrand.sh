@@ -10,12 +10,12 @@ echo "🔄 Starting auto-rebranding..."
 # Define replacements
 REPLACEMENTS=(
     "agent-zero:2501-bot"
-    "Agent Zero:Project Zero"
-    "agent_zero:project_zero"
+    "Agent Zero:Project 2501"
+    "agent_zero:project_2501"
     "agent-zero:2501-bot"
-    "AgentZero:ProjectZero"
+    "AgentZero:Project2501"
     "AGENT-ZERO:2501-BOT"
-    "AGENT_ZERO:PROJECT_ZERO"
+    "AGENT_ZERO:PROJECT_2501"
 )
 
 # Find files to rebrand (excluding node_modules, .git, out, build)
