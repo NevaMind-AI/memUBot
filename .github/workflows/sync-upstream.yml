@@ -38,3 +38,21 @@ jobs:
         run: |
           echo "Sync completed at $(date)"
           git log --oneline -5
+      
+      - name: Send notification
+        if: always()
+        run: |
+          SYNC_STATUS="${{ job.status }}"
+          SYNC_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          COMMIT_COUNT=$(git log --oneline upstream/main..HEAD | wc -l)
+          
+          echo "Sync Status: $SYNC_STATUS"
+          echo "Sync Time: $SYNC_TIME"
+          echo "Commits Synced: $COMMIT_COUNT"
+          
+          # Send webhook notification (Discord/Slack/Custom)
+          if [ -n "${{ secrets.SYNC_WEBHOOK_URL }}" ]; then
+            curl -X POST -H 'Content-type: application/json' \
+              --data "{\"text\":\"🔄 2501-Bot Sync: $SYNC_STATUS at $SYNC_TIME ($COMMIT_COUNT commits)\"}" \
+              ${{ secrets.SYNC_WEBHOOK_URL }} || true
+          fi
