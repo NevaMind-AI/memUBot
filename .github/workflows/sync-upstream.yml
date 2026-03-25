@@ -33,6 +33,14 @@ jobs:
           git merge upstream/main --no-edit || git merge upstream/main --no-ff --no-edit
           git push origin main
       
+      - name: Run auto-rebranding
+        run: |
+          chmod +x scripts/rebrand.sh
+          ./scripts/rebrand.sh
+          git add .
+          git commit -m 'Auto-rebrand: Sync with upstream' || echo 'No rebranding changes needed'
+          git push origin main
+      
       - name: Report status
         if: always()
         run: |
