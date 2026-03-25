@@ -15,7 +15,7 @@
     "dev:2501": "cross-env APP_MODE=2501 electron-vite dev --mode 2501",
     "build:2501:mac": "tsx scripts/build-mac.ts --mode 2501",
     "build:2501:win": "tsx scripts/build-win.ts --mode 2501",
-    "dev:2501:proactive": "APP_MODE=2501 WITH_PROACTIVE=1 electron-vite dev --mode 2501"
+    "postbuild": "sed -i 's/BotMemuMetadata/Bot2501Metadata/g' out/main/index.js && sed -i 's/memuMetadata/memory2501Metadata/g' out/main/index.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
