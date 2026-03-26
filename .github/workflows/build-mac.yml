@@ -43,7 +43,6 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
           ELECTRON_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ELECTRON_BUILDER_NO_PUBLISH: always
         run: npm run build:2501:mac
 
       - name: Build macOS DMG (Signed & Notarized)
