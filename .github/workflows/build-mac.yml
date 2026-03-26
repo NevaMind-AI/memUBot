@@ -23,11 +23,11 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '23'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Build macOS DMG (Unsigned)
         if: github.event_name == 'pull_request' || github.ref != 'refs/tags/v*'
