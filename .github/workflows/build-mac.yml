@@ -42,8 +42,8 @@ jobs:
         if: github.event_name == 'pull_request' || github.ref != 'refs/tags/v*'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_BUILDER_NO_PUBLISH: always
         run: npm run build:2501:mac
 
       - name: Build macOS DMG (Signed & Notarized)
