@@ -59,10 +59,10 @@ async function main(): Promise<void> {
   
   // Use mode config if it exists (it extends the base config)
   // Only publish when signing (APPLE_ID set); otherwise never publish
-  const publishFlag = process.env.APPLE_ID ? '--publish always' : '--publish never'
+  const publishArgs = process.env.APPLE_ID ? ['--publish', 'always'] : ['--publish', 'never']
   const builderArgs = fs.existsSync(modeConfigPath)
-    ? ['electron-builder', '--mac', '--config', 'electron-builder.mode.json', publishFlag]
-    : ['electron-builder', '--mac', publishFlag]
+    ? ['electron-builder', '--mac', '--config', 'electron-builder.mode.json', ...publishArgs]
+    : ['electron-builder', '--mac', ...publishArgs]
 
   await run('npx', builderArgs, root)
 
