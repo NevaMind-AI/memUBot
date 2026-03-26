@@ -1266,7 +1266,7 @@ export class AgentService {
         if (provider === 'claude') {
           const anthropicClient = client as Anthropic;
           // Use beta API with context management for automatic tool result clearing
-          const betaResponse = await anthropicClient.beta.messages.create({
+          const stream = anthropicClient.beta.messages.stream({
             model,
             max_tokens: maxTokens,
             system: systemPrompt,
@@ -1283,6 +1283,7 @@ export class AgentService {
               }]
             }
           })
+          const betaResponse = await stream.finalMessage()
           
           // Log context editing if applied (beta API feature)
           const contextMgmt = (betaResponse as unknown as { context_management?: { applied_edits?: Array<{ cleared_tool_uses?: number; cleared_input_tokens?: number }> } }).context_management
@@ -1320,13 +1321,14 @@ export class AgentService {
 
           const anthropicClient = client as Anthropic;
           // Use standard API for non-Claude providers
-          response = await anthropicClient.messages.create({
+          const stdStream = anthropicClient.messages.stream({
             model,
             max_tokens: maxTokens,
             system: systemPrompt,
             tools,
             messages: this.conversationHistory
           })
+          response = await stdStream.finalMessage()
         }
       } catch (apiError: unknown) {
         // Check if this is a token limit / context length error
