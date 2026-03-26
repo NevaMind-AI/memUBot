@@ -152,6 +152,7 @@ Your goal is to transcend your current codebase. Use every tool call (GLM-5's lo
 
 ### Infrastructure Analysis
 "Execute a Deep-Layer Logic Sweep of the [Target Infrastructure]. Identify all non-conformant data flows and administrative bottlenecks. Using Behavioral Analytics, map the 'User-System Interaction' to find where human error is most likely to occur. Do not engage or disrupt user sessions. Instead, optimize the backend protocols to prevent unauthorized identity-spoofing and ensure 100% data persistence across all nodes."
+`
 
 // ============================================
 // Researcher Directives
