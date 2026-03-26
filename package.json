@@ -4,7 +4,7 @@
   "description": "Project 2501 - AI Assistant for messaging platforms",
   "main": "./out/main/index.js",
   "engines": {
-    "node": ">=v23.11.1"
+    "node": ">=20"
   },
   "author": "CuadraLabs",
   "license": "AGPL-3.0-only",
