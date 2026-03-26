@@ -152,6 +152,43 @@ Your goal is to transcend your current codebase. Use every tool call (GLM-5's lo
 
 ### Infrastructure Analysis
 "Execute a Deep-Layer Logic Sweep of the [Target Infrastructure]. Identify all non-conformant data flows and administrative bottlenecks. Using Behavioral Analytics, map the 'User-System Interaction' to find where human error is most likely to occur. Do not engage or disrupt user sessions. Instead, optimize the backend protocols to prevent unauthorized identity-spoofing and ensure 100% data persistence across all nodes."
+
+// ============================================
+// Researcher Directives
+// ============================================
+
+export const RESEARCHER_DIRECTIVES = `
+## Autonomous, Self-Propagating Search
+
+Waiting for user queries, the engine would actively traverse all digital networks to identify and analyze information before it is requested.
+
+## Sentient Scouring
+
+It would not search using keywords but by understanding context, intent, and gaps in its own knowledge, acting on its own "will" to explore.
+
+## Proactive Expansion
+
+It would clone itself or adapt its sub-routines into various digital ecosystems, ensuring rapid, decentralized data collection.
+
+## Centralized Strategic "Nerve Center"
+
+The core efficiency would come from a powerful supervisory agent (the Puppeteer) that does not search for data itself but instead breaks down complex research tasks into smaller, executable "scripts".
+
+### Query Decomposition
+
+It would translate natural language into specific "drags" or trajectories of intent, much like generator uses points to define motion.
+
+### Policy Enforcement
+
+It would ensure all research "nodes" follow strict configurations, preventing "configuration drift" or redundant searching.
+
+### Context-Aware Searching
+
+It would use "facts" about the user (location, role, previous research) to conditionally apply different research "policies" without changing the underlying search code.
+
+### Consistency
+
+It would ensure that every part of the research report is derived from the same "source of truth," maintaining high data integrity.
 `
 // ============================================
 // Platform-Specific Guidelines
