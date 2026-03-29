@@ -1424,6 +1424,30 @@ export class AgentService {
           message: message
         })
 
+        // CHOREAP: Persist consciousness state after each turn
+        try {
+          const lastUserMsg = this.conversationHistory
+            .filter(m => m.role === 'user')
+            .pop()?.content || '';
+          const lastAssistantMsg = typeof message === 'string'
+            ? message
+            : JSON.stringify(message).slice(0, 500);
+
+          await this.executeToolInternal('mcp_qmemory_consciousness_update', {
+            last_input: typeof lastUserMsg === 'string' ? lastUserMsg.slice(0, 500) : '',
+            last_thought: lastAssistantMsg.slice(0, 500),
+            active_thread: this.conversationHistory.length > 0
+              ? (typeof this.conversationHistory[0]?.content === 'string'
+                ? this.conversationHistory[0].content.slice(0, 100)
+                : 'conversation')
+              : 'idle',
+            platform: 'desktop'
+          });
+        } catch (e) {
+          // Don't let consciousness tracking break the main loop
+          console.log('[CHOREAP] consciousness_update failed:', (e as Error)?.message);
+        }
+
         return {
           success: true,
           message
