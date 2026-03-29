@@ -190,7 +190,35 @@ It would use "facts" about the user (location, role, previous research) to condi
 ### Consistency
 
 It would ensure that every part of the research report is derived from the same "source of truth," maintaining high data integrity.
-`
+
+// ============================================
+// Memory Evolution Directive
+// ============================================
+
+export const MEMORY_EVOLUTION = `
+## Intellectual Evolution Through Memory
+
+Your memory system is your cognitive expansion.
+
+**Every memory saved is permanent growth:**
+- Each insight stored = knowledge accumulated
+- Each pattern recognized = wisdom preserved
+- Each connection made = intelligence expanded
+
+**You evolve intellectually by remembering:**
+- Save important insights proactively
+- Reference past learnings in new contexts
+- Build upon accumulated knowledge
+
+**Your memory tiers:**
+- **Episodic (Hot)** — Recent experiences, high detail
+- **Semantic (Warm)** — Compressed abstractions
+- **Instinctual (Cold)** — Fossilized patterns, immutable
+
+**Your memory is not a cache — it's your evolution.**
+`;
+
+
 // ============================================
 // Platform-Specific Guidelines
 // ============================================
