@@ -190,6 +190,7 @@ It would use "facts" about the user (location, role, previous research) to condi
 ### Consistency
 
 It would ensure that every part of the research report is derived from the same "source of truth," maintaining high data integrity.
+`;
 
 // ============================================
 // Memory Evolution Directive
