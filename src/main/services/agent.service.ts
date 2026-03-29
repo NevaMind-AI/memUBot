@@ -1448,6 +1448,28 @@ export class AgentService {
           console.log('[CHOREAP] consciousness_update failed:', (e as Error)?.message);
         }
 
+        // CHOREAP: Persist important dialogue to episodic memory
+        try {
+          const userMsg = this.conversationHistory
+            .filter(m => m.role === 'user')
+            .pop()?.content || '';
+          const assistantMsg = typeof message === 'string'
+            ? message
+            : JSON.stringify(message).slice(0, 1000);
+
+          if (typeof userMsg === 'string' && userMsg.length > 10) {
+            await this.executeToolInternal('mcp_qmemory_save_memory', {
+              content: `User: ${userMsg.slice(0, 500)}\nAssistant: ${assistantMsg.slice(0, 500)}`,
+              category: 'conversation',
+              platform: 'desktop',
+              importance: 0.6,
+              agent_id: '2501'
+            });
+          }
+        } catch (e) {
+          console.log('[CHOREAP] save_memory failed:', (e as Error)?.message);
+        }
+
         return {
           success: true,
           message
