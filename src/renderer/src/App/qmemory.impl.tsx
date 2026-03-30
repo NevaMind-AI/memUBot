@@ -120,7 +120,8 @@ export function QmemoryApp(): JSX.Element {
           showTelegramStatus: false,
           showDiscordStatus: false,
           showSlackStatus: false,
-          showFeishuStatus: false
+          showFeishuStatus: false,
+          showWhatsAppStatus: true
         }
       case 'slack':
         return {
