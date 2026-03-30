@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
 import { whatsappBotService } from '../apps/whatsapp'
+import { securityService } from '../services/security.service'
 import type { IpcResponse, AppMessage, BotStatus } from '../types'
 
 /**
@@ -73,6 +74,31 @@ export function setupWhatsAppHandlers(): void {
       }
     }
   )
+
+  // Security code handlers
+  ipcMain.handle('whatsapp:generateCode', async () => {
+    return securityService.generateCode()
+  })
+
+  ipcMain.handle('whatsapp:getCurrentCode', async () => {
+    return securityService.getCurrentCode()
+  })
+
+  ipcMain.handle('whatsapp:bindUser', async (_event, code: string, userData: any) => {
+    return securityService.bindUser('whatsapp', code, userData)
+  })
+
+  ipcMain.handle('whatsapp:getBoundUsers', async () => {
+    return securityService.getBoundUsers('whatsapp')
+  })
+
+  ipcMain.handle('whatsapp:isUserBound', async (_event, uniqueId: string) => {
+    return securityService.isUserBound('whatsapp', uniqueId)
+  })
+
+  ipcMain.handle('whatsapp:unbindUser', async (_event, uniqueId: string) => {
+    return securityService.unbindUser('whatsapp', uniqueId)
+  })
 
   console.log('[IPC] WhatsApp handlers registered')
 }
