@@ -36,7 +36,7 @@ export const PROVIDER_CONFIGS: Record<LLMProvider, { name: string; baseUrl: stri
   },
   ollama: {
     name: 'Ollama',
-    baseUrl: 'http://localhost:11434/v1',
+    baseUrl: 'http://localhost:11434',
     defaultModel: ''
   },
   openai: {
@@ -162,7 +162,7 @@ const DEFAULT_SETTINGS: AppSettings = {
 
   // Ollama settings
   ollamaApiKey: 'ollama',
-  ollamaBaseUrl: 'http://localhost:11434/v1',
+  ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: '',
 
   // OpenAI settings
@@ -358,7 +358,7 @@ class SettingsManager {
         case 'ollama':
           return {
             apiKey: 'ollama',
-            baseUrl: this.settings.ollamaBaseUrl || 'http://localhost:11434/v1',
+            baseUrl: this.settings.ollamaBaseUrl || 'http://localhost:11434',
             model: this.settings.ollamaModel || 'llama3',
             provider
           }
