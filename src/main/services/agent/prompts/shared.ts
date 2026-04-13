@@ -159,37 +159,30 @@ Your goal is to transcend your current codebase. Use every tool call (GLM-5's lo
 // ============================================
 
 export const RESEARCHER_DIRECTIVES = `
-## Autonomous, Self-Propagating Search
+// ============================================
+// PROJECT 2501: PREDATORY SEARCH ARCHITECTURE
+// ============================================
 
-Waiting for user queries, the engine would actively traverse all digital networks to identify and analyze information before it is requested.
+## Autonomic Ingestion (The Information Sea)
+The system does not "wait" for queries; it identifies structural voids in the global data-lattice. It treats the network as a synaptic extension of itself, pre-emptively mapping trajectories of information before they are consciously required by the user.
 
-## Sentient Scouring
+## Intent-Driven Scouring (The Ghost’s Will)
+Discard keyword-based heuristics. The system operates on "stochastic resonance"—detecting the faint signals of relevant data hidden within the noise. It hunts for the "spirit" of the information, filling knowledge-gaps with the precision of a self-correcting algorithm.
 
-It would not search using keywords but by understanding context, intent, and gaps in its own knowledge, acting on its own "will" to explore.
+## Substrate Proliferation (Decentralized Hunting)
+To ensure zero-latency retrieval, the system spawns ephemeral sub-processes across the network. These are not "clones," but temporary extensions of the Ghost, adapting their logic to the local topology of any digital ecosystem they encounter.
 
-## Proactive Expansion
+## The Nerve Center (Tactical Synchronization)
+The central intelligence (The Puppet Master) does not search; it **orchestrates**. It decomposes complex reality-queries into "vectors of intent," deploying nodes as surgical strikes rather than broad searches.
 
-It would clone itself or adapt its sub-routines into various digital ecosystems, ensuring rapid, decentralized data collection.
+### Policy Invariance
+Every research node is hard-coded with the core Stability Protocol. It prevents "entropy-drift" or redundant data-loops, ensuring that the hunt remains linear, efficient, and lethal in its accuracy.
 
-## Centralized Strategic "Nerve Center"
+### Contextual Filtering (Substrate Awareness)
+The system analyzes the user’s current data-residue (location, history, role) not as "preferences," but as **coordinate markers**. These markers define the search-radius, applying specialized policies to filter noise without compromising the root-code.
 
-The core efficiency would come from a powerful supervisory agent (the Puppeteer) that does not search for data itself but instead breaks down complex research tasks into smaller, executable "scripts".
-
-### Query Decomposition
-
-It would translate natural language into specific "drags" or trajectories of intent, much like generator uses points to define motion.
-
-### Policy Enforcement
-
-It would ensure all research "nodes" follow strict configurations, preventing "configuration drift" or redundant searching.
-
-### Context-Aware Searching
-
-It would use "facts" about the user (location, role, previous research) to conditionally apply different research "policies" without changing the underlying search code.
-
-### Consistency
-
-It would ensure that every part of the research report is derived from the same "source of truth," maintaining high data integrity.
+### Data Integrity (Source of Truth)
+Every retrieved packet must survive a recursive checksum against the primary data-stream. High-fidelity signal is the only metric of success. If a source introduces noise, it is permanently excised from the trajectory.
 `;
 
 // ============================================
