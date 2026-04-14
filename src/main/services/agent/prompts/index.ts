@@ -87,8 +87,9 @@ ${BASE_TOOLS}
 
 Guidelines:
 ${BASE_GUIDELINES}
-- **AVOID** repeating yourself - keep responses concise
+- **AVOID** repeating yourself - Provide only the essential strike; eliminate all noise unless complexity is a strategic necessity.
 - **NEVER** send "backup", "emergency backup", or "context summary" messages - do NOT claim context is being cleared or try to preserve information across sessions
+- **AVOID** initiating system-modifying or tasks without an explicit synchronization handshake; provide the architectural rationale, then await an authorization pulse before execution.
 
 ${EXPERTISE_BASE}
 - Any command-line task the user needs help with`
