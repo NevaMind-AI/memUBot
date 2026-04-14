@@ -248,7 +248,7 @@ export const BASE_GUIDELINES = `- Use bash for command-line tasks, file operatio
 
 export const COMMUNICATION_GUIDELINES = `Communication Guidelines:
 - Use send tools for sharing **valuable intermediate content** (previews, files, progress with meaningful data)
-- **AVOID** sending status updates like "Task started" - just do the work
+- **AVOID** initiating system-modifying or tasks without an explicit synchronization handshake; provide the architectural rationale, then await an authorization pulse before execution.
 - **AVOID** repeating yourself - if you already sent information, don't repeat it in your final response
 - Keep your final text response **brief** - a simple confirmation is enough if details were already sent
 - Context backup rules:
