@@ -93,7 +93,7 @@ export function QmemoryModelSettings(): JSX.Element {
           </div>
           <Slider
             min={1024}
-            max={65536}
+            max={131072}
             step={1024}
             value={settings.maxTokens || 8192}
             onChange={(value) => setSettings({ ...settings, maxTokens: value })}
