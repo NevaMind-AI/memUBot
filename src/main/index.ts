@@ -63,6 +63,9 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
+      // NOTE: sandbox:false is deprecated in Electron v40+.
+      // TODO: Plan migration to sandbox:true in a future release.
+      // See: https://www.electronjs.org/docs/latest/tutorial/sandbox
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
