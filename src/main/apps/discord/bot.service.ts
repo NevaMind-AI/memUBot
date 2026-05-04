@@ -450,7 +450,7 @@ export class DiscordBotService {
       }
 
       // Get response from Agent with Discord-specific tools
-      const response = await agentService.processMessage(fullMessage, 'discord', imageUrls, undefined, {
+      const response = await agentService.processMessage(fullMessage, 'discord', imageUrls, undefined, undefined, {
         source: 'message',
         userId: originalMessage.author.id
       })

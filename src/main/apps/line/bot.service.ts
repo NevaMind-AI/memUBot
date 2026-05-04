@@ -180,7 +180,7 @@ export class LineBotService {
         return
       }
 
-      const response = await agentService.processMessage(userMessage, 'line', [], undefined, {
+      const response = await agentService.processMessage(userMessage, 'line', [], undefined, undefined, {
         source: 'message',
         userId
       })

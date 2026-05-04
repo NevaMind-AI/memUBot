@@ -15,6 +15,7 @@ import { setupLLMHandlers } from './llm.handlers'
 import { registerSkillsHandlers } from './skills.handlers'
 import { setupServiceHandlers } from './service.handlers'
 import { setupUpdaterHandlers } from './updater.handlers'
+import { setupMemoryHandlers } from './memory.handlers'
 import { guardFileBoundary } from '../utils/file-boundary'
 import type { IpcResponse, FileInfo } from '../types'
 
@@ -38,6 +39,7 @@ export async function setupIpcHandlers(): Promise<void> {
   registerSkillsHandlers()
   setupServiceHandlers()
   setupUpdaterHandlers()
+  setupMemoryHandlers()
 }
 
 /**
@@ -49,7 +51,7 @@ function setupAgentHandlers(): void {
     'agent:send-message',
     async (_event, message: string): Promise<IpcResponse<string>> => {
       try {
-        const response = await agentService.processMessage(message, 'none', [], undefined, {
+        const response = await agentService.processMessage(message, 'none', [], undefined, undefined, {
           source: 'system'
         })
 

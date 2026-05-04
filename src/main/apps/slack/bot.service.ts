@@ -508,7 +508,7 @@ export class SlackBotService {
         return
       }
 
-      const response = await agentService.processMessage(fullMessage, 'slack', imageUrls, undefined, {
+      const response = await agentService.processMessage(fullMessage, 'slack', imageUrls, undefined, undefined, {
         source: 'message',
         userId
       })

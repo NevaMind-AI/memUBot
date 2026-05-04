@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { TelegramIcon, DiscordIcon, SlackIcon, FeishuIcon } from '../../Icons/AppIcons'
 import { MessageDisplay, LoadingSpinner, formatBytes } from '../shared'
+import { LocalMemorySettings } from './LocalMemorySettings'
 
 interface StorageFolder {
   name: string
@@ -215,6 +216,8 @@ export function MemuDataSettings(): JSX.Element {
             </button>
           </div>
         </div>
+
+        <LocalMemorySettings />
 
         {/* Message */}
         <MessageDisplay message={message} />

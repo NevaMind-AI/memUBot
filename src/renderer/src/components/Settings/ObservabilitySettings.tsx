@@ -457,7 +457,7 @@ function TraceRow({ trace, expanded, onToggle }: { trace: TraceEntry; expanded: 
           {trace.spans[0]?.tokenUsage && (
             <div className="flex items-center gap-2 pl-3 pt-1 text-[10px] text-amber-500/80 border-t border-[var(--border-color)]">
               <Zap className="w-3 h-3" />
-              <span>{t('settings.observability.traces.totalTokens', { count: trace.spans[0].tokenUsage.total.toLocaleString() })}</span>
+              <span>{t('settings.observability.traces.totalTokens', { count: trace.spans[0].tokenUsage.total })}</span>
               <span className="text-[var(--text-muted)] opacity-50">
                 ({t('settings.observability.traces.tokenBreakdown', { input: trace.spans[0].tokenUsage.input.toLocaleString(), output: trace.spans[0].tokenUsage.output.toLocaleString() })})
               </span>
@@ -494,7 +494,7 @@ function MetricsDashboard({ metrics }: { metrics: MetricsSummary }): JSX.Element
         <MetricCard
           label={t('settings.observability.metrics.llmCalls')}
           value={metrics.llm.callCount.toString()}
-          sub={t('settings.observability.metrics.tokens', { count: (metrics.llm.totalInputTokens + metrics.llm.totalOutputTokens).toLocaleString() })}
+          sub={t('settings.observability.metrics.tokens', { count: metrics.llm.totalInputTokens + metrics.llm.totalOutputTokens })}
           color="amber"
         />
       </div>

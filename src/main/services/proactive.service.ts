@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import OpenAI from 'openai'
 import { loadSettings } from '../config/settings.config'
+import { localMemoryControlService } from './local-memory-control.service'
 import { runOpenAIAdapter } from './agent/openai-adapter'
 import { runGeminiAdapter, createToolUseIdMap } from './agent/gemini-adapter'
 import { detectCustomProtocol } from './agent/utils'
@@ -202,6 +203,26 @@ class ProactiveService {
   private async executeMemuMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
     try {
       const memuConfig = await this.getMemuConfig()
+      const hasRemoteConfig = !!(memuConfig.apiKey && memuConfig.apiKey.trim())
+
+      if (!hasRemoteConfig) {
+        const results = await localMemoryControlService.searchMemories({
+          query,
+          limit: 10,
+          include_archived: false,
+          min_confidence: 0.2,
+          exclude_sensitive: true,
+        })
+        return {
+          success: true,
+          data: {
+            source: 'local-controlled-memory',
+            query,
+            results,
+          },
+        }
+      }
+
       const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/retrieve`, {
         method: 'POST',
         headers: {

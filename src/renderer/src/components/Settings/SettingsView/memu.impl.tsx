@@ -72,7 +72,7 @@ export function MemuSettingsView(): JSX.Element {
         <div id={SETTINGS_BAR_PORTAL_ID} />
 
         <div className="flex-1 overflow-y-auto">
-          <div className={`mx-auto py-6 px-5 pb-24 ${activeTab === 'observability' ? 'max-w-2xl' : 'max-w-lg'}`}>
+          <div className={`mx-auto py-6 px-5 pb-24 ${activeTab === 'observability' ? 'max-w-2xl' : activeTab === 'data' ? 'max-w-6xl' : 'max-w-lg'}`}>
             {activeTab === 'general' && <GeneralSettings />}
             {activeTab === 'platforms' && <PlatformSettings />}
             {activeTab === 'security' && <SecuritySettings />}

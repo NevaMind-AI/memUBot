@@ -98,6 +98,13 @@ class MemorizationStorage {
     console.log(`[MemorizationStorage] Removed first ${count} messages, ${this.messages.length} remaining`)
   }
 
+
+  async clearMessages(): Promise<void> {
+    await this.ensureInitialized()
+    this.messages = []
+    await this.saveMessages()
+  }
+
   // ==================== State ====================
 
   private async loadState(): Promise<void> {

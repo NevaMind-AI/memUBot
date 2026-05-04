@@ -3,7 +3,7 @@ import * as fs from 'fs/promises'
 import * as path from 'path'
 import { loadSettings, saveSettings, type AppSettings } from '../config/settings.config'
 import { mcpService } from '../services/mcp.service'
-import { secureStorage } from '../services/secure-storage.service'
+import { secureStorage, createMcpEnvKey, MCP_ENV_PREFIX } from '../services/secure-storage.service'
 import { detectCustomProtocol } from '../services/agent/utils'
 import type { IpcResponse } from '../types'
 
@@ -90,8 +90,8 @@ async function loadUserMcpConfig(): Promise<McpServerConfig> {
       if (serverConfig.env) {
         const decryptedEnv: Record<string, string> = {}
         for (const [envKey, envValue] of Object.entries(serverConfig.env)) {
-          const storageKey = secureStorage.createMcpEnvKey(serverName, envKey)
-          const decrypted = secureStorage.get(storageKey)
+          const storageKey = createMcpEnvKey(serverName, envKey)
+          const decrypted = await secureStorage.get(storageKey)
           if (decrypted !== null) {
             decryptedEnv[envKey] = decrypted
           } else {
@@ -128,9 +128,9 @@ async function saveMcpConfig(config: McpServerConfig): Promise<void> {
     if (rest.env && Object.keys(rest.env).length > 0) {
       const envPlaceholders: Record<string, string> = {}
       for (const [envKey, envValue] of Object.entries(rest.env)) {
-        const storageKey = secureStorage.createMcpEnvKey(name, envKey)
+        const storageKey = createMcpEnvKey(name, envKey)
         // Store actual value in secureStorage
-        secureStorage.set(storageKey, envValue)
+        await secureStorage.set(storageKey, envValue)
         allSecureEnvKeys.add(storageKey)
         // Store placeholder in config file
         envPlaceholders[envKey] = `[SECURE:${storageKey}]`
@@ -153,16 +153,16 @@ async function cleanupSecureMcpEnvKeys(currentConfig: McpServerConfig): Promise<
   for (const [name, serverConfig] of Object.entries(currentConfig)) {
     if (serverConfig.env) {
       for (const envKey of Object.keys(serverConfig.env)) {
-        currentKeys.add(secureStorage.createMcpEnvKey(name, envKey))
+        currentKeys.add(createMcpEnvKey(name, envKey))
       }
     }
   }
 
   // Get all MCP env keys from secureStorage
-  const allSecureStorage = secureStorage.getAll()
+  const allSecureStorage = await secureStorage.getAll()
   for (const key of Object.keys(allSecureStorage)) {
-    if (key.startsWith('mcp:env:') && !currentKeys.has(key)) {
-      secureStorage.delete(key)
+    if (key.startsWith(MCP_ENV_PREFIX) && !currentKeys.has(key)) {
+      await secureStorage.delete(key)
       console.log(`[Settings] Cleaned up orphaned MCP env key: ${key}`)
     }
   }

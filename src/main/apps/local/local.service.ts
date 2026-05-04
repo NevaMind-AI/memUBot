@@ -84,7 +84,7 @@ export class LocalChatService {
       return { success: true, data: userMessage }
     }
 
-    const response = await agentService.processMessage(trimmed, 'local', [], sessionId, {
+    const response = await agentService.processMessage(trimmed, 'local', [], sessionId, undefined, {
       source: 'message',
       isAuthorizedUser: true,
       userId: 'local-user'

@@ -7,6 +7,11 @@ interface IpcResponse<T = unknown> {
   error?: string
 }
 
+type MemoryStatus = 'active' | 'archived' | 'deleted'
+type MemoryUserControl = 'auto' | 'remember' | 'dont_remember' | 'modified' | 'deleted' | 'paused'
+type MemorySensitivityLevel = 'normal' | 'work' | 'sensitive'
+type MemoryConflictState = 'none' | 'potential' | 'confirmed'
+
 // Conversation message type
 interface ConversationMessage {
   role: 'user' | 'assistant'
@@ -560,6 +565,148 @@ interface UpdateDownloadProgress {
   total: number
 }
 
+
+
+// Local controlled memory types
+interface LocalMemoryItem {
+  id: string
+  content: string
+  memory_type: string
+  source_platform: string | null
+  source_excerpt: string | null
+  created_at: number
+  updated_at: number
+  confidence: number
+  importance: number
+  sensitivity_level: MemorySensitivityLevel
+  retention_until: number | null
+  status: 'active' | 'archived' | 'deleted'
+  user_control: 'auto' | 'remember' | 'dont_remember' | 'modified' | 'deleted' | 'paused'
+  why_stored: string | null
+  conflict_state: 'none' | 'potential' | 'confirmed'
+  conflict_notes: string | null
+}
+
+interface MemoryProvenance {
+  source_platform: string | null
+  source_excerpt: string | null
+  created_at: number
+  updated_at: number
+  retention_until: number | null
+  why_stored: string | null
+  sensitivity_level: MemorySensitivityLevel
+  conflict_state: 'none' | 'potential' | 'confirmed'
+  conflict_notes: string | null
+}
+
+interface MemoryExplanation {
+  provenance: MemoryProvenance
+}
+
+interface ExplainedLocalMemoryItem extends LocalMemoryItem {
+  explanation: MemoryExplanation
+}
+
+interface MemoryMatchField {
+  field: 'content' | 'memory_type' | 'source_platform' | 'source_excerpt' | 'why_stored' | 'status' | 'user_control' | 'sensitivity_level' | 'conflict_notes'
+  value_excerpt: string
+  matched_terms: string[]
+  score_contribution: number
+  reason: string
+}
+
+interface MemoryRetrievalExplanation {
+  query: string
+  matched_fields: MemoryMatchField[]
+  source_excerpt: string | null
+  created_at: number
+  updated_at: number
+  retention_until: number | null
+  score: number
+  score_reasons: string[]
+}
+
+interface MemoryRetrievalResult {
+  memory: ExplainedLocalMemoryItem
+  retrieval_explanation: MemoryRetrievalExplanation
+}
+
+interface MemoryEventRecord {
+  id: number
+  memory_id: string
+  event_type: string
+  actor: string
+  previous_status: MemoryStatus | null
+  new_status: MemoryStatus | null
+  reason: string | null
+  payload_json: string | null
+  created_at: number
+}
+
+interface MemoryCaptureStatus {
+  paused: boolean
+}
+
+interface RememberThisInput {
+  content: string
+  memory_type: string
+  source_platform?: string | null
+  source_excerpt?: string | null
+  confidence?: number
+  importance?: number
+  sensitivity_level?: MemorySensitivityLevel
+  retention_until?: number | null
+  status?: 'active' | 'archived' | 'deleted'
+  user_control?: 'auto' | 'remember' | 'dont_remember' | 'modified' | 'deleted' | 'paused'
+  why_stored?: string | null
+}
+
+interface DoNotRememberInput {
+  content: string
+  memory_type?: string
+  source_platform?: string | null
+  source_excerpt?: string | null
+  sensitivity_level?: MemorySensitivityLevel
+  reason?: string | null
+}
+
+interface MemorySearchInput {
+  query?: string
+  limit?: number
+  include_archived?: boolean
+  status?: 'active' | 'archived' | 'deleted'
+  memory_type?: string
+  source_platform?: string
+  sensitivity_level?: MemorySensitivityLevel
+  user_control?: 'auto' | 'remember' | 'dont_remember' | 'modified' | 'deleted' | 'paused'
+  created_after?: number
+  created_before?: number
+  updated_after?: number
+  updated_before?: number
+  min_confidence?: number
+  min_importance?: number
+  exclude_sensitive?: boolean
+  conflict_state?: MemoryConflictState
+}
+
+interface MemoryApi {
+  getStatus: () => Promise<IpcResponse<MemoryCaptureStatus>>
+  rememberThis: (input: RememberThisInput) => Promise<IpcResponse<LocalMemoryItem>>
+  doNotRememberThis: (input: DoNotRememberInput) => Promise<IpcResponse<LocalMemoryItem>>
+  get: (id: string) => Promise<IpcResponse<LocalMemoryItem | null>>
+  getExplained: (id: string) => Promise<IpcResponse<ExplainedLocalMemoryItem | null>>
+  getProvenance: (id: string) => Promise<IpcResponse<MemoryProvenance | null>>
+  list: (filters?: Record<string, unknown>) => Promise<IpcResponse<LocalMemoryItem[]>>
+  listExplained: (filters?: Record<string, unknown>) => Promise<IpcResponse<ExplainedLocalMemoryItem[]>>
+  search: (filters?: MemorySearchInput) => Promise<IpcResponse<MemoryRetrievalResult[]>>
+  update: (id: string, updates: Record<string, unknown>) => Promise<IpcResponse<LocalMemoryItem | null>>
+  delete: (id: string) => Promise<IpcResponse<{ deleted: boolean }>>
+  deleteBySource: (sourcePlatform: string) => Promise<IpcResponse<{ deletedCount: number }>>
+  listEvents: (memoryId: string) => Promise<IpcResponse<MemoryEventRecord[]>>
+  pauseCapture: (reason?: string) => Promise<IpcResponse<MemoryCaptureStatus>>
+  resumeCapture: (reason?: string) => Promise<IpcResponse<MemoryCaptureStatus>>
+}
+
 // Updater API interface (auto-update)
 interface UpdaterApi {
   checkForUpdates: () => Promise<IpcResponse>
@@ -587,5 +734,6 @@ declare global {
     skills: SkillsApi
     services: ServicesApi
     updater: UpdaterApi
+    memory: MemoryApi
   }
 }

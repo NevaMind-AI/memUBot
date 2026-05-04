@@ -1,13 +1,13 @@
-import { loadSettings } from '../config/settings.config'
 import {
   infraService,
   type IncomingMessageEvent,
   type OutgoingMessageEvent,
 } from './infra.service'
-import {
-  memorizationStorage,
-  type StoredUnmemorizedMessage,
-} from './memorization.storage'
+import { memorizationStorage, type StoredUnmemorizedMessage } from './memorization.storage'
+import { loadSettings } from '../config/settings.config'
+import type { MemoryProvider } from './memory/memory-provider'
+import { RemoteMemuProvider } from './memory/remote-memu.provider'
+import { LocalControlledMemoryProvider } from './memory/local-controlled-memory.provider'
 
 const CHAT_MEMORIZE_MESSAGE_THRESHOLD = 20
 const CHAT_MEMORIZE_TIME_THRESHOLD_MS = 60 * 60 * 1000 // 60 minutes
@@ -15,58 +15,42 @@ const CHAT_MEMORIZE_TIME_THRESHOLD_MS = 60 * 60 * 1000 // 60 minutes
 const MEMORIZE_MIN_MESSAGE_COUNT = 2
 const MEMORIZE_MAX_MESSAGE_COUNT = 200
 
-const MEMORIZE_STATUS_POLL_INTERVAL_MS = 10_000
-const MEMORIZE_MAX_WAIT_MS = 5 * 60 * 1000
-
-type MemorizeStatus = 'PENDING' | 'PROCESSING' | 'SUCCESS' | 'FAILURE'
-
-interface MemorizeStatusResponse {
-  task_id: string
-  status: MemorizeStatus
-  detail_info: string
-}
-
 class MemorizationService {
   private unsubscribers: (() => void)[] = []
   private isMemorizing = false
   private debounceTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly remoteMemoryProvider = new RemoteMemuProvider()
+  private readonly localMemoryProvider = new LocalControlledMemoryProvider()
 
-  // ==================== Config ====================
-
-  private async getMemuConfig() {
+  private async getMemoryProvider(): Promise<MemoryProvider> {
     const settings = await loadSettings()
-    return {
-      baseUrl: settings.memuBaseUrl,
-      apiKey: settings.memuApiKey,
-      userId: settings.memuUserId,
-      agentId: settings.memuAgentId,
-    }
+    const hasRemoteConfiguration = !!(
+      settings.memuApiKey && settings.memuApiKey.trim() &&
+      settings.memuBaseUrl && settings.memuBaseUrl.trim() &&
+      settings.memuUserId && settings.memuUserId.trim() &&
+      settings.memuAgentId && settings.memuAgentId.trim()
+    )
+    return hasRemoteConfiguration ? this.remoteMemoryProvider : this.localMemoryProvider
   }
 
   // ==================== Lifecycle ====================
 
-  private async isApiKeyConfigured(): Promise<boolean> {
-    const settings = await loadSettings()
-    return !!(settings.memuApiKey && settings.memuApiKey.trim())
-  }
-
   async start(): Promise<boolean> {
     await memorizationStorage.initialize()
 
-    const hasKey = await this.isApiKeyConfigured()
-    if (!hasKey) {
-      console.log('[Memorization] memuApiKey not configured, messages will be queued locally until key is set')
+    const provider = await this.getMemoryProvider()
+    const isRemote = provider.kind === 'remote-memu'
+
+    if (!isRemote) {
+      console.log('[Memorization] Remote memU not configured, using local controlled memory provider')
     }
 
-    // Recover from previous run (only if API key is available)
-    if (hasKey) {
-      await this.recoverPendingTask()
+    if (isRemote && (await provider.isConfigured())) {
+      await this.recoverPendingTask(provider)
     }
 
-    // Check if memorization conditions are already met from persisted messages
     await this.checkAndTrigger()
 
-    // Subscribe to both incoming and outgoing messages
     this.unsubscribers.push(
       infraService.subscribe('message:incoming', (event) => {
         this.handleMessage(event, 'incoming')
@@ -89,13 +73,23 @@ class MemorizationService {
     console.log('[Memorization] Service stopped')
   }
 
-  // ==================== Message handling ====================
-
   private handleMessage(
     event: IncomingMessageEvent | OutgoingMessageEvent,
     _direction: 'incoming' | 'outgoing'
   ): void {
+    void this.handleMessageAsync(event)
+  }
+
+  private async handleMessageAsync(event: IncomingMessageEvent | OutgoingMessageEvent): Promise<void> {
     if (event.platform === 'none') return
+
+    const provider = await this.getMemoryProvider()
+    if (provider.kind === 'local-controlled-memory') {
+      const localStatus = await this.localMemoryProvider.getCaptureStatus()
+      if (localStatus.paused) {
+        return
+      }
+    }
 
     const content =
       typeof event.message.content === 'string'
@@ -109,20 +103,18 @@ class MemorizationService {
       timestamp: event.timestamp,
     }
 
-    memorizationStorage.appendMessage(stored).then(() => {
-      console.log(
-        `[Memorization] Queued message from ${event.platform} (queue size: ~${stored.timestamp})`
-      )
-      this.checkAndTrigger()
-    })
+    await memorizationStorage.appendMessage(stored)
+    console.log(
+      `[Memorization] Queued message from ${event.platform} (queue size: ~${stored.timestamp})`
+    )
+    await this.checkAndTrigger()
   }
 
-  // ==================== Trigger logic ====================
-
   private async checkAndTrigger(): Promise<void> {
-    // If a task is in-flight, do a single status check instead of blocking
+    const provider = await this.getMemoryProvider()
+
     if (this.isMemorizing) {
-      await this.checkActiveTask()
+      await this.checkActiveTask(provider)
       if (this.isMemorizing) return
     }
 
@@ -138,7 +130,6 @@ class MemorizationService {
       return
     }
 
-    // Count below threshold — use debounce timer
     if (count >= MEMORIZE_MIN_MESSAGE_COUNT) {
       this.resetDebounceTimer()
     }
@@ -160,70 +151,35 @@ class MemorizationService {
     }
   }
 
-  // ==================== Task status helpers ====================
-
-  /**
-   * Fetch the status of a memorization task and handle storage cleanup
-   * on terminal states (SUCCESS / FAILURE).
-   *
-   * Returns:
-   *  - 'success'  — task completed, queued messages removed from storage
-   *  - 'failure'  — task failed, task state cleared
-   *  - 'pending'  — task still PENDING or PROCESSING
-   *  - 'error'    — network / parse error (nothing changed)
-   */
   private async resolveTaskStatus(
+    provider: MemoryProvider,
     taskId: string,
     messageCount: number
   ): Promise<'success' | 'failure' | 'pending' | 'error'> {
     try {
-      const memuConfig = await this.getMemuConfig()
-      const response = await fetch(
-        `${memuConfig.baseUrl}/api/v3/memory/memorize/status/${taskId}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${memuConfig.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      )
-
-      if (!response.ok) {
-        console.error(`[Memorization] Status check failed for ${taskId}: ${response.status}`)
-        return 'error'
-      }
-
-      const result = (await response.json()) as MemorizeStatusResponse
-      console.log(`[Memorization] Task ${taskId} status: ${result.status}`)
-
-      if (result.status === 'SUCCESS') {
-        await memorizationStorage.removeFirstN(messageCount)
-        await memorizationStorage.clearTaskState()
-        await memorizationStorage.updateFirstMessageTimestamp()
-        return 'success'
-      }
-
-      if (result.status === 'FAILURE') {
-        console.error(`[Memorization] Task ${taskId} failed: ${result.detail_info}`)
-        await memorizationStorage.clearTaskState()
-        return 'failure'
-      }
-
-      return 'pending'
+      const result = await provider.checkTaskStatus(taskId, messageCount)
+      return result.status
     } catch (error) {
       console.error(`[Memorization] Error checking task ${taskId}:`, error)
       return 'error'
     }
   }
 
-  /**
-   * Single non-blocking status check for the current in-flight task.
-   * Called lazily from checkAndTrigger so we only hit the server when a
-   * new message arrives or the debounce timer fires.
-   */
-  private async checkActiveTask(): Promise<void> {
-    if (!(await this.isApiKeyConfigured())) return
+  private async finalizeResolvedTask(
+    outcome: 'success' | 'failure' | 'error',
+    messageCount: number
+  ): Promise<void> {
+    if (outcome === 'success' && messageCount > 0) {
+      await memorizationStorage.removeFirstN(messageCount)
+      await memorizationStorage.updateFirstMessageTimestamp()
+    }
+
+    await memorizationStorage.clearTaskState()
+    this.isMemorizing = false
+  }
+
+  private async checkActiveTask(provider: MemoryProvider): Promise<void> {
+    if (!(await provider.isConfigured())) return
 
     const state = await memorizationStorage.getState()
     if (!state.lastTaskId) {
@@ -232,17 +188,15 @@ class MemorizationService {
     }
 
     const outcome = await this.resolveTaskStatus(
+      provider,
       state.lastTaskId,
       state.messagesToRemoveOnSuccess
     )
 
-    if (outcome === 'success' || outcome === 'failure') {
-      this.isMemorizing = false
+    if (outcome === 'success' || outcome === 'failure' || outcome === 'error') {
+      await this.finalizeResolvedTask(outcome, state.messagesToRemoveOnSuccess)
     }
-    // 'pending' / 'error' — keep isMemorizing true, will retry on next call
   }
-
-  // ==================== Memorization execution ====================
 
   private triggerMemorization(): void {
     if (this.isMemorizing) return
@@ -255,73 +209,42 @@ class MemorizationService {
 
   private async runMemorization(): Promise<void> {
     try {
-      if (!(await this.isApiKeyConfigured())) {
-        console.log('[Memorization] memuApiKey not configured, skipping memorize POST (messages remain queued)')
+      const provider = await this.getMemoryProvider()
+      if (!(await provider.isConfigured())) {
+        console.log('[Memorization] No available memory provider configured')
         this.isMemorizing = false
         return
       }
 
-      const memuConfig = await this.getMemuConfig()
       const allMessages = await memorizationStorage.getMessages()
 
       if (allMessages.length < MEMORIZE_MIN_MESSAGE_COUNT) {
-        console.log('[Memorization] Not enough messages to memorize, skipping memorize POST (messages remain queued)')
+        console.log('[Memorization] Not enough messages to memorize')
         this.isMemorizing = false
         return
       }
 
       const messages = allMessages.slice(0, MEMORIZE_MAX_MESSAGE_COUNT)
-      const messageCount = messages.length
-
-      const formattedMessages = messages.map((m) => ({
-        role: m.role,
-        content: `[${m.platform}] ${m.content}`,
-      }))
-
-      console.log(
-        `[Memorization] Sending ${formattedMessages.length} messages to memorize`
-      )
-
-      const response = await fetch(
-        `${memuConfig.baseUrl}/api/v3/memory/memorize`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${memuConfig.apiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            user_id: memuConfig.userId,
-            agent_id: memuConfig.agentId,
-            conversation: formattedMessages,
-          }),
-        }
-      )
-
-      if (!response.ok) {
-        console.error(
-          '[Memorization] API returned status:',
-          response.status
-        )
-        this.isMemorizing = false
-        return
-      }
-
-      const result = (await response.json()) as { task_id?: string }
-      const taskId = result.task_id
+      const { taskId, messageCount } = await provider.startMemorization(messages)
 
       if (!taskId) {
-        console.error('[Memorization] No task_id returned')
+        if (provider.kind === 'local-controlled-memory' && messageCount > 0) {
+          await memorizationStorage.removeFirstN(messageCount)
+          await memorizationStorage.clearTaskState()
+          await memorizationStorage.updateFirstMessageTimestamp()
+        } else if (provider.kind === 'remote-memu') {
+          console.warn('[Memorization] Remote memorization did not start; falling back to local controlled memory')
+          const fallbackResult = await this.localMemoryProvider.startMemorization(messages)
+          if (fallbackResult.messageCount > 0) {
+            await memorizationStorage.removeFirstN(fallbackResult.messageCount)
+            await memorizationStorage.updateFirstMessageTimestamp()
+          }
+          await memorizationStorage.clearTaskState()
+        }
         this.isMemorizing = false
         return
       }
 
-      console.log(`[Memorization] Task started: ${taskId}`)
-
-      // Persist so we can recover if the process restarts.
-      // Status will be checked lazily in checkActiveTask on the next
-      // checkAndTrigger call (i.e. when a new message arrives or the
-      // debounce timer fires).
       await memorizationStorage.setState({
         lastTaskId: taskId,
         messagesToRemoveOnSuccess: messageCount,
@@ -332,40 +255,8 @@ class MemorizationService {
     }
   }
 
-  private async monitorTask(
-    taskId: string,
-    messageCount: number
-  ): Promise<void> {
-    const startTime = Date.now()
-
-    while (Date.now() - startTime < MEMORIZE_MAX_WAIT_MS) {
-      const outcome = await this.resolveTaskStatus(taskId, messageCount)
-
-      if (outcome === 'success') {
-        console.log('[Memorization] Memorization succeeded')
-        this.isMemorizing = false
-        await this.checkAndTrigger()
-        return
-      }
-
-      if (outcome === 'failure') {
-        this.isMemorizing = false
-        return
-      }
-
-      // 'pending' or 'error' — wait and retry
-      await this.sleep(MEMORIZE_STATUS_POLL_INTERVAL_MS)
-    }
-
-    console.error(`[Memorization] Task ${taskId} timed out`)
-    await memorizationStorage.clearTaskState()
-    this.isMemorizing = false
-  }
-
-  // ==================== Recovery ====================
-
-  private async recoverPendingTask(): Promise<void> {
-    if (!(await this.isApiKeyConfigured())) return
+  private async recoverPendingTask(provider: MemoryProvider): Promise<void> {
+    if (!(await provider.isConfigured())) return
 
     const state = await memorizationStorage.getState()
     if (!state.lastTaskId) return
@@ -377,30 +268,17 @@ class MemorizationService {
     this.isMemorizing = true
 
     const outcome = await this.resolveTaskStatus(
+      provider,
       state.lastTaskId,
       state.messagesToRemoveOnSuccess
     )
 
-    if (outcome === 'success' || outcome === 'failure') {
-      this.isMemorizing = false
+    if (outcome === 'success' || outcome === 'failure' || outcome === 'error') {
+      await this.finalizeResolvedTask(outcome, state.messagesToRemoveOnSuccess)
       return
     }
 
-    if (outcome === 'error') {
-      await memorizationStorage.clearTaskState()
-      this.isMemorizing = false
-      return
-    }
-
-    // 'pending' — leave isMemorizing true;
-    // checkActiveTask will resolve it lazily on the next checkAndTrigger call
     console.log('[Memorization] Recovered task still pending, will check again lazily')
-  }
-
-  // ==================== Helpers ====================
-
-  private sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
 

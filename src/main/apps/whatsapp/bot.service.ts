@@ -167,7 +167,7 @@ export class WhatsAppBotService {
         return
       }
 
-      const response = await agentService.processMessage(userMessage, 'whatsapp', [], undefined, {
+      const response = await agentService.processMessage(userMessage, 'whatsapp', [], undefined, undefined, {
         source: 'message',
         userId
       })

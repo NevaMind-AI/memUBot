@@ -325,6 +325,27 @@ const servicesApi = {
   }
 }
 
+
+
+// Memory API (local controlled memory actions)
+const memoryApi = {
+  getStatus: () => ipcRenderer.invoke('memory:get-status'),
+  rememberThis: (input: unknown) => ipcRenderer.invoke('memory:remember-this', input),
+  doNotRememberThis: (input: unknown) => ipcRenderer.invoke('memory:do-not-remember-this', input),
+  get: (id: string) => ipcRenderer.invoke('memory:get', id),
+  getExplained: (id: string) => ipcRenderer.invoke('memory:get-explained', id),
+  getProvenance: (id: string) => ipcRenderer.invoke('memory:get-provenance', id),
+  list: (filters?: unknown) => ipcRenderer.invoke('memory:list', filters),
+  listExplained: (filters?: unknown) => ipcRenderer.invoke('memory:list-explained', filters),
+  search: (filters?: unknown) => ipcRenderer.invoke('memory:search', filters),
+  update: (id: string, updates: unknown) => ipcRenderer.invoke('memory:update', id, updates),
+  delete: (id: string) => ipcRenderer.invoke('memory:delete', id),
+  deleteBySource: (sourcePlatform: string) => ipcRenderer.invoke('memory:delete-by-source', sourcePlatform),
+  listEvents: (memoryId: string) => ipcRenderer.invoke('memory:list-events', memoryId),
+  pauseCapture: (reason?: string) => ipcRenderer.invoke('memory:pause-capture', reason),
+  resumeCapture: (reason?: string) => ipcRenderer.invoke('memory:resume-capture', reason),
+}
+
 // Updater API (auto-update)
 const updaterApi = {
   checkForUpdates: () => ipcRenderer.invoke('updater:check-for-updates'),
@@ -359,6 +380,7 @@ if (process.contextIsolated) {
     contextBridge.exposeInMainWorld('skills', skillsApi)
     contextBridge.exposeInMainWorld('services', servicesApi)
     contextBridge.exposeInMainWorld('updater', updaterApi)
+    contextBridge.exposeInMainWorld('memory', memoryApi)
   } catch (error) {
     console.error(error)
   }
@@ -399,4 +421,6 @@ if (process.contextIsolated) {
   window.services = servicesApi
   // @ts-ignore (define in dts)
   window.updater = updaterApi
+  // @ts-ignore (define in dts)
+  window.memory = memoryApi
 }

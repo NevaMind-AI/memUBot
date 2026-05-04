@@ -56,7 +56,7 @@ describe('convertToolsToGemini', () => {
     ];
 
     const result = convertToolsToGemini(tools);
-    const params = result[0].functionDeclarations![0].parameters as Record<string, unknown>;
+    const params = result[0].functionDeclarations![0].parameters as unknown as Record<string, unknown>;
     expect(params).not.toHaveProperty('$schema');
     expect(params).not.toHaveProperty('additionalProperties');
     expect(params).not.toHaveProperty('type');
