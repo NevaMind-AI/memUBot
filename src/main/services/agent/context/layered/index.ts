@@ -11,6 +11,7 @@ export {
   decideTemporaryTopicTransition,
   createLLMTopicScorer,
   createLLMTopicClassifier,
+  createHeuristicTopicScorer,
   DEFAULT_TEMPORARY_TOPIC_THRESHOLDS
 } from './temporary-topic'
 export type {

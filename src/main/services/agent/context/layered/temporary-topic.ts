@@ -55,6 +55,36 @@ export type TopicScorer = (
   tempTopicReference: string
 ) => Promise<TopicRelevanceScores>
 
+function buildTokenSet(value: string): Set<string> {
+  return new Set(
+    normalizeWhitespace(value)
+      .toLowerCase()
+      .split(/[^a-z0-9]+/i)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 3)
+  )
+}
+
+function estimateTopicOverlap(query: string, topicReference: string): number {
+  const queryTokens = buildTokenSet(query)
+  const topicTokens = buildTokenSet(topicReference)
+  if (queryTokens.size === 0 || topicTokens.size === 0) return 0
+
+  let overlap = 0
+  for (const token of queryTokens) {
+    if (topicTokens.has(token)) overlap += 1
+  }
+
+  return clampScore(overlap / queryTokens.size)
+}
+
+export function createHeuristicTopicScorer(): TopicScorer {
+  return async (query, mainTopicReference, tempTopicReference) => ({
+    relMain: estimateTopicOverlap(query, mainTopicReference),
+    relTemp: estimateTopicOverlap(query, tempTopicReference)
+  })
+}
+
 // ============================================
 // LLM Topic Scorer
 // ============================================
@@ -207,6 +237,10 @@ function classificationToScores(decision: TemporaryTopicDecision): TopicRelevanc
 }
 
 export function createLLMTopicClassifier(options: LLMTopicScorerOptions): TopicScorer {
+  if (!options.apiKey.trim()) {
+    return createHeuristicTopicScorer()
+  }
+
   const client = new Anthropic({
     apiKey: options.apiKey
   })

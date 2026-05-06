@@ -19,6 +19,7 @@ import { slackBotService } from '../apps/slack/bot.service'
 import { whatsappBotService } from '../apps/whatsapp/bot.service'
 import { lineBotService } from '../apps/line/bot.service'
 import { localChatService } from '../apps/local'
+import { executeMemuMemory as executeSharedMemuMemory } from '../tools/memu.executor'
 import type { AgentResponse } from '../types'
 
 /**
@@ -200,25 +201,7 @@ class ProactiveService {
    * This tool use main user/agent ids to retrieve memory from the main service.
    */
   private async executeMemuMemory(query: string): Promise<{ success: boolean; data?: unknown; error?: string }> {
-    try {
-      const memuConfig = await this.getMemuConfig()
-      const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/retrieve`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${memuConfig.apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          user_id: memuConfig.userId,
-          agent_id: memuConfig.agentId,
-          query
-        })
-      })
-      const result = await response.json()
-      return { success: true, data: result }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
+    return executeSharedMemuMemory(query)
   }
 
   /**

@@ -22,12 +22,25 @@ async function getMemuConfig(): Promise<MemuConfig> {
   }
 }
 
+function hasRemoteConfig(config: MemuConfig): boolean {
+  return !!(
+    config.apiKey && config.apiKey.trim() &&
+    config.baseUrl && config.baseUrl.trim() &&
+    config.userId && config.userId.trim() &&
+    config.agentId && config.agentId.trim()
+  )
+}
+
 /**
  * Execute memu_memory: retrieve memory by query from the Memu API.
  */
 export async function executeMemuMemory(query: string): Promise<ToolResult> {
   try {
     const memuConfig = await getMemuConfig()
+    if (!hasRemoteConfig(memuConfig)) {
+      return { success: false, error: 'memU is not fully configured' }
+    }
+
     const response = await fetch(`${memuConfig.baseUrl}/api/v3/memory/retrieve`, {
       method: 'POST',
       headers: {
@@ -40,7 +53,22 @@ export async function executeMemuMemory(query: string): Promise<ToolResult> {
         query
       })
     })
-    const result = await response.json()
+
+    let result: unknown = null
+    try {
+      result = await response.json()
+    } catch {
+      result = null
+    }
+
+    if (!response.ok) {
+      const message =
+        typeof result === 'object' && result && 'message' in result && typeof (result as { message?: unknown }).message === 'string'
+          ? (result as { message: string }).message
+          : `memU retrieve failed with HTTP ${response.status}`
+      return { success: false, error: message }
+    }
+
     return { success: true, data: result }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) }
