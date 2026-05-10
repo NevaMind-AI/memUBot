@@ -173,7 +173,7 @@ Services should call the local API at http://127.0.0.1:31415/api/v1/invoke to re
 Example: Instead of directly calling \`bash\` with a command, first say "Let me check the current directory structure." then call the tool.`
 
   // Load builtin skills (bundled with app)
-  const builtinSkillNames = ['service-creator', 'keynote-creator']
+  const builtinSkillNames = ['service-creator', 'keynote-creator', 'notion-assistant']
   for (const skillName of builtinSkillNames) {
     try {
       const builtinSkillsDir = path.join(__dirname, '../../builtin-skills')
