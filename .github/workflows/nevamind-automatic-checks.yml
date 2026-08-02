@@ -13,18 +13,26 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: "23.11.1"
       - name: Install and run Node checks
+        shell: bash
         run: |
           set -euo pipefail
+          found=0
           while IFS= read -r package_file; do
+            found=1
             project_dir="$(dirname "$package_file")"
             cd "$project_dir"
-            if [[ -f package-lock.json ]]; then npm ci; elif [[ -f pnpm-lock.yaml ]]; then corepack enable; pnpm install --frozen-lockfile; elif [[ -f yarn.lock ]]; then corepack enable; yarn install --immutable; else npm install; fi
+            if [[ -f package-lock.json ]]; then npm ci
+            elif [[ -f pnpm-lock.yaml ]]; then corepack enable; pnpm install --frozen-lockfile
+            elif [[ -f yarn.lock ]]; then corepack enable; yarn install --immutable
+            else npm install
+            fi
             npm run test --if-present
             npm run build --if-present
             cd - >/dev/null
           done < <(find . -name package.json -not -path '*/node_modules/*' -not -path './.git/*' -print)
+          [[ "$found" == 1 ]] || echo "No package.json found; review manually."
       - name: Initial edition notice
         run: |
           echo "Automatic Add Initial Edition. Please update the check according to Biz/Tech needs." >> "$GITHUB_STEP_SUMMARY"
